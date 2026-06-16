@@ -6,58 +6,100 @@ import (
 	"runtime"
 )
 
-type toolPath struct {
-	Tool string
-	Path string
+func init() {
+	registry = []ToolParser{
+		{
+			Name:  "claude",
+			Paths: claudePaths,
+			Parse: func(data []byte) ([]ServerEntry, error) {
+				return parseMcpServers(data, "claude")
+			},
+		},
+		{
+			Name: "cursor",
+			Paths: func(home string) []string {
+				return []string{filepath.Join(home, ".cursor", "mcp.json")}
+			},
+			Parse: func(data []byte) ([]ServerEntry, error) {
+				return parseMcpServers(data, "cursor")
+			},
+		},
+		{
+			Name: "windsurf",
+			Paths: func(home string) []string {
+				return []string{filepath.Join(home, ".codeium", "windsurf", "mcp_config.json")}
+			},
+			Parse: func(data []byte) ([]ServerEntry, error) {
+				return parseMcpServers(data, "windsurf")
+			},
+		},
+		{
+			Name: "vscode",
+			Paths: func(home string) []string {
+				return []string{filepath.Join(home, ".vscode", "mcp.json")}
+			},
+			Parse: func(data []byte) ([]ServerEntry, error) {
+				return parseMcpServers(data, "vscode")
+			},
+		},
+		{
+			Name: "continue",
+			Paths: func(home string) []string {
+				return []string{filepath.Join(home, ".continue", "config.json")}
+			},
+			Parse: parseContinue,
+		},
+		{
+			Name: "opencode",
+			Paths: func(home string) []string {
+				return []string{filepath.Join(home, ".config", "opencode", "opencode.json")}
+			},
+			Parse: parseOpenCode,
+		},
+	}
 }
 
 func Discover() []Config {
-	var configs []Config
-
-	for _, tp := range defaultPaths() {
-		cfg := Config{Tool: tp.Tool, Path: tp.Path}
-
-		data, err := os.ReadFile(tp.Path)
-		if err != nil {
-			continue
-		}
-
-		servers, err := parseConfig(tp.Tool, data)
-		if err != nil {
-			cfg.Error = err
-		}
-		cfg.Servers = servers
-		configs = append(configs, cfg)
-	}
-
-	return configs
-}
-
-func defaultPaths() []toolPath {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return nil
 	}
 
-	paths := []toolPath{
-		{"claude", claudeDesktopPath(home)},
-		{"cursor", filepath.Join(home, ".cursor", "mcp.json")},
-		{"windsurf", filepath.Join(home, ".codeium", "windsurf", "mcp_config.json")},
-		{"vscode", filepath.Join(home, ".vscode", "mcp.json")},
-		{"continue", filepath.Join(home, ".continue", "config.json")},
-		{"opencode", filepath.Join(home, ".config", "opencode", "opencode.json")},
+	var configs []Config
+
+	for _, tp := range registry {
+		for _, path := range tp.Paths(home) {
+			cfg := Config{Tool: tp.Name, Path: path}
+
+			data, err := os.ReadFile(path) //nolint:gosec
+			if err != nil {
+				continue
+			}
+
+			servers, err := tp.Parse(data)
+			if err != nil {
+				cfg.Error = err
+			}
+			for i := range servers {
+				servers[i].ConfigPath = path
+			}
+			cfg.Servers = servers
+			configs = append(configs, cfg)
+
+			break
+		}
 	}
 
-	return paths
+	return configs
 }
 
-func claudeDesktopPath(home string) string {
+func claudePaths(home string) []string {
 	switch runtime.GOOS {
 	case "darwin":
-		return filepath.Join(home, "Library", "Application Support", "Claude", "claude_desktop_config.json")
+		return []string{filepath.Join(home, "Library", "Application Support", "Claude", "claude_desktop_config.json")}
 	case "linux":
-		return filepath.Join(home, ".config", "Claude", "claude_desktop_config.json")
+		return []string{filepath.Join(home, ".config", "Claude", "claude_desktop_config.json")}
 	default:
-		return filepath.Join(home, "AppData", "Roaming", "Claude", "claude_desktop_config.json")
+		return []string{filepath.Join(home, "AppData", "Roaming", "Claude", "claude_desktop_config.json")}
 	}
 }

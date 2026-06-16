@@ -9,11 +9,12 @@ import (
 )
 
 type Result struct {
-	Severity Severity
-	Server   string
-	Type     string
-	Finding  string
-	Detail   string
+	Severity   Severity
+	Server     string
+	Type       string
+	Finding    string
+	Detail     string
+	ConfigPath string
 }
 
 type Severity int
@@ -58,15 +59,20 @@ func RunStatic() (*StaticResults, error) {
 	for _, cfg := range configs {
 		if cfg.Error != nil {
 			results = append(results, Result{
-				Severity: SevInfo,
-				Server:   cfg.Tool,
-				Type:     "static",
-				Finding:  fmt.Sprintf("config parse error: %v", cfg.Error),
+				Severity:   SevInfo,
+				Server:     cfg.Tool,
+				Type:       "static",
+				ConfigPath: cfg.Path,
+				Finding:    fmt.Sprintf("config parse error: %v", cfg.Error),
 			})
 			continue
 		}
 		for _, srv := range cfg.Servers {
-			results = append(results, checkTyposquat(srv)...)
+			r := checkTyposquat(srv)
+			for i := range r {
+				r[i].ConfigPath = srv.ConfigPath
+			}
+			results = append(results, r...)
 		}
 	}
 

@@ -69,6 +69,10 @@ func writeSARIF(w io.Writer, results []scanner.Result) error {
 		if r.Severity == scanner.SevPass {
 			continue
 		}
+		uri := r.Server
+		if r.ConfigPath != "" {
+			uri = r.ConfigPath
+		}
 		sarifResults = append(sarifResults, result{
 			RuleID: fmt.Sprintf("mcp-audit/%s-%s", r.Type, stringsToLower(r.Severity.String())),
 			Level:  severityToSARIF(r.Severity),
@@ -78,7 +82,7 @@ func writeSARIF(w io.Writer, results []scanner.Result) error {
 			Locations: []loc{{
 				PhysicalLocation: physLoc{
 					ArtifactLocation: artifactLoc{
-						URI: r.Server,
+						URI: uri,
 					},
 				},
 			}},

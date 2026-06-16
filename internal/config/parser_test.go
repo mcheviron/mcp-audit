@@ -26,7 +26,7 @@ func findServer(t *testing.T, servers []ServerEntry, name string) *ServerEntry {
 }
 
 func TestParseClaudeValid(t *testing.T) {
-	servers, err := parseConfig("claude", mustRead(t, "claude_valid.json"))
+	servers, err := parseMcpServers(mustRead(t, "claude_valid.json"), "claude")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -60,7 +60,7 @@ func TestParseClaudeValid(t *testing.T) {
 }
 
 func TestParseClaudeEmpty(t *testing.T) {
-	servers, err := parseConfig("claude", mustRead(t, "claude_empty.json"))
+	servers, err := parseMcpServers(mustRead(t, "claude_empty.json"), "claude")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -70,14 +70,14 @@ func TestParseClaudeEmpty(t *testing.T) {
 }
 
 func TestParseClaudeMalformed(t *testing.T) {
-	_, err := parseConfig("claude", mustRead(t, "claude_malformed.json"))
+	_, err := parseMcpServers(mustRead(t, "claude_malformed.json"), "claude")
 	if err == nil {
 		t.Fatal("expected error for malformed JSON")
 	}
 }
 
 func TestParseContinueValid(t *testing.T) {
-	servers, err := parseConfig("continue", mustRead(t, "continue_valid.json"))
+	servers, err := parseContinue(mustRead(t, "continue_valid.json"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -96,7 +96,7 @@ func TestParseContinueValid(t *testing.T) {
 }
 
 func TestParseContinueEmpty(t *testing.T) {
-	servers, err := parseConfig("continue", mustRead(t, "continue_empty.json"))
+	servers, err := parseContinue(mustRead(t, "continue_empty.json"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -106,7 +106,7 @@ func TestParseContinueEmpty(t *testing.T) {
 }
 
 func TestParseCursor(t *testing.T) {
-	servers, err := parseConfig("cursor", mustRead(t, "cursor_valid.json"))
+	servers, err := parseMcpServers(mustRead(t, "cursor_valid.json"), "cursor")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -122,7 +122,7 @@ func TestParseCursor(t *testing.T) {
 }
 
 func TestParseWindsurf(t *testing.T) {
-	servers, err := parseConfig("windsurf", mustRead(t, "windsurf_valid.json"))
+	servers, err := parseMcpServers(mustRead(t, "windsurf_valid.json"), "windsurf")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -135,7 +135,7 @@ func TestParseWindsurf(t *testing.T) {
 }
 
 func TestParseVSCode(t *testing.T) {
-	servers, err := parseConfig("vscode", mustRead(t, "vscode_valid.json"))
+	servers, err := parseMcpServers(mustRead(t, "vscode_valid.json"), "vscode")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -148,7 +148,7 @@ func TestParseVSCode(t *testing.T) {
 }
 
 func TestParseOpenCode(t *testing.T) {
-	servers, err := parseConfig("opencode", mustRead(t, "opencode_valid.json"))
+	servers, err := parseOpenCode(mustRead(t, "opencode_valid.json"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

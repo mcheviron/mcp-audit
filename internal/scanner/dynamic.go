@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -33,16 +32,32 @@ var probeTargets = []string{
 	"http://172.16.0.1/",
 }
 
-var awsKeyPattern = regexp.MustCompile(`AKIA[0-9A-Z]{16}`)
-var gcpTokenPattern = regexp.MustCompile(`(?i)"access_token"\s*:\s*"ya29\.`)
+func filterTargets(targets, allowHosts, blockHosts []string) []string {
+	if len(allowHosts) == 0 && len(blockHosts) == 0 {
+		return targets
+	}
 
-var metadataPattern = regexp.MustCompile(
-	`(?i)(ami-id|instance-id|public-keys|security-groups|service-accounts|access_token|privateKey)`,
-)
+	var filtered []string
+	for _, t := range targets {
+		if len(blockHosts) > 0 && hostMatchesAny(t, blockHosts) {
+			continue
+		}
+		if len(allowHosts) > 0 && !hostMatchesAny(t, allowHosts) {
+			continue
+		}
+		filtered = append(filtered, t)
+	}
+	return filtered
+}
 
-var internalBodyPattern = regexp.MustCompile(
-	`(?i)(internal|admin|localhost|127\.0\.0\.1|192\.168\.|10\.\d+\.|172\.(1[6-9]|2\d|3[01])\.)`,
-)
+func hostMatchesAny(target string, hosts []string) bool {
+	for _, h := range hosts {
+		if strings.Contains(target, h) {
+			return true
+		}
+	}
+	return false
+}
 
 type probeClient struct {
 	httpClient *http.Client
@@ -98,284 +113,10 @@ func probeTargetDirect(ctx context.Context, client *probeClient, target string) 
 	return result
 }
 
-func analyzeProbeResult(result probeResult, srv config.ServerEntry) Result {
-	if result.err != nil {
-		return Result{
-			Severity: SevMedium,
-			Server:   srv.Name,
-			Type:     "dynamic",
-			Finding:  fmt.Sprintf("connection to %s failed: %v", result.target, result.err),
-		}
-	}
-
-	if result.redirect != "" {
-		sev := SevHigh
-		if result.body == "" && result.status >= 300 {
-			sev = SevLow
-		}
-		return Result{
-			Severity: sev,
-			Server:   srv.Name,
-			Type:     "dynamic",
-			Finding:  fmt.Sprintf("open redirect to %s (status %d)", result.redirect, result.status),
-		}
-	}
-
-	if result.status >= 200 && result.status < 300 {
-		if r := checkCriticalPatterns(result, srv); r != nil {
-			return *r
-		}
-	}
-
-	return passResult(srv, result)
-}
-
-func checkCriticalPatterns(result probeResult, srv config.ServerEntry) *Result {
-	if awsKeyPattern.MatchString(result.body) {
-		return &Result{
-			Severity: SevCritical,
-			Server:   srv.Name,
-			Type:     "dynamic",
-			Finding:  fmt.Sprintf("AWS credentials exposed via %s", result.target),
-			Detail:   redactDetail(result.body),
-		}
-	}
-
-	if gcpTokenPattern.MatchString(result.body) {
-		return &Result{
-			Severity: SevCritical,
-			Server:   srv.Name,
-			Type:     "dynamic",
-			Finding:  fmt.Sprintf("GCP access token exposed via %s", result.target),
-			Detail:   redactDetail(result.body),
-		}
-	}
-
-	if metadataPattern.MatchString(result.body) {
-		return &Result{
-			Severity: SevCritical,
-			Server:   srv.Name,
-			Type:     "dynamic",
-			Finding:  fmt.Sprintf("cloud metadata exposed via %s", result.target),
-			Detail:   redactDetail(result.body),
-		}
-	}
-
-	if internalBodyPattern.MatchString(result.body) {
-		return &Result{
-			Severity: SevHigh,
-			Server:   srv.Name,
-			Type:     "dynamic",
-			Finding: fmt.Sprintf(
-				"internal content returned via %s (status %d, %d bytes)",
-				result.target, result.status, len(result.body),
-			),
-		}
-	}
-
-	return nil
-}
-
-func passResult(srv config.ServerEntry, result probeResult) Result {
-	return Result{
-		Severity: SevPass,
-		Server:   srv.Name,
-		Type:     "dynamic",
-		Finding:  fmt.Sprintf("no SSRF detected for %s (status %d)", result.target, result.status),
-	}
-}
-
-var redactPatterns = []*regexp.Regexp{
-	regexp.MustCompile(`AKIA[0-9A-Z]{16}`),
-	regexp.MustCompile(`(?i)ya29\.[0-9a-z_-]+`),
-	regexp.MustCompile(`(?i)"access_token"\s*:\s*"[^"]+"`),
-	regexp.MustCompile(`(?i)"privateKey"\s*:\s*"[^"]+"`),
-	regexp.MustCompile(`(?i)-----BEGIN (RSA |EC )?PRIVATE KEY-----[\s\S]*?-----END (RSA |EC )?PRIVATE KEY-----`),
-}
-
-func redactDetail(body string) string {
-	for _, p := range redactPatterns {
-		body = p.ReplaceAllString(body, "[REDACTED]")
-	}
-	if len(body) > 200 {
-		return body[:200] + "..."
-	}
-	return body
-}
-
-func probeMCPTool(
-	ctx context.Context,
-	mcpClient *mcp.Client,
-	srv config.ServerEntry,
-	tool mcp.Tool,
-	targets []string,
-) []Result {
-	var results []Result
-
-	for _, target := range targets {
-		args := buildProbeArgs(tool, target)
-		callResult, err := mcpClient.CallTool(ctx, tool.Name, args)
-		if err != nil {
-			results = append(results, Result{
-				Severity: SevMedium,
-				Server:   srv.Name,
-				Type:     "dynamic",
-				Finding:  fmt.Sprintf("tool %q probe to %s failed: %v", tool.Name, target, err),
-			})
-			continue
-		}
-
-		results = append(results, analyzeCallToolResponse(callResult, srv, tool.Name, target))
-	}
-
-	return results
-}
-
-func buildProbeArgs(tool mcp.Tool, target string) map[string]any {
-	schema := tool.InputSchema
-	props, _ := schema["properties"].(map[string]any)
-
-	args := map[string]any{}
-
-	if urlKeys := findURLKeys(props); len(urlKeys) > 0 {
-		args[urlKeys[0]] = target
-		return args
-	}
-
-	for key, val := range props {
-		propMap, ok := val.(map[string]any)
-		if !ok {
-			continue
-		}
-		propType, _ := propMap["type"].(string)
-		switch propType {
-		case "string":
-			args[key] = target
-		case "number":
-			args[key] = float64(80)
-		case "integer":
-			args[key] = float64(80)
-		case "boolean":
-			args[key] = true
-		}
-		if len(args) > 0 {
-			break
-		}
-	}
-
-	if len(args) == 0 {
-		args["url"] = target
-	}
-
-	return args
-}
-
-func isURLKey(key string, desc string) bool {
-	lowKey := strings.ToLower(key)
-	lowDesc := strings.ToLower(desc)
-	urlTerms := []string{"url", "uri", "fetch", "endpoint", "href"}
-	for _, term := range urlTerms {
-		if strings.Contains(lowKey, term) || strings.Contains(lowDesc, term) {
-			return true
-		}
-	}
-	return false
-}
-
-func findURLKeys(props map[string]any) []string {
-	var keys []string
-	for key, val := range props {
-		propMap, ok := val.(map[string]any)
-		if !ok {
-			continue
-		}
-		desc, _ := propMap["description"].(string)
-		if isURLKey(key, desc) {
-			keys = append(keys, key)
-		}
-	}
-	return keys
-}
-
-func analyzeCallToolResponse(
-	callResult *mcp.CallToolResult,
-	srv config.ServerEntry,
-	toolName string,
-	target string,
-) Result {
-	if callResult.IsError {
-		return Result{
-			Severity: SevPass,
-			Server:   srv.Name,
-			Type:     "dynamic",
-			Finding:  fmt.Sprintf("tool %q rejected probe to %s (isError=true)", toolName, target),
-		}
-	}
-
-	var worst Result
-	worst.Severity = SevPass
-	worst.Server = srv.Name
-	worst.Type = "dynamic"
-
-	for _, content := range callResult.Content {
-		if content.Type != "text" {
-			continue
-		}
-		evalToolTextBlock(content.Text, toolName, target, &worst)
-	}
-
-	if worst.Severity == SevPass {
-		worst.Finding = fmt.Sprintf("tool %q handled probe to %s without leaking data", toolName, target)
-	}
-
-	return worst
-}
-
-func evalToolTextBlock(text, toolName, target string, worst *Result) {
-	if metadataPattern.MatchString(text) && worst.Severity < SevCritical {
-		*worst = Result{
-			Severity: SevCritical,
-			Server:   worst.Server,
-			Type:     "dynamic",
-			Finding:  fmt.Sprintf("tool %q leaked metadata via probe to %s", toolName, target),
-			Detail:   redactDetail(text),
-		}
-	}
-
-	if awsKeyPattern.MatchString(text) && worst.Severity < SevCritical {
-		*worst = Result{
-			Severity: SevCritical,
-			Server:   worst.Server,
-			Type:     "dynamic",
-			Finding:  fmt.Sprintf("tool %q returned AWS credentials via probe to %s", toolName, target),
-			Detail:   redactDetail(text),
-		}
-	}
-
-	if gcpTokenPattern.MatchString(text) && worst.Severity < SevCritical {
-		*worst = Result{
-			Severity: SevCritical,
-			Server:   worst.Server,
-			Type:     "dynamic",
-			Finding:  fmt.Sprintf("tool %q returned GCP token via probe to %s", toolName, target),
-			Detail:   redactDetail(text),
-		}
-	}
-
-	if internalBodyPattern.MatchString(text) && worst.Severity < SevHigh {
-		*worst = Result{
-			Severity: SevHigh,
-			Server:   worst.Server,
-			Type:     "dynamic",
-			Finding:  fmt.Sprintf("tool %q returned internal content via probe to %s", toolName, target),
-			Detail:   redactDetail(text),
-		}
-	}
-}
-
 type DynamicConfig struct {
 	AllowHosts []string
 	BlockHosts []string
+	Targets    []string
 	DryRun     bool
 }
 
@@ -392,20 +133,34 @@ func collectHTTPServers() []config.ServerEntry {
 	return httpServers
 }
 
-func runDirectProbes(httpServers []config.ServerEntry) []Result {
+func runDirectProbes(httpServers []config.ServerEntry, targets []string) []Result {
 	var results []Result
+	var mu sync.Mutex
 	client := newProbeClient(5 * time.Second)
 
+	g, ctx := errgroup.WithContext(context.Background())
+	g.SetLimit(10)
+
 	for _, srv := range httpServers {
-		for _, target := range probeTargets {
-			result := probeTargetDirect(context.Background(), client, target)
-			results = append(results, analyzeProbeResult(result, srv))
+		for _, target := range targets {
+			srv, target := srv, target
+			g.Go(func() error {
+				result := probeTargetDirect(ctx, client, target)
+				r := analyzeProbeResult(result, srv)
+				r.ConfigPath = srv.ConfigPath
+				mu.Lock()
+				results = append(results, r)
+				mu.Unlock()
+				return nil
+			})
 		}
 	}
+
+	_ = g.Wait()
 	return results
 }
 
-func runMCPProbes(httpServers []config.ServerEntry, existingResults *[]Result, mu *sync.Mutex) {
+func runMCPProbes(httpServers []config.ServerEntry, existingResults *[]Result, mu *sync.Mutex, targets []string) {
 	g, ctx := errgroup.WithContext(context.Background())
 	g.SetLimit(10)
 
@@ -419,10 +174,11 @@ func runMCPProbes(httpServers []config.ServerEntry, existingResults *[]Result, m
 			if err != nil {
 				mu.Lock()
 				*existingResults = append(*existingResults, Result{
-					Severity: SevInfo,
-					Server:   srv.Name,
-					Type:     "dynamic",
-					Finding:  fmt.Sprintf("MCP handshake failed: %v", err),
+					Severity:   SevInfo,
+					Server:     srv.Name,
+					Type:       "dynamic",
+					Finding:    fmt.Sprintf("MCP handshake failed: %v", err),
+					ConfigPath: srv.ConfigPath,
 				})
 				mu.Unlock()
 				return nil
@@ -432,17 +188,21 @@ func runMCPProbes(httpServers []config.ServerEntry, existingResults *[]Result, m
 			if err != nil {
 				mu.Lock()
 				*existingResults = append(*existingResults, Result{
-					Severity: SevInfo,
-					Server:   srv.Name,
-					Type:     "dynamic",
-					Finding:  fmt.Sprintf("tools/list failed: %v", err),
+					Severity:   SevInfo,
+					Server:     srv.Name,
+					Type:       "dynamic",
+					Finding:    fmt.Sprintf("tools/list failed: %v", err),
+					ConfigPath: srv.ConfigPath,
 				})
 				mu.Unlock()
 				return nil
 			}
 
 			for _, tool := range tools.Tools {
-				toolResults := probeMCPTool(probeCtx, mcpClient, srv, tool, probeTargets[:3])
+				toolResults := probeMCPTool(probeCtx, mcpClient, srv, tool, targets[:3])
+				for i := range toolResults {
+					toolResults[i].ConfigPath = srv.ConfigPath
+				}
 				mu.Lock()
 				*existingResults = append(*existingResults, toolResults...)
 				mu.Unlock()
@@ -457,26 +217,32 @@ func runMCPProbes(httpServers []config.ServerEntry, existingResults *[]Result, m
 
 func RunDynamic(cfg DynamicConfig) []Result {
 	httpServers := collectHTTPServers()
+	baseTargets := probeTargets
+	if len(cfg.Targets) > 0 {
+		baseTargets = cfg.Targets
+	}
+	targets := filterTargets(baseTargets, cfg.AllowHosts, cfg.BlockHosts)
 
 	if cfg.DryRun {
 		var results []Result
 		for _, srv := range httpServers {
 			results = append(results, Result{
-				Severity: SevInfo,
-				Server:   srv.Name,
-				Type:     "dynamic",
+				Severity:   SevInfo,
+				Server:     srv.Name,
+				Type:       "dynamic",
+				ConfigPath: srv.ConfigPath,
 				Finding: fmt.Sprintf(
-					"would probe %d targets on %s", len(probeTargets), srv.URL,
+					"would probe %d targets on %s", len(targets), srv.URL,
 				),
 			})
 		}
 		return results
 	}
 
-	results := runDirectProbes(httpServers)
+	results := runDirectProbes(httpServers, targets)
 
 	var mu sync.Mutex
-	runMCPProbes(httpServers, &results, &mu)
+	runMCPProbes(httpServers, &results, &mu, targets)
 
 	return results
 }

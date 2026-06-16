@@ -17,3 +17,11 @@ type Config struct {
 	Servers []ServerEntry
 	Error   error
 }
+
+type ToolParser struct {
+	Name  string
+	Paths func(home string) []string
+	Parse func(data []byte) ([]ServerEntry, error)
+}
+
+var registry []ToolParser

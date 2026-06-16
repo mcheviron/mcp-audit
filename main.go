@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/mostafaelataby-cheviron/mcp-audit/internal/report"
 	"github.com/mostafaelataby-cheviron/mcp-audit/internal/scanner"
@@ -34,18 +35,39 @@ func main() {
 	}
 }
 
-func parseFlags(args []string) (formatFlag string, output string, dryRun bool) {
+func splitCSV(s string) []string {
+	if s == "" {
+		return nil
+	}
+	parts := strings.Split(s, ",")
+	var result []string
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			result = append(result, p)
+		}
+	}
+	return result
+}
+
+func parseFlags(args []string) (
+	formatFlag string, output string, dryRun bool,
+	allowHosts string, blockHosts string, targets string,
+) {
 	fs := flag.NewFlagSet("mcp-audit", flag.ContinueOnError)
 	fs.StringVar(&formatFlag, "format", "table", "output format: table, json, sarif")
 	fs.StringVar(&output, "output", "", "write output to file (stdout if empty)")
 	fs.BoolVar(&dryRun, "dry-run", false, "print what would be probed without making requests")
+	fs.StringVar(&allowHosts, "allow-hosts", "", "comma-separated hosts/IPs to allow for probing")
+	fs.StringVar(&blockHosts, "block-hosts", "", "comma-separated hosts/IPs to block from probing")
+	fs.StringVar(&targets, "targets", "", "comma-separated probe target URLs (overrides defaults)")
 	fs.SetOutput(os.Stderr)
 	_ = fs.Parse(args)
 	return
 }
 
 func runStaticAction(action string, args []string) {
-	formatFlag, _, _ := parseFlags(args)
+	formatFlag, _, _, _, _, _ := parseFlags(args)
 
 	results, err := scanner.RunStatic()
 	if err != nil {
@@ -70,9 +92,14 @@ func runStaticAction(action string, args []string) {
 }
 
 func runProbe(args []string) {
-	formatFlag, _, dryRun := parseFlags(args)
+	formatFlag, _, dryRun, allowHosts, blockHosts, targets := parseFlags(args)
 
-	dynCfg := scanner.DynamicConfig{DryRun: dryRun}
+	dynCfg := scanner.DynamicConfig{
+		DryRun:     dryRun,
+		AllowHosts: splitCSV(allowHosts),
+		BlockHosts: splitCSV(blockHosts),
+		Targets:    splitCSV(targets),
+	}
 	dynResults := scanner.RunDynamic(dynCfg)
 
 	writeResults(dynResults, formatFlag)
@@ -109,12 +136,17 @@ Usage:
   mcp-audit help     Show this help
 
 Flags:
-  --format <fmt>     Output format: table (default), json, sarif
-  --output <path>    Write output to file (stdout if omitted)
-  --dry-run          Print what would be probed without making requests
+  --format <fmt>       Output format: table (default), json, sarif
+  --output <path>      Write output to file (stdout if omitted)
+  --dry-run            Print what would be probed without making requests
+  --targets <urls>     Comma-separated probe target URLs (overrides built-in list)
+  --allow-hosts <ips>  Comma-separated hosts/IPs to allow for probing
+  --block-hosts <ips>  Comma-separated hosts/IPs to block from probing
 
 Examples:
   mcp-audit static
   mcp-audit scan --format json
-  mcp-audit probe --dry-run`)
+  mcp-audit probe --dry-run
+  mcp-audit probe --targets http://127.0.0.1:8080/,http://10.0.0.1/
+  mcp-audit probe --block-hosts 169.254.169.254`)
 }

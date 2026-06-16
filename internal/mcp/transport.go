@@ -10,14 +10,22 @@ import (
 	"time"
 )
 
-type Client struct {
+type Client interface {
+	Initialize(ctx context.Context) (*InitializeResult, error)
+	ListTools(ctx context.Context) (*ListToolsResult, error)
+	CallTool(ctx context.Context, toolName string, args map[string]any) (*CallToolResult, error)
+}
+
+type httpClient struct {
 	httpClient *http.Client
 	endpoint   string
 	idSeq      int
 }
 
-func NewClient(endpoint string, timeout time.Duration) *Client {
-	return &Client{
+var _ Client = (*httpClient)(nil)
+
+func NewClient(endpoint string, timeout time.Duration) Client {
+	return &httpClient{
 		httpClient: &http.Client{
 			Timeout: timeout,
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
@@ -29,12 +37,12 @@ func NewClient(endpoint string, timeout time.Duration) *Client {
 	}
 }
 
-func (c *Client) nextID() int {
+func (c *httpClient) nextID() int {
 	c.idSeq++
 	return c.idSeq
 }
 
-func (c *Client) Initialize(ctx context.Context) (*InitializeResult, error) {
+func (c *httpClient) Initialize(ctx context.Context) (*InitializeResult, error) {
 	params := InitializeParams{
 		ProtocolVersion: "2024-11-05",
 		Capabilities: capabilities{
@@ -53,7 +61,7 @@ func (c *Client) Initialize(ctx context.Context) (*InitializeResult, error) {
 	return &result, nil
 }
 
-func (c *Client) ListTools(ctx context.Context) (*ListToolsResult, error) {
+func (c *httpClient) ListTools(ctx context.Context) (*ListToolsResult, error) {
 	var result ListToolsResult
 	if err := c.call(ctx, "tools/list", nil, &result); err != nil {
 		return nil, fmt.Errorf("tools/list: %w", err)
@@ -61,7 +69,7 @@ func (c *Client) ListTools(ctx context.Context) (*ListToolsResult, error) {
 	return &result, nil
 }
 
-func (c *Client) CallTool(ctx context.Context, toolName string, args map[string]any) (*CallToolResult, error) {
+func (c *httpClient) CallTool(ctx context.Context, toolName string, args map[string]any) (*CallToolResult, error) {
 	params := CallToolParams{
 		Name:      toolName,
 		Arguments: args,
@@ -74,7 +82,7 @@ func (c *Client) CallTool(ctx context.Context, toolName string, args map[string]
 	return &result, nil
 }
 
-func (c *Client) call(ctx context.Context, method string, params any, result any) error {
+func (c *httpClient) call(ctx context.Context, method string, params any, result any) error {
 	req := request{
 		JSONRPC: "2.0",
 		ID:      c.nextID(),

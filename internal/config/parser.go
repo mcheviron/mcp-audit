@@ -6,17 +6,6 @@ import (
 	"strings"
 )
 
-func parseConfig(tool string, data []byte) ([]ServerEntry, error) {
-	switch tool {
-	case "continue":
-		return parseContinue(data)
-	case "opencode":
-		return parseOpenCode(data)
-	default:
-		return parseMcpServers(data, tool)
-	}
-}
-
 func parseMcpServers(data []byte, tool string) ([]ServerEntry, error) {
 	var wrapper struct {
 		McpServers map[string]struct {

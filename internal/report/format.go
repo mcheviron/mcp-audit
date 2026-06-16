@@ -43,7 +43,11 @@ func Write(w io.Writer, results []scanner.Result, format Format) error {
 func writeTable(w io.Writer, results []scanner.Result) error {
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
 	for _, r := range results {
-		_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\n", colorize(r.Severity.String()), r.Server, r.Finding)
+		server := r.Server
+		if r.ConfigPath != "" {
+			server += " (" + r.ConfigPath + ")"
+		}
+		_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\n", colorize(r.Severity.String()), server, r.Finding)
 		if r.Detail != "" {
 			_, _ = fmt.Fprintf(tw, "\t\t%s\n", r.Detail)
 		}
@@ -53,21 +57,23 @@ func writeTable(w io.Writer, results []scanner.Result) error {
 
 func writeJSON(w io.Writer, results []scanner.Result) error {
 	type entry struct {
-		Severity string `json:"severity"`
-		Server   string `json:"server"`
-		Type     string `json:"type"`
-		Finding  string `json:"finding"`
-		Detail   string `json:"detail,omitempty"`
+		Severity   string `json:"severity"`
+		Server     string `json:"server"`
+		Type       string `json:"type"`
+		Finding    string `json:"finding"`
+		Detail     string `json:"detail,omitempty"`
+		ConfigPath string `json:"config_path,omitempty"`
 	}
 
 	entries := make([]entry, len(results))
 	for i, r := range results {
 		entries[i] = entry{
-			Severity: r.Severity.String(),
-			Server:   r.Server,
-			Type:     r.Type,
-			Finding:  r.Finding,
-			Detail:   r.Detail,
+			Severity:   r.Severity.String(),
+			Server:     r.Server,
+			Type:       r.Type,
+			Finding:    r.Finding,
+			Detail:     r.Detail,
+			ConfigPath: r.ConfigPath,
 		}
 	}
 
