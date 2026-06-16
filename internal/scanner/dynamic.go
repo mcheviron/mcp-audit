@@ -137,7 +137,7 @@ func checkCriticalPatterns(result probeResult, srv config.ServerEntry) *Result {
 			Server:   srv.Name,
 			Type:     "dynamic",
 			Finding:  fmt.Sprintf("AWS credentials exposed via %s", result.target),
-			Detail:   sanitizeDetail(result.body),
+			Detail:   redactDetail(result.body),
 		}
 	}
 
@@ -147,7 +147,7 @@ func checkCriticalPatterns(result probeResult, srv config.ServerEntry) *Result {
 			Server:   srv.Name,
 			Type:     "dynamic",
 			Finding:  fmt.Sprintf("GCP access token exposed via %s", result.target),
-			Detail:   sanitizeDetail(result.body),
+			Detail:   redactDetail(result.body),
 		}
 	}
 
@@ -157,7 +157,7 @@ func checkCriticalPatterns(result probeResult, srv config.ServerEntry) *Result {
 			Server:   srv.Name,
 			Type:     "dynamic",
 			Finding:  fmt.Sprintf("cloud metadata exposed via %s", result.target),
-			Detail:   sanitizeDetail(result.body),
+			Detail:   redactDetail(result.body),
 		}
 	}
 
@@ -185,7 +185,18 @@ func passResult(srv config.ServerEntry, result probeResult) Result {
 	}
 }
 
-func sanitizeDetail(body string) string {
+var redactPatterns = []*regexp.Regexp{
+	regexp.MustCompile(`AKIA[0-9A-Z]{16}`),
+	regexp.MustCompile(`(?i)ya29\.[0-9a-z_-]+`),
+	regexp.MustCompile(`(?i)"access_token"\s*:\s*"[^"]+"`),
+	regexp.MustCompile(`(?i)"privateKey"\s*:\s*"[^"]+"`),
+	regexp.MustCompile(`(?i)-----BEGIN (RSA |EC )?PRIVATE KEY-----[\s\S]*?-----END (RSA |EC )?PRIVATE KEY-----`),
+}
+
+func redactDetail(body string) string {
+	for _, p := range redactPatterns {
+		body = p.ReplaceAllString(body, "[REDACTED]")
+	}
 	if len(body) > 200 {
 		return body[:200] + "..."
 	}
@@ -301,49 +312,64 @@ func analyzeCallToolResponse(
 		}
 	}
 
+	var worst Result
+	worst.Severity = SevPass
+	worst.Server = srv.Name
+	worst.Type = "dynamic"
+
 	for _, content := range callResult.Content {
 		if content.Type != "text" {
 			continue
 		}
+		evalToolTextBlock(content.Text, toolName, target, &worst)
+	}
 
-		text := content.Text
+	if worst.Severity == SevPass {
+		worst.Finding = fmt.Sprintf("tool %q handled probe to %s without leaking data", toolName, target)
+	}
 
-		if metadataPattern.MatchString(text) {
-			return Result{
-				Severity: SevCritical,
-				Server:   srv.Name,
-				Type:     "dynamic",
-				Finding:  fmt.Sprintf("tool %q leaked metadata via probe to %s", toolName, target),
-				Detail:   sanitizeDetail(text),
-			}
-		}
+	return worst
+}
 
-		if awsKeyPattern.MatchString(text) {
-			return Result{
-				Severity: SevCritical,
-				Server:   srv.Name,
-				Type:     "dynamic",
-				Finding:  fmt.Sprintf("tool %q returned AWS credentials via probe to %s", toolName, target),
-				Detail:   sanitizeDetail(text),
-			}
-		}
-
-		if internalBodyPattern.MatchString(text) {
-			return Result{
-				Severity: SevHigh,
-				Server:   srv.Name,
-				Type:     "dynamic",
-				Finding:  fmt.Sprintf("tool %q returned internal content via probe to %s", toolName, target),
-				Detail:   sanitizeDetail(text),
-			}
+func evalToolTextBlock(text, toolName, target string, worst *Result) {
+	if metadataPattern.MatchString(text) && worst.Severity < SevCritical {
+		*worst = Result{
+			Severity: SevCritical,
+			Server:   worst.Server,
+			Type:     "dynamic",
+			Finding:  fmt.Sprintf("tool %q leaked metadata via probe to %s", toolName, target),
+			Detail:   redactDetail(text),
 		}
 	}
 
-	return Result{
-		Severity: SevPass,
-		Server:   srv.Name,
-		Type:     "dynamic",
-		Finding:  fmt.Sprintf("tool %q handled probe to %s without leaking data", toolName, target),
+	if awsKeyPattern.MatchString(text) && worst.Severity < SevCritical {
+		*worst = Result{
+			Severity: SevCritical,
+			Server:   worst.Server,
+			Type:     "dynamic",
+			Finding:  fmt.Sprintf("tool %q returned AWS credentials via probe to %s", toolName, target),
+			Detail:   redactDetail(text),
+		}
+	}
+
+	if gcpTokenPattern.MatchString(text) && worst.Severity < SevCritical {
+		*worst = Result{
+			Severity: SevCritical,
+			Server:   worst.Server,
+			Type:     "dynamic",
+			Finding:  fmt.Sprintf("tool %q returned GCP token via probe to %s", toolName, target),
+			Detail:   redactDetail(text),
+		}
+	}
+
+	if internalBodyPattern.MatchString(text) && worst.Severity < SevHigh {
+		*worst = Result{
+			Severity: SevHigh,
+			Server:   worst.Server,
+			Type:     "dynamic",
+			Finding:  fmt.Sprintf("tool %q returned internal content via probe to %s", toolName, target),
+			Detail:   redactDetail(text),
+		}
 	}
 }
 
