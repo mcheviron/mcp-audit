@@ -1,7 +1,7 @@
 # dynamic-ssrf-probing Specification
 
 ## Purpose
-TBD - created by archiving change build-mcp-auditor. Update Purpose after archive.
+Dynamic SSRF probing via direct HTTP requests and MCP JSON-RPC tool calls against internal and cloud metadata endpoints.
 ## Requirements
 ### Requirement: MCP JSON-RPC handshake
 The system SHALL implement a minimal MCP JSON-RPC 2.0 client supporting the `initialize` request and response to establish a session with an MCP server before probing.

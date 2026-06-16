@@ -1,7 +1,7 @@
 # report-formatting Specification
 
 ## Purpose
-TBD - created by archiving change build-mcp-auditor. Update Purpose after archive.
+Table (colorized TTY), JSON, and SARIF v2.1.0 output with severity-anchored exit codes for CI gating.
 ## Requirements
 ### Requirement: Terminal table output (default)
 The system SHALL output scan results as a formatted terminal table by default, with columns for severity, server name, and finding description.

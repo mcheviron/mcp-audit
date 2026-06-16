@@ -1,7 +1,7 @@
 # typosquat-detection Specification
 
 ## Purpose
-TBD - created by archiving change build-mcp-auditor. Update Purpose after archive.
+Levenshtein-distance typosquat detection against compile-time embedded known-legitimate and known-malicious package lists.
 ## Requirements
 ### Requirement: Levenshtein distance calculation
 The system SHALL compute the edit distance between two strings using the standard dynamic programming algorithm with insert, delete, and substitute operations each costing 1.

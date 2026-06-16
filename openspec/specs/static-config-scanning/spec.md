@@ -1,7 +1,7 @@
 # static-config-scanning Specification
 
 ## Purpose
-TBD - created by archiving change build-mcp-auditor. Update Purpose after archive.
+Discover and parse MCP server configurations across AI coding tools from platform-specific config file paths.
 ## Requirements
 ### Requirement: Discover MCP configs across AI tools
 The system SHALL locate MCP server configurations in the user's local environment by searching known config paths for 5 AI coding tools: Claude Desktop, Cursor, Windsurf, VS Code, and Continue.

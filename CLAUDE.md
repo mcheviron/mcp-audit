@@ -25,7 +25,7 @@ Three‑phase pipeline: **discover** configs → **scan** statically (typosquat)
 ### Packages
 
 - `main.go` — CLI entry. Four subcommands: `scan`, `static`, `probe`, `version`. Flag-based, not cobra.
-- `internal/config/` — discovers MCP config files across 5 AI tools. `discover.go` + `parser.go` dispatch to `parseMcpServers` or `parseContinue`.
+- `internal/config/` — discovers MCP config files across 6 AI tools. `discover.go` + `parser.go` dispatch to `parseMcpServers` or `parseContinue`.
 - `internal/scanner/` — `static.go` runs typosquat checks via embedded package lists. `dynamic.go` does direct HTTP probes + MCP tool‑call probes against internal endpoints.
 - `internal/mcp/` — minimal MCP JSON‑RPC 2.0 client (`Initialize`, `ListTools`, `CallTool`). No SDK.
 - `internal/report/` — table (colorized TTY), JSON, SARIF output.
@@ -65,3 +65,10 @@ Exit codes: 0 = clean, 1 = CRITICAL/HIGH found, 2 = scan error.
 - **Use `any`, not `interface{}`** — enforced by `modernize`.
 - **`//go:embed` directives** kept — compiler pragmas, not comments.
 - **Run `just check` every turn that edits code** — zero lint issues before reporting done.
+
+## OpenSpec
+
+- When creating or updating an OpenSpec proposal, always check whether the work belongs under an existing umbrella spec before introducing a new capability.
+- If the proposal changes an existing part of the system, update the existing spec instead of creating a parallel one.
+- Only create a new OpenSpec capability when the change documents a genuinely new part of the system not covered by any current umbrella.
+- Current umbrella specs: `static-config-scanning`, `typosquat-detection`, `dynamic-ssrf-probing`, `report-formatting`.

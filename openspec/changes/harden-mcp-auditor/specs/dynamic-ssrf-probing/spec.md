@@ -11,6 +11,28 @@ The system SHALL accept a `--targets` flag that overrides the default 14 probe t
 - **WHEN** `mcp-audit probe` is run without `--targets`
 - **THEN** the built-in 14 internal/metadata targets are used
 
+### Requirement: Concurrent HTTP probe execution
+The system SHALL execute direct HTTP probes concurrently using bounded parallelism with a maximum of 10 in-flight requests.
+
+#### Scenario: Single server, 14 targets
+- **WHEN** probing a single HTTP server against 14 internal targets
+- **THEN** probes are issued concurrently and results are collected without ordering guarantees
+
+#### Scenario: Probe failure isolation
+- **WHEN** one probe hangs or errors
+- **THEN** other probes continue unaffected and the error is recorded per-probe
+
+### Requirement: MCP client interface
+The system SHALL define a `Client` interface in the `mcp` package exposing `Initialize`, `ListTools`, and `CallTool` methods, satisfied by the existing HTTP-backed client struct.
+
+#### Scenario: Caller uses interface type
+- **WHEN** a function accepts `mcp.Client` (interface type)
+- **THEN** tests can supply a fake implementation without importing `net/http/httptest`
+
+#### Scenario: Compile-time check
+- **WHEN** the package is compiled
+- **THEN** a `var _ Client = (*httpClient)(nil)` assertion ensures the concrete type satisfies the interface
+
 ## MODIFIED Requirements
 
 ### Requirement: Allowlist and blocklist

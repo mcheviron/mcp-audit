@@ -14,14 +14,12 @@ Initial `build-mcp-auditor` implementation shipped working behavior but left 5 a
 
 ### New Capabilities
 
-- `concurrent-direct-probes`: Parallel HTTP probe execution with bounded concurrency via errgroup.
-- `mcp-transport-interface`: `Transporter` interface decoupling MCP protocol from HTTP transport.
-- `parser-registry`: Registry-based tool discovery replacing hardcoded parser dispatch.
-- `configurable-probe-targets`: `--targets` flag to override built-in probe target list.
+<!-- None — all work falls under existing umbrella specs -->
 
 ### Modified Capabilities
 
-- `dynamic-ssrf-probing`: Implement allowlist/blocklist filtering currently in spec but not wired; add `--targets` flag.
+- `dynamic-ssrf-probing`: Add concurrent HTTP probe execution, `--targets` flag for custom probe URLs, MCP `Client` interface extraction, and implement allowlist/blocklist probe filtering (already spec'd but not wired).
+- `static-config-scanning`: Replace hardcoded parser dispatch with a `ToolParser` registry so adding a new AI tool is one registration line.
 
 ## Impact
 
