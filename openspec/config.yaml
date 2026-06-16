@@ -1,0 +1,20 @@
+schema: spec-driven
+
+context: |
+  Tech stack: Go 1.26, zero external dependencies (stdlib-first)
+  Project: mcp-audit — MCP ecosystem security auditor CLI
+  Binary: single static Go binary, no runtime deps
+  Domain: MCP (Model Context Protocol) security, SSRF probing, supply-chain detection
+
+rules:
+  proposal:
+    - Keep proposals under 500 words
+    - Always include a "Non-goals" section
+  design:
+    - Prefer stdlib over external dependencies
+    - Go idioms: explicit error handling, no panic in library code
+    - Single binary distribution model
+  tasks:
+    - Break tasks into chunks of max 2 hours
+    - Each task must have a verifiable completion criterion
+    - No task should touch more than 3 files

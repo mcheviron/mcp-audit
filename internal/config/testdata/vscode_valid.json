@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "pip-server": {
+      "command": "pipx",
+      "args": ["run", "my-mcp-package"]
+    }
+  }
+}

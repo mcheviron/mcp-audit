@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "go-server": {
+      "command": "go",
+      "args": ["run", "github.com/example/mcp-server@latest"]
+    }
+  }
+}

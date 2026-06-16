@@ -1,19 +1,13 @@
-# Binaries
 mcp-audit
 *.exe
 *.test
 *.out
-
-# Go
 vendor/
-
-# IDE
+scripts/.venv/
 .idea/
 .vscode/
 *.swp
 *.swo
 *~
-
-# OS
 .DS_Store
 Thumbs.db

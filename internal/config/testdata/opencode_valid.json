@@ -1,0 +1,19 @@
+{
+  "mcp": {
+    "prospector": {
+      "type": "local",
+      "command": ["prospect"],
+      "enabled": true
+    },
+    "deepwiki": {
+      "type": "remote",
+      "url": "https://mcp.deepwiki.com/mcp",
+      "enabled": false
+    },
+    "filesystem": {
+      "type": "local",
+      "command": ["npx", "-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+      "enabled": true
+    }
+  }
+}

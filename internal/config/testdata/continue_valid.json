@@ -1,0 +1,19 @@
+{
+  "experimental": {
+    "modelContextProtocolServers": [
+      {
+        "transport": {
+          "type": "stdio",
+          "command": "npx",
+          "args": ["-y", "@continuedev/mcp-server"]
+        }
+      },
+      {
+        "transport": {
+          "type": "http",
+          "url": "https://api.example.com/mcp"
+        }
+      }
+    ]
+  }
+}

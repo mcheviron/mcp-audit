@@ -1,0 +1,44 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: false
+
+linters:
+  default: none
+  enable:
+    - bodyclose
+    - errcheck
+    - errorlint
+    - funlen
+    - gocritic
+    - gosec
+    - govet
+    - ineffassign
+    - modernize
+    - nilerr
+    - nilnesserr
+    - nilnil
+    - noctx
+    - nolintlint
+    - rowserrcheck
+    - sqlclosecheck
+    - staticcheck
+    - unconvert
+    - unused
+    - wastedassign
+    - lll
+
+  settings:
+    funlen:
+      lines: 70
+      statements: -1
+    lll:
+      line-length: 120
+      tab-width: 1
+
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters:
+          - funlen
