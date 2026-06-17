@@ -6,7 +6,7 @@ Structured error types, retry logic with exponential backoff for transient failu
 ## ADDED Requirements
 
 ### Requirement: Structured error types
-The system SHALL define `ProbeError`, `ConfigError`, and `TransportError` types implementing the `error` interface with `Unwrap()` support. All errors SHALL wrap underlying causes. Silently discarded errors (bare `_` assignments) SHALL be eliminated.
+The system SHALL define `ProbeError`, `ConfigError`, and `TransportError` types implementing the `error` interface with `Unwrap()` support. The `mcp` package SHALL export `ErrAuthRequired` as a sentinel error for authentication failures (HTTP 401/403). All errors SHALL wrap underlying causes. Silently discarded errors (bare `_` assignments) SHALL be eliminated.
 
 #### Scenario: ProbeError with unwrap
 - **WHEN** a probe fails with a connection timeout
@@ -26,6 +26,10 @@ The system SHALL retry transient failures (timeout, connection refused, HTTP 503
 #### Scenario: Non-transient failure not retried
 - **WHEN** a probe gets HTTP 401
 - **THEN** the probe is not retried and the error is reported immediately
+
+#### Scenario: Auth errors detected via sentinel
+- **WHEN** a transport returns an error wrapping `ErrAuthRequired`
+- **THEN** the scanner detects it via `errors.Is` and annotates the finding with auth guidance without retrying
 
 #### Scenario: Context cancellation stops retry
 - **WHEN** the context is cancelled during backoff

@@ -3,10 +3,10 @@
 ## Purpose
 Pluggable MCP transport layer supporting stdio subprocess, SSE event-stream, and Streamable HTTP with shared JSON-RPC message types and automatic transport selection.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Transport interface
-The system SHALL define a `Transport` interface with `Send(ctx context.Context, method string, params any) (json.RawMessage, error)` and `Close() error`. Each transport backend SHALL implement this interface. Transports SHALL be JSON-RPC 2.0 delivery only — protocol semantics (initialize handshake, method routing) SHALL remain in the `Client` layer.
+The system SHALL define a `Transport` interface with `Send(ctx context.Context, method string, params any) (json.RawMessage, error)`, `SetAuthToken(token string)`, `SetAuthHeaders(headers map[string]string)`, `SetTLS(certFile, keyFile string) error`, and `Close() error`. Each transport backend SHALL implement this interface. Transports SHALL be JSON-RPC 2.0 delivery only — protocol semantics (initialize handshake, method routing) SHALL remain in the `Client` layer. The system SHALL expose a `DefaultTimeout` constant (5s) for consistent transport construction.
 
 #### Scenario: Transport interface satisfaction
 - **WHEN** a new transport backend is registered
@@ -79,7 +79,7 @@ The system SHALL support Streamable HTTP per MCP 2024-11-05 specification. The t
 - **THEN** the transport updates to the new session ID
 
 ### Requirement: Transport auto-detection
-The system SHALL automatically select the transport for each server entry at probe time. Selection priority SHALL be: explicit `--transport` flag > `ServerEntry.Transport` field > auto-detect. Auto-detection SHALL use command+args → stdio; URL → Streamable HTTP first, SSE on failure.
+The system SHALL use a unified `newTransport` factory function to construct transports from `ServerEntry` config, an optional explicit `--transport` flag override, and an `AuthConfig`. Selection priority SHALL be: explicit `--transport` flag > `ServerEntry.Transport` field > auto-detect. For auto-detected HTTP servers, the factory SHALL return an `autoTransport` that lazily tries Streamable HTTP first and falls back to SSE on the first `Send` failure (excluding auth errors).
 
 #### Scenario: Explicit transport flag
 - **WHEN** user passes `--transport stdio`
@@ -98,20 +98,43 @@ The system SHALL automatically select the transport for each server entry at pro
 - **THEN** the transport layer attempts SSE as a fallback
 
 ### Requirement: Authentication support
-The system SHALL support authentication via static headers, Bearer tokens, and mTLS client certificates. Auth configuration SHALL be parsed from `ServerEntry` fields (`AuthHeaders`, `AuthToken`, `TLSCertFile`, `TLSKeyFile`). Auth headers SHALL be injected into every request for that server.
+The system SHALL support authentication via static headers, Bearer tokens, and mTLS client certificates. Auth configuration SHALL be parsed from `ServerEntry` fields (`AuthHeaders`, `AuthToken`, `TLSCertFile`, `TLSKeyFile`). Auth methods (`SetAuthToken`, `SetAuthHeaders`, `SetTLS`) SHALL be on the `Transport` interface, allowing uniform auth application to all transport types. Auth headers SHALL be injected into every HTTP and SSE request for that server.
 
 #### Scenario: Bearer token injection
 - **WHEN** `ServerEntry.AuthToken` is set to "secret123"
-- **THEN** every HTTP request includes `Authorization: Bearer secret123`
+- **THEN** every HTTP and SSE request includes `Authorization: Bearer secret123`
 
 #### Scenario: Custom header injection
 - **WHEN** `ServerEntry.AuthHeaders` is `{"x-api-key": "key123"}`
-- **THEN** every HTTP request includes `x-api-key: key123`
+- **THEN** every HTTP and SSE request includes `x-api-key: key123`
+
+#### Scenario: Auth via SSE transport
+- **WHEN** using SSE transport with auth configured
+- **THEN** auth headers are injected into both the SSE connect GET request and the message POST request
 
 #### Scenario: mTLS client certificate
 - **WHEN** `ServerEntry.TLSCertFile` and `TLSKeyFile` point to valid PEM files
 - **THEN** the HTTP client presents the certificate during TLS handshake
 
-#### Scenario: Auth ignored for stdio
+#### Scenario: Auth methods are no-ops on stdio
 - **WHEN** using stdio transport
-- **THEN** auth headers and tokens are ignored (stdio uses process args, not HTTP headers)
+- **THEN** `SetAuthToken`, `SetAuthHeaders`, and `SetTLS` are no-ops (stdio uses process args, not network headers)
+
+### Requirement: Typed auth errors
+The system SHALL define an exported `ErrAuthRequired` sentinel error in the `mcp` package. HTTP and SSE transports SHALL wrap this error via `%w` when the server returns HTTP 401 or 403. The scanner layer SHALL detect auth failures using `errors.Is(err, mcp.ErrAuthRequired)` instead of string-matching error messages. Auth errors SHALL NOT trigger SSE fallback in `autoTransport`.
+
+#### Scenario: HTTP transport wraps 401
+- **WHEN** an HTTP transport receives HTTP 401 from the server
+- **THEN** the returned error wraps `ErrAuthRequired`
+
+#### Scenario: SSE transport wraps 403
+- **WHEN** an SSE transport receives HTTP 403 from the message endpoint
+- **THEN** the returned error wraps `ErrAuthRequired`
+
+#### Scenario: Scanner detects auth failure
+- **WHEN** `probeSingleServer` receives a handshake error
+- **THEN** it checks `errors.Is(err, mcp.ErrAuthRequired)` to annotate the finding with auth guidance
+
+#### Scenario: Auto-transport skips fallback on auth error
+- **WHEN** `autoTransport.Send` fails with an auth error on HTTP
+- **THEN** it does NOT fall back to SSE and returns the auth error immediately

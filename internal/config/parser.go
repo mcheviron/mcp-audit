@@ -9,9 +9,15 @@ import (
 func parseMcpServers(data []byte, tool string) ([]ServerEntry, error) {
 	var wrapper struct {
 		McpServers map[string]struct {
-			Command string   `json:"command"`
-			Args    []string `json:"args"`
-			URL     string   `json:"url"`
+			Command string            `json:"command"`
+			Args    []string          `json:"args"`
+			URL     string            `json:"url"`
+			Headers map[string]string `json:"headers"`
+			Token   string            `json:"token"`
+			TLS     *struct {
+				Cert string `json:"cert"`
+				Key  string `json:"key"`
+			} `json:"tls"`
 		} `json:"mcpServers"`
 	}
 
@@ -22,11 +28,17 @@ func parseMcpServers(data []byte, tool string) ([]ServerEntry, error) {
 	var servers []ServerEntry
 	for name, s := range wrapper.McpServers {
 		entry := ServerEntry{
-			Name:    name,
-			Tool:    tool,
-			URL:     s.URL,
-			Args:    s.Args,
-			Command: s.Command,
+			Name:        name,
+			Tool:        tool,
+			URL:         s.URL,
+			Args:        s.Args,
+			Command:     s.Command,
+			AuthHeaders: s.Headers,
+			AuthToken:   s.Token,
+		}
+		if s.TLS != nil {
+			entry.TLSCertFile = s.TLS.Cert
+			entry.TLSKeyFile = s.TLS.Key
 		}
 
 		switch {

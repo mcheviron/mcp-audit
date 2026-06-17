@@ -53,7 +53,7 @@ type StaticResults struct {
 }
 
 func (s *Scanner) Static() (*StaticResults, error) {
-	configs := config.Discover()
+	configs := s.discoverConfigs()
 
 	var results []Result
 	for _, cfg := range configs {

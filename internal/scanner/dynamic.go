@@ -2,8 +2,10 @@ package scanner
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"strings"
 	"sync"
@@ -113,17 +115,13 @@ func probeTargetDirect(ctx context.Context, client *probeClient, target string) 
 	return result
 }
 
-func collectHTTPServers() []config.ServerEntry {
-	configs := config.Discover()
-	var httpServers []config.ServerEntry
+func (s *Scanner) collectServers() []config.ServerEntry {
+	configs := s.discoverConfigs()
+	var servers []config.ServerEntry
 	for _, c := range configs {
-		for _, srv := range c.Servers {
-			if srv.Transport == "http" {
-				httpServers = append(httpServers, srv)
-			}
-		}
+		servers = append(servers, c.Servers...)
 	}
-	return httpServers
+	return servers
 }
 
 func runDirectProbes(httpServers []config.ServerEntry, targets []string) []Result {
@@ -153,54 +151,109 @@ func runDirectProbes(httpServers []config.ServerEntry, targets []string) []Resul
 	return results
 }
 
-func runMCPProbes(httpServers []config.ServerEntry, existingResults *[]Result, mu *sync.Mutex, targets []string) {
+func newTransport(srv config.ServerEntry, forceFlag string, auth AuthConfig) (mcp.Transport, error) {
+	kind := srv.Kind()
+	if forceFlag != "" {
+		switch forceFlag {
+		case "stdio":
+			kind = config.TransportStdio
+		case "http":
+			kind = config.TransportHTTP
+		case "sse":
+			kind = config.TransportSSE
+		default:
+			return nil, fmt.Errorf("unknown transport flag: %s", forceFlag)
+		}
+	}
+
+	switch kind {
+	case config.TransportStdio:
+		if forceFlag == "" {
+			return nil, fmt.Errorf(
+				"stdio transport requires explicit --transport stdio flag to execute commands from config")
+		}
+		if srv.Command == "" {
+			return nil, fmt.Errorf("no command for stdio transport")
+		}
+		tr := mcp.NewStdioTransport(srv.Command, srv.Args, mcp.DefaultTimeout)
+		if err := applyAuth(tr, srv, auth); err != nil {
+			return nil, err
+		}
+		return tr, nil
+	case config.TransportHTTP:
+		if srv.URL == "" {
+			return nil, fmt.Errorf("no URL for HTTP transport")
+		}
+		if forceFlag != "" {
+			tr := mcp.NewHTTPTransport(srv.URL, mcp.DefaultTimeout)
+			if err := applyAuth(tr, srv, auth); err != nil {
+				return nil, err
+			}
+			return tr, nil
+		}
+		tr := mcp.NewAutoTransport(srv.URL, mcp.DefaultTimeout)
+		if err := applyAuth(tr, srv, auth); err != nil {
+			return nil, err
+		}
+		return tr, nil
+	case config.TransportSSE:
+		if srv.URL == "" {
+			return nil, fmt.Errorf("no URL for SSE transport")
+		}
+		tr := mcp.NewSSETransport(srv.URL, mcp.DefaultTimeout)
+		if err := applyAuth(tr, srv, auth); err != nil {
+			return nil, err
+		}
+		return tr, nil
+	default:
+		return nil, fmt.Errorf("unknown transport: %v", kind)
+	}
+}
+
+func applyAuth(tr mcp.Transport, srv config.ServerEntry, global AuthConfig) error {
+	token := srv.AuthToken
+	if token == "" {
+		token = global.Token
+	}
+	if token != "" {
+		tr.SetAuthToken(token)
+	}
+
+	if len(global.Headers) > 0 || len(srv.AuthHeaders) > 0 {
+		headers := make(map[string]string)
+		maps.Copy(headers, global.Headers)
+		maps.Copy(headers, srv.AuthHeaders)
+		tr.SetAuthHeaders(headers)
+	}
+
+	certFile := srv.TLSCertFile
+	if certFile == "" {
+		certFile = global.Cert
+	}
+	keyFile := srv.TLSKeyFile
+	if keyFile == "" {
+		keyFile = global.Key
+	}
+	if certFile != "" && keyFile != "" {
+		if err := tr.SetTLS(certFile, keyFile); err != nil {
+			return fmt.Errorf("TLS setup failed: %w", err)
+		}
+	}
+	return nil
+}
+
+func runMCPProbes(
+	servers []config.ServerEntry, existingResults *[]Result, mu *sync.Mutex,
+	targets []string, transportFlag string, auth AuthConfig,
+) {
 	g, ctx := errgroup.WithContext(context.Background())
 	g.SetLimit(10)
 
-	for _, srv := range httpServers {
+	for _, srv := range servers {
 		g.Go(func() error {
 			probeCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 			defer cancel()
-
-			mcpClient := mcp.NewClient(srv.URL, 5*time.Second)
-			_, err := mcpClient.Initialize(probeCtx)
-			if err != nil {
-				mu.Lock()
-				*existingResults = append(*existingResults, Result{
-					Severity:   SevInfo,
-					Server:     srv.Name,
-					Type:       "dynamic",
-					Finding:    fmt.Sprintf("MCP handshake failed: %v", err),
-					ConfigPath: srv.ConfigPath,
-				})
-				mu.Unlock()
-				return nil
-			}
-
-			tools, err := mcpClient.ListTools(probeCtx)
-			if err != nil {
-				mu.Lock()
-				*existingResults = append(*existingResults, Result{
-					Severity:   SevInfo,
-					Server:     srv.Name,
-					Type:       "dynamic",
-					Finding:    fmt.Sprintf("tools/list failed: %v", err),
-					ConfigPath: srv.ConfigPath,
-				})
-				mu.Unlock()
-				return nil
-			}
-
-			for _, tool := range tools.Tools {
-				toolResults := probeMCPTool(probeCtx, mcpClient, srv, tool, targets[:3])
-				for i := range toolResults {
-					toolResults[i].ConfigPath = srv.ConfigPath
-				}
-				mu.Lock()
-				*existingResults = append(*existingResults, toolResults...)
-				mu.Unlock()
-			}
-
+			probeSingleServer(probeCtx, srv, existingResults, mu, targets, transportFlag, auth)
 			return nil
 		})
 	}
@@ -208,16 +261,100 @@ func runMCPProbes(httpServers []config.ServerEntry, existingResults *[]Result, m
 	_ = g.Wait()
 }
 
+func handshakeServer(
+	ctx context.Context, srv config.ServerEntry, transportFlag string, auth AuthConfig,
+) (mcp.Client, mcp.Transport, error) {
+	transport, err := newTransport(srv, transportFlag, auth)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	mcpClient := mcp.NewClient(transport)
+	_, err = mcpClient.Initialize(ctx)
+	if err != nil {
+		_ = transport.Close()
+		return nil, nil, err
+	}
+
+	return mcpClient, transport, nil
+}
+
+func probeSingleServer(
+	ctx context.Context,
+	srv config.ServerEntry,
+	existingResults *[]Result,
+	mu *sync.Mutex,
+	targets []string,
+	transportFlag string,
+	auth AuthConfig,
+) {
+	mcpClient, transport, err := handshakeServer(ctx, srv, transportFlag, auth)
+	if err != nil {
+		finding := fmt.Sprintf("MCP handshake failed: %v", err)
+		if noAuthConfigured(srv, auth) && errors.Is(err, mcp.ErrAuthRequired) {
+			finding += " (no auth configured — server returned 401/403)"
+		}
+		mu.Lock()
+		*existingResults = append(*existingResults, Result{
+			Severity:   SevInfo,
+			Server:     srv.Name,
+			Type:       "dynamic",
+			Finding:    finding,
+			ConfigPath: srv.ConfigPath,
+		})
+		mu.Unlock()
+		return
+	}
+	defer func() { _ = transport.Close() }()
+
+	tools, err := mcpClient.ListTools(ctx)
+	if err != nil {
+		mu.Lock()
+		*existingResults = append(*existingResults, Result{
+			Severity:   SevInfo,
+			Server:     srv.Name,
+			Type:       "dynamic",
+			Finding:    fmt.Sprintf("tools/list failed: %v", err),
+			ConfigPath: srv.ConfigPath,
+		})
+		mu.Unlock()
+		return
+	}
+
+	for _, tool := range tools.Tools {
+		toolResults := probeMCPTool(ctx, mcpClient, srv, tool, targets[:min(len(targets), 3)])
+		for i := range toolResults {
+			toolResults[i].ConfigPath = srv.ConfigPath
+		}
+		mu.Lock()
+		*existingResults = append(*existingResults, toolResults...)
+		mu.Unlock()
+	}
+}
+
+func noAuthConfigured(srv config.ServerEntry, global AuthConfig) bool {
+	return srv.AuthToken == "" && len(srv.AuthHeaders) == 0 &&
+		global.Token == "" && len(global.Headers) == 0 &&
+		srv.TLSCertFile == "" && srv.TLSKeyFile == "" &&
+		global.Cert == "" && global.Key == ""
+}
+
 func (s *Scanner) Probe(dryRun bool) []Result {
+	allServers := s.collectServers()
+
 	var httpServers []config.ServerEntry
-	for _, srv := range collectHTTPServers() {
+	var mcpServers []config.ServerEntry
+	for _, srv := range allServers {
 		if s.TrustConfig != nil {
 			scope := s.TrustConfig.ScopeFor(srv.Name, srv.Tool)
 			if len(scope.Blocked) > 0 {
 				continue
 			}
 		}
-		httpServers = append(httpServers, srv)
+		if srv.Kind() == config.TransportHTTP {
+			httpServers = append(httpServers, srv)
+		}
+		mcpServers = append(mcpServers, srv)
 	}
 
 	baseTargets := probeTargets
@@ -228,14 +365,18 @@ func (s *Scanner) Probe(dryRun bool) []Result {
 
 	if dryRun {
 		var results []Result
-		for _, srv := range httpServers {
+		for _, srv := range mcpServers {
+			desc := srv.URL
+			if srv.Command != "" {
+				desc = srv.Command
+			}
 			results = append(results, Result{
 				Severity:   SevInfo,
 				Server:     srv.Name,
 				Type:       "dynamic",
 				ConfigPath: srv.ConfigPath,
 				Finding: fmt.Sprintf(
-					"would probe %d targets on %s", len(targets), srv.URL,
+					"would probe %d targets on %s (transport: %s)", len(targets), desc, srv.Transport,
 				),
 			})
 		}
@@ -244,8 +385,10 @@ func (s *Scanner) Probe(dryRun bool) []Result {
 
 	results := runDirectProbes(httpServers, targets)
 
+	auth := s.authConfig()
+
 	var mu sync.Mutex
-	runMCPProbes(httpServers, &results, &mu, targets)
+	runMCPProbes(mcpServers, &results, &mu, targets, s.Transport, auth)
 
 	return results
 }

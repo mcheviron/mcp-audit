@@ -35,6 +35,31 @@ func main() {
 	}
 }
 
+func splitKeyValue(s string) map[string]string {
+	if s == "" {
+		return nil
+	}
+	var m map[string]string
+	for pair := range strings.SplitSeq(s, ",") {
+		pair = strings.TrimSpace(pair)
+		kv := strings.SplitN(pair, "=", 2)
+		if len(kv) == 2 {
+			if m == nil {
+				m = make(map[string]string)
+			}
+			m[strings.TrimSpace(kv[0])] = strings.TrimSpace(kv[1])
+		}
+	}
+	return m
+}
+
+func firstNonEmpty(a, b string) string {
+	if a != "" {
+		return a
+	}
+	return b
+}
+
 func splitCSV(s string) []string {
 	if s == "" {
 		return nil
@@ -57,6 +82,11 @@ type flags struct {
 	blockHosts  string
 	targets     string
 	trustConfig string
+	transport   string
+	authToken   string
+	authHeaders string
+	tlsCert     string
+	tlsKey      string
 }
 
 func parseFlags(args []string) flags {
@@ -69,6 +99,11 @@ func parseFlags(args []string) flags {
 	fs.StringVar(&f.targets, "targets", "", "comma-separated probe target URLs (overrides defaults)")
 	fs.StringVar(&f.trustConfig, "trust-config", "",
 		"path to trust config JSON (default ~/.config/mcp-audit/trust.json)")
+	fs.StringVar(&f.transport, "transport", "", "force transport type: stdio, sse, http")
+	fs.StringVar(&f.authToken, "auth-token", "", "Bearer token for MCP server authentication")
+	fs.StringVar(&f.authHeaders, "auth-headers", "", "comma-separated key=value auth headers")
+	fs.StringVar(&f.tlsCert, "tls-cert", "", "TLS client certificate file for mTLS")
+	fs.StringVar(&f.tlsKey, "tls-key", "", "TLS client key file for mTLS")
 	fs.SetOutput(os.Stderr)
 	_ = fs.Parse(args)
 	return f
@@ -114,6 +149,13 @@ func runProbe(args []string) {
 	s.AllowHosts = splitCSV(f.allowHosts)
 	s.BlockHosts = splitCSV(f.blockHosts)
 	s.Probes = splitCSV(f.targets)
+	s.Transport = f.transport
+	s.AuthToken = firstNonEmpty(f.authToken, os.Getenv("MCP_AUTH_TOKEN"))
+	s.AuthHeaders = splitKeyValue(
+		firstNonEmpty(f.authHeaders, os.Getenv("MCP_AUTH_HEADERS")),
+	)
+	s.TLSCertFile = firstNonEmpty(f.tlsCert, os.Getenv("MCP_TLS_CERT"))
+	s.TLSKeyFile = firstNonEmpty(f.tlsKey, os.Getenv("MCP_TLS_KEY"))
 	if err := s.SetTrustConfig(f.trustConfig); err != nil {
 		if f.trustConfig != "" {
 			fmt.Fprintf(os.Stderr, "probe: trust config error: %v\n", err)
@@ -162,6 +204,11 @@ Flags:
   --allow-hosts <ips>    Comma-separated hosts/IPs to allow for probing
   --block-hosts <ips>    Comma-separated hosts/IPs to block from probing
   --trust-config <path>  Path to trust config JSON (default ~/.config/mcp-audit/trust.json)
+  --transport <type>     Force transport type: stdio, sse, http
+  --auth-token <token>   Bearer token for MCP server authentication
+  --auth-headers <k=v>   Comma-separated key=value auth headers
+  --tls-cert <path>      TLS client certificate file for mTLS
+  --tls-key <path>       TLS client key file for mTLS
 
 Examples:
   mcp-audit static
@@ -169,5 +216,7 @@ Examples:
   mcp-audit scan --format json
   mcp-audit probe --dry-run
   mcp-audit probe --targets http://127.0.0.1:8080/,http://10.0.0.1/
-  mcp-audit probe --block-hosts 169.254.169.254`)
+  mcp-audit probe --block-hosts 169.254.169.254
+  MCP_AUTH_TOKEN=my-token mcp-audit probe
+  mcp-audit probe --transport stdio`)
 }

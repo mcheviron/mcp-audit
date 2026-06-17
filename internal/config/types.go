@@ -1,14 +1,39 @@
 package config
 
 type ServerEntry struct {
-	Name       string
-	Transport  string
-	Command    string
-	Args       []string
-	URL        string
-	Package    string
-	Tool       string
-	ConfigPath string
+	Name        string
+	Transport   string
+	Command     string
+	Args        []string
+	URL         string
+	Package     string
+	Tool        string
+	ConfigPath  string
+	AuthHeaders map[string]string
+	AuthToken   string
+	TLSCertFile string
+	TLSKeyFile  string
+}
+
+type TransportKind int
+
+const (
+	TransportStdio TransportKind = iota + 1
+	TransportHTTP
+	TransportSSE
+)
+
+func (s ServerEntry) Kind() TransportKind {
+	switch s.Transport {
+	case "http":
+		return TransportHTTP
+	case "stdio":
+		return TransportStdio
+	case "sse":
+		return TransportSSE
+	default:
+		return 0
+	}
 }
 
 type Config struct {
