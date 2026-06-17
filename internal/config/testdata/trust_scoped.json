@@ -1,0 +1,14 @@
+{
+  "trusted": ["global-trusted"],
+  "blocked": ["global-blocked"],
+  "tools": {
+    "claude": {
+      "trusted": ["claude-trusted"]
+    }
+  },
+  "servers": {
+    "filesystem": {
+      "blocked": ["filesystem-blocked"]
+    }
+  }
+}

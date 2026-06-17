@@ -113,13 +113,6 @@ func probeTargetDirect(ctx context.Context, client *probeClient, target string) 
 	return result
 }
 
-type DynamicConfig struct {
-	AllowHosts []string
-	BlockHosts []string
-	Targets    []string
-	DryRun     bool
-}
-
 func collectHTTPServers() []config.ServerEntry {
 	configs := config.Discover()
 	var httpServers []config.ServerEntry
@@ -215,15 +208,25 @@ func runMCPProbes(httpServers []config.ServerEntry, existingResults *[]Result, m
 	_ = g.Wait()
 }
 
-func RunDynamic(cfg DynamicConfig) []Result {
-	httpServers := collectHTTPServers()
-	baseTargets := probeTargets
-	if len(cfg.Targets) > 0 {
-		baseTargets = cfg.Targets
+func (s *Scanner) Probe(dryRun bool) []Result {
+	var httpServers []config.ServerEntry
+	for _, srv := range collectHTTPServers() {
+		if s.TrustConfig != nil {
+			scope := s.TrustConfig.ScopeFor(srv.Name, srv.Tool)
+			if len(scope.Blocked) > 0 {
+				continue
+			}
+		}
+		httpServers = append(httpServers, srv)
 	}
-	targets := filterTargets(baseTargets, cfg.AllowHosts, cfg.BlockHosts)
 
-	if cfg.DryRun {
+	baseTargets := probeTargets
+	if len(s.Probes) > 0 {
+		baseTargets = s.Probes
+	}
+	targets := filterTargets(baseTargets, s.AllowHosts, s.BlockHosts)
+
+	if dryRun {
 		var results []Result
 		for _, srv := range httpServers {
 			results = append(results, Result{

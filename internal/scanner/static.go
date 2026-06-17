@@ -52,7 +52,7 @@ type StaticResults struct {
 	Results []Result
 }
 
-func RunStatic() (*StaticResults, error) {
+func (s *Scanner) Static() (*StaticResults, error) {
 	configs := config.Discover()
 
 	var results []Result
@@ -68,7 +68,7 @@ func RunStatic() (*StaticResults, error) {
 			continue
 		}
 		for _, srv := range cfg.Servers {
-			r := checkTyposquat(srv)
+			r := checkTyposquat(srv, s.TrustConfig)
 			for i := range r {
 				r[i].ConfigPath = srv.ConfigPath
 			}
@@ -82,7 +82,7 @@ func RunStatic() (*StaticResults, error) {
 	}, nil
 }
 
-func checkTyposquat(srv config.ServerEntry) []Result {
+func checkTyposquat(srv config.ServerEntry, tc *config.TrustConfig) []Result {
 	if srv.Package == "" {
 		return []Result{{
 			Severity: SevPass,
@@ -92,37 +92,47 @@ func checkTyposquat(srv config.ServerEntry) []Result {
 		}}
 	}
 
-	for _, m := range knownMalicious {
-		if strings.EqualFold(srv.Package, m) {
-			return []Result{{
-				Severity: SevCritical,
-				Server:   srv.Name,
-				Type:     "static",
-				Finding:  fmt.Sprintf("package %q matches known malicious package %q", srv.Package, m),
-			}}
-		}
+	if tc == nil {
+		return []Result{{
+			Severity: SevPass,
+			Server:   srv.Name,
+			Type:     "static",
+			Finding:  "no trust config loaded",
+		}}
 	}
 
-	for _, l := range knownLegitimate {
+	scope := tc.ScopeFor(srv.Name, srv.Tool)
+
+	if len(scope.Trusted) == 0 && len(scope.Blocked) == 0 {
+		return []Result{{
+			Severity: SevPass,
+			Server:   srv.Name,
+			Type:     "static",
+			Finding:  "no trust rules apply for this package",
+		}}
+	}
+
+	if r := matchBlocked(srv.Package, scope.Blocked, srv.Name); r != nil {
+		return []Result{*r}
+	}
+
+	var findings []Result
+	for _, l := range scope.Trusted {
 		if strings.EqualFold(srv.Package, l) {
 			return []Result{{
 				Severity: SevPass,
 				Server:   srv.Name,
 				Type:     "static",
-				Finding:  "known legitimate package",
+				Finding:  "known trusted package",
 			}}
 		}
-	}
-
-	var findings []Result
-	for _, l := range knownLegitimate {
 		d := levenshtein.Distance(srv.Package, l)
 		if d <= 2 && d > 0 {
 			findings = append(findings, Result{
 				Severity: SevInfo,
 				Server:   srv.Name,
 				Type:     "static",
-				Finding: fmt.Sprintf("potential typosquat: %q is distance %d from known package %q",
+				Finding: fmt.Sprintf("potential typosquat: %q is distance %d from trusted package %q",
 					srv.Package, d, l),
 			})
 		}
@@ -133,9 +143,23 @@ func checkTyposquat(srv config.ServerEntry) []Result {
 			Severity: SevPass,
 			Server:   srv.Name,
 			Type:     "static",
-			Finding:  "package not in known lists, no typosquat detected",
+			Finding:  "package not in trust lists, no typosquat detected",
 		})
 	}
 
 	return findings
+}
+
+func matchBlocked(pkg string, blocked []string, server string) *Result {
+	for _, m := range blocked {
+		if strings.EqualFold(pkg, m) {
+			return &Result{
+				Severity: SevCritical,
+				Server:   server,
+				Type:     "static",
+				Finding:  fmt.Sprintf("package %q matches blocked package %q", pkg, m),
+			}
+		}
+	}
+	return nil
 }

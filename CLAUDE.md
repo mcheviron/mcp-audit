@@ -63,6 +63,7 @@ Exit codes: 0 = clean, 1 = CRITICAL/HIGH found, 2 = scan error.
 - **70‑line function limit** — enforced by `funlen` linter.
 - **120‑char line limit** — enforced by `lll` linter.
 - **Use `any`, not `interface{}`** — enforced by `modernize`.
+- **No named return values** — never name return parameters. Enforced by `nakedret` linter.
 - **`//go:embed` directives** kept — compiler pragmas, not comments.
 - **Run `just check` every turn that edits code** — zero lint issues before reporting done.
 

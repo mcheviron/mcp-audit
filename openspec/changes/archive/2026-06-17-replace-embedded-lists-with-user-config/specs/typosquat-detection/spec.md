@@ -1,49 +1,4 @@
-# typosquat-detection Specification
-
-## Purpose
-Levenshtein-distance typosquat detection against compile-time embedded known-legitimate and known-malicious package lists.
-## Requirements
-### Requirement: Levenshtein distance calculation
-The system SHALL compute the edit distance between two strings using the standard dynamic programming algorithm with insert, delete, and substitute operations each costing 1.
-
-#### Scenario: Identical strings
-- **WHEN** comparing two identical package names
-- **THEN** the Levenshtein distance is 0
-
-#### Scenario: One character difference
-- **WHEN** comparing "@scope/mcp-server" and "@scope/mcp-serve"
-- **THEN** the Levenshtein distance is 1
-
-#### Scenario: Empty string
-- **WHEN** comparing any string against an empty string
-- **THEN** the Levenshtein distance equals the length of the non-empty string
-
-### Requirement: Typosquat detection threshold
-The system SHALL flag any package name whose Levenshtein distance to an entry in the resolved trust scope's `trusted` list is ≤ 2 as a potential typosquat at INFO severity. The resolved scope is determined by `ScopeFor(serverName, toolName)`. If no trust config is loaded, no typosquat detection is performed.
-
-#### Scenario: Typosquat detected
-- **WHEN** a discovered server uses "mcp-server-filesytem" and "mcp-server-filesystem" is in the resolved trusted list
-- **THEN** the scanner reports an INFO finding: "Package X is potential typosquat of Y (distance: 2)"
-
-#### Scenario: Distance too large
-- **WHEN** a discovered package name has Levenshtein distance 3 or greater from all trusted packages in the resolved scope
-- **THEN** no typosquat alert is raised
-
-#### Scenario: Blocked package match
-- **WHEN** a discovered package matches an entry in the resolved `blocked` list
-- **THEN** a CRITICAL finding is raised regardless of Levenshtein distance
-
-#### Scenario: Trusted package match
-- **WHEN** a discovered package matches an entry in the resolved `trusted` list
-- **THEN** a PASS finding is reported with "known trusted package"
-
-#### Scenario: No trust config
-- **WHEN** no trust config file is present and no `--trust-config` flag is given
-- **THEN** all packages receive PASS with finding "no trust config loaded"
-
-#### Scenario: No applicable scope
-- **WHEN** a trust config is loaded but the resolved scope for a server has empty trusted and blocked lists
-- **THEN** the package receives PASS with finding "no trust rules apply for this package"
+## ADDED Requirements
 
 ### Requirement: User-supplied trust config file
 The system SHALL accept a `--trust-config <path>` flag pointing to a JSON file defining `trusted` and `blocked` package name arrays. When the flag is omitted, the system SHALL look for `~/.config/mcp-audit/trust.json`.
@@ -105,3 +60,38 @@ The system SHALL apply trust config filtering to the dynamic probe pipeline. Ser
 - **WHEN** `mcp-audit probe` is run without `--trust-config` and no default trust file exists
 - **THEN** all discovered HTTP servers are probed normally
 
+## REMOVED Requirements
+
+### Requirement: Known package databases
+**Reason**: Hardcoded `known_legitimate.txt` (25 entries) and `known_malicious.txt` (13 entries) embedded at compile time via `//go:embed` do not scale. Users now supply their own trust/block lists via `--trust-config`.
+
+**Migration**: Create `~/.config/mcp-audit/trust.json` with `trusted` and `blocked` arrays. Old embedded lists are deleted.
+
+## MODIFIED Requirements
+
+### Requirement: Typosquat detection threshold
+The system SHALL flag any package name whose Levenshtein distance to an entry in the resolved trust scope's `trusted` list is ≤ 2 as a potential typosquat at INFO severity. The resolved scope is determined by `ScopeFor(serverName, toolName)`. If no trust config is loaded, no typosquat detection is performed.
+
+#### Scenario: Typosquat detected
+- **WHEN** a discovered server uses "mcp-server-filesytem" and "mcp-server-filesystem" is in the resolved trusted list
+- **THEN** the scanner reports an INFO finding: "Package X is potential typosquat of Y (distance: 2)"
+
+#### Scenario: Distance too large
+- **WHEN** a discovered package name has Levenshtein distance 3 or greater from all trusted packages in the resolved scope
+- **THEN** no typosquat alert is raised
+
+#### Scenario: Blocked package match
+- **WHEN** a discovered package matches an entry in the resolved `blocked` list
+- **THEN** a CRITICAL finding is raised regardless of Levenshtein distance
+
+#### Scenario: Trusted package match
+- **WHEN** a discovered package matches an entry in the resolved `trusted` list
+- **THEN** a PASS finding is reported with "known trusted package"
+
+#### Scenario: No trust config
+- **WHEN** no trust config file is present and no `--trust-config` flag is given
+- **THEN** all packages receive PASS with finding "no trust config loaded"
+
+#### Scenario: No applicable scope
+- **WHEN** a trust config is loaded but the resolved scope for a server has empty trusted and blocked lists
+- **THEN** the package receives PASS with finding "no trust rules apply for this package"

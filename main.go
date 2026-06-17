@@ -50,32 +50,48 @@ func splitCSV(s string) []string {
 	return result
 }
 
-func parseFlags(args []string) (
-	formatFlag string, output string, dryRun bool,
-	allowHosts string, blockHosts string, targets string,
-) {
+type flags struct {
+	format      string
+	dryRun      bool
+	allowHosts  string
+	blockHosts  string
+	targets     string
+	trustConfig string
+}
+
+func parseFlags(args []string) flags {
+	var f flags
 	fs := flag.NewFlagSet("mcp-audit", flag.ContinueOnError)
-	fs.StringVar(&formatFlag, "format", "table", "output format: table, json, sarif")
-	fs.StringVar(&output, "output", "", "write output to file (stdout if empty)")
-	fs.BoolVar(&dryRun, "dry-run", false, "print what would be probed without making requests")
-	fs.StringVar(&allowHosts, "allow-hosts", "", "comma-separated hosts/IPs to allow for probing")
-	fs.StringVar(&blockHosts, "block-hosts", "", "comma-separated hosts/IPs to block from probing")
-	fs.StringVar(&targets, "targets", "", "comma-separated probe target URLs (overrides defaults)")
+	fs.StringVar(&f.format, "format", "table", "output format: table, json, sarif")
+	fs.BoolVar(&f.dryRun, "dry-run", false, "print what would be probed without making requests")
+	fs.StringVar(&f.allowHosts, "allow-hosts", "", "comma-separated hosts/IPs to allow for probing")
+	fs.StringVar(&f.blockHosts, "block-hosts", "", "comma-separated hosts/IPs to block from probing")
+	fs.StringVar(&f.targets, "targets", "", "comma-separated probe target URLs (overrides defaults)")
+	fs.StringVar(&f.trustConfig, "trust-config", "",
+		"path to trust config JSON (default ~/.config/mcp-audit/trust.json)")
 	fs.SetOutput(os.Stderr)
 	_ = fs.Parse(args)
-	return
+	return f
 }
 
 func runStaticAction(action string, args []string) {
-	formatFlag, _, _, _, _, _ := parseFlags(args)
+	f := parseFlags(args)
 
-	results, err := scanner.RunStatic()
+	s := scanner.NewScanner()
+	if err := s.SetTrustConfig(f.trustConfig); err != nil {
+		if f.trustConfig != "" {
+			fmt.Fprintf(os.Stderr, "%s: trust config error: %v\n", action, err)
+			os.Exit(2)
+		}
+	}
+
+	results, err := s.Static()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: %v\n", action, err)
 		os.Exit(2)
 	}
 
-	writeResults(results.Results, formatFlag)
+	writeResults(results.Results, f.format)
 
 	var serverCount int
 	for _, cfg := range results.Configs {
@@ -92,17 +108,21 @@ func runStaticAction(action string, args []string) {
 }
 
 func runProbe(args []string) {
-	formatFlag, _, dryRun, allowHosts, blockHosts, targets := parseFlags(args)
+	f := parseFlags(args)
 
-	dynCfg := scanner.DynamicConfig{
-		DryRun:     dryRun,
-		AllowHosts: splitCSV(allowHosts),
-		BlockHosts: splitCSV(blockHosts),
-		Targets:    splitCSV(targets),
+	s := scanner.NewScanner()
+	s.AllowHosts = splitCSV(f.allowHosts)
+	s.BlockHosts = splitCSV(f.blockHosts)
+	s.Probes = splitCSV(f.targets)
+	if err := s.SetTrustConfig(f.trustConfig); err != nil {
+		if f.trustConfig != "" {
+			fmt.Fprintf(os.Stderr, "probe: trust config error: %v\n", err)
+			os.Exit(2)
+		}
 	}
-	dynResults := scanner.RunDynamic(dynCfg)
+	dynResults := s.Probe(f.dryRun)
 
-	writeResults(dynResults, formatFlag)
+	writeResults(dynResults, f.format)
 
 	var serverCount int
 	seen := map[string]bool{}
@@ -136,15 +156,16 @@ Usage:
   mcp-audit help     Show this help
 
 Flags:
-  --format <fmt>       Output format: table (default), json, sarif
-  --output <path>      Write output to file (stdout if omitted)
-  --dry-run            Print what would be probed without making requests
-  --targets <urls>     Comma-separated probe target URLs (overrides built-in list)
-  --allow-hosts <ips>  Comma-separated hosts/IPs to allow for probing
-  --block-hosts <ips>  Comma-separated hosts/IPs to block from probing
+  --format <fmt>         Output format: table (default), json, sarif
+  --dry-run              Print what would be probed without making requests
+  --targets <urls>       Comma-separated probe target URLs (overrides built-in list)
+  --allow-hosts <ips>    Comma-separated hosts/IPs to allow for probing
+  --block-hosts <ips>    Comma-separated hosts/IPs to block from probing
+  --trust-config <path>  Path to trust config JSON (default ~/.config/mcp-audit/trust.json)
 
 Examples:
   mcp-audit static
+  mcp-audit static --trust-config ./my-trust.json
   mcp-audit scan --format json
   mcp-audit probe --dry-run
   mcp-audit probe --targets http://127.0.0.1:8080/,http://10.0.0.1/
