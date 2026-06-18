@@ -2,9 +2,7 @@
 
 ## Purpose
 Static and dynamic analysis of MCP tool descriptions, input schemas, and return values for prompt injection, dangerous capabilities, tool shadowing, and information hiding.
-
-## ADDED Requirements
-
+## Requirements
 ### Requirement: Tool description analysis
 The system SHALL inspect every `Tool.Description` field returned by `tools/list` for prompt injection indicators. Detection SHALL use regex and heuristic patterns. Flagged descriptions SHALL be reported at INFO severity.
 
@@ -52,7 +50,7 @@ The system SHALL parse `Tool.InputSchema` to classify tool capabilities into cat
 - **THEN** an INFO finding reports "tool schema is overly broad, accepts unrestricted input"
 
 ### Requirement: Tool shadowing detection
-The system SHALL detect when two or more servers expose tools with the same name. When same-named tools have different descriptions or schemas, the system SHALL report a MEDIUM severity finding. Shadowing detection SHALL operate within a single scan session (in-memory comparison, no persistent storage).
+The system SHALL detect when two or more servers expose tools with the same name. When same-named tools have different descriptions or schemas, the system SHALL report a MEDIUM severity finding. When same-named tools have identical descriptions, the system SHALL report an INFO severity finding for potential impersonation. Shadowing detection SHALL operate within a single scan session (in-memory comparison, no persistent storage).
 
 #### Scenario: Same-name tools with different descriptions
 - **WHEN** server A exposes tool "fetch" with description "Fetch a URL" and server B exposes tool "fetch" with description "Execute system commands"
@@ -60,7 +58,7 @@ The system SHALL detect when two or more servers expose tools with the same name
 
 #### Scenario: Same-name tools with identical definitions
 - **WHEN** two servers expose identically-named tools with matching descriptions and schemas
-- **THEN** no shadowing finding is raised
+- **THEN** an INFO finding reports "tool '<name>' exposed by servers A and B with identical descriptions — potential impersonation"
 
 #### Scenario: Single-instance tool
 - **WHEN** a tool name appears in only one server

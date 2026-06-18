@@ -244,7 +244,8 @@ func applyAuth(tr mcp.Transport, srv config.ServerEntry, global AuthConfig) erro
 
 func runMCPProbes(
 	servers []config.ServerEntry, existingResults *[]Result, mu *sync.Mutex,
-	targets []string, transportFlag string, auth AuthConfig,
+	targets []string, transportFlag string, auth AuthConfig, toolAnalysis bool,
+	allTools map[string][]mcp.Tool,
 ) {
 	g, ctx := errgroup.WithContext(context.Background())
 	g.SetLimit(10)
@@ -253,7 +254,7 @@ func runMCPProbes(
 		g.Go(func() error {
 			probeCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 			defer cancel()
-			probeSingleServer(probeCtx, srv, existingResults, mu, targets, transportFlag, auth)
+			probeSingleServer(probeCtx, srv, existingResults, mu, targets, transportFlag, auth, toolAnalysis, allTools)
 			return nil
 		})
 	}
@@ -287,6 +288,8 @@ func probeSingleServer(
 	targets []string,
 	transportFlag string,
 	auth AuthConfig,
+	toolAnalysis bool,
+	allTools map[string][]mcp.Tool,
 ) {
 	mcpClient, transport, err := handshakeServer(ctx, srv, transportFlag, auth)
 	if err != nil {
@@ -321,6 +324,15 @@ func probeSingleServer(
 		return
 	}
 
+	if allTools != nil {
+		mu.Lock()
+		allTools[srv.Name] = tools.Tools
+		mu.Unlock()
+	}
+	if toolAnalysis {
+		runToolAnalysis(tools, srv, existingResults, mu)
+	}
+
 	for _, tool := range tools.Tools {
 		toolResults := probeMCPTool(ctx, mcpClient, srv, tool, targets[:min(len(targets), 3)])
 		for i := range toolResults {
@@ -330,6 +342,43 @@ func probeSingleServer(
 		*existingResults = append(*existingResults, toolResults...)
 		mu.Unlock()
 	}
+}
+
+func runToolAnalysis(tools *mcp.ListToolsResult, srv config.ServerEntry, results *[]Result, mu *sync.Mutex) {
+	var descResults, capResults []Result
+	for _, tool := range tools.Tools {
+		descResults = append(descResults, analyzeToolDescription(tool, srv.Name, srv.ConfigPath)...)
+		caps := classifyToolCapabilities(tool.InputSchema)
+		if len(caps) == 0 {
+			continue
+		}
+		sev := SevInfo
+		for _, c := range caps {
+			if c == "shell" {
+				sev = SevHigh
+			}
+		}
+		capResults = append(capResults, Result{
+			Severity:   sev,
+			Server:     srv.Name,
+			Type:       "static",
+			Finding:    fmt.Sprintf("tool %q capabilities: %s", tool.Name, strings.Join(caps, ", ")),
+			ConfigPath: srv.ConfigPath,
+		})
+		if len(caps) > 1 {
+			capResults = append(capResults, Result{
+				Severity:   SevMedium,
+				Server:     srv.Name,
+				Type:       "static",
+				Finding:    fmt.Sprintf("tool %q has multiple capabilities: %s", tool.Name, strings.Join(caps, ", ")),
+				ConfigPath: srv.ConfigPath,
+			})
+		}
+	}
+	mu.Lock()
+	*results = append(*results, descResults...)
+	*results = append(*results, capResults...)
+	mu.Unlock()
 }
 
 func noAuthConfigured(srv config.ServerEntry, global AuthConfig) bool {
@@ -388,7 +437,13 @@ func (s *Scanner) Probe(dryRun bool) []Result {
 	auth := s.authConfig()
 
 	var mu sync.Mutex
-	runMCPProbes(mcpServers, &results, &mu, targets, s.Transport, auth)
+	allTools := make(map[string][]mcp.Tool)
+	runMCPProbes(mcpServers, &results, &mu, targets, s.Transport, auth, s.ToolAnalysis, allTools)
+
+	if s.ToolAnalysis && len(allTools) > 1 {
+		shadowResults := detectToolShadowing(allTools)
+		results = append(results, shadowResults...)
+	}
 
 	return results
 }

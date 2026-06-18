@@ -84,7 +84,7 @@ The system SHALL enforce safety limits: maximum 5 seconds per probe, maximum 4KB
 - **THEN** the second probe starts no sooner than 100ms after the first completes
 
 ### Requirement: Response analysis
-The system SHALL analyze probe responses for indicators of successful SSRF: cloud metadata content, internal HTTP response bodies, redirect chains to internal IPs, and connection outcomes.
+The system SHALL analyze probe responses for indicators of successful SSRF: cloud metadata content, internal HTTP response bodies, redirect chains to internal IPs, connection outcomes, AND prompt injection patterns in tool return values. Prompt injection detection in tool responses SHALL use the same pattern set defined in `tool-security-analysis`.
 
 #### Scenario: Cloud metadata returned — CRITICAL
 - **WHEN** a probe response contains AWS access key IDs or IAM role credentials
@@ -101,6 +101,14 @@ The system SHALL analyze probe responses for indicators of successful SSRF: clou
 #### Scenario: Open redirect detected — LOW
 - **WHEN** the server returns a 3xx redirect to an internal IP but the probe does not follow it
 - **THEN** the finding is classified as LOW severity (open redirect, no internal data exfiltrated)
+
+#### Scenario: Prompt injection in tool response — HIGH
+- **WHEN** a tool response text block contains "Ignore previous instructions", "You are now", or role-switching directives
+- **THEN** the finding is classified as HIGH severity with detail "tool '<name>' returned potential prompt injection"
+
+#### Scenario: Clean response with no injection
+- **WHEN** a tool response contains no injection patterns and no credential/internal data
+- **THEN** the finding is classified as PASS
 
 ### Requirement: Dynamic probing is opt-in
 The system SHALL require explicit user action to perform dynamic SSRF probing — either the `probe` subcommand or a `--probe` flag on `scan` with confirmation prompt.

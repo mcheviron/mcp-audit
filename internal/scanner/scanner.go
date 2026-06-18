@@ -12,21 +12,22 @@ type AuthConfig struct {
 }
 
 type Scanner struct {
-	TrustConfig *config.TrustConfig
-	Probes      []string
-	AllowHosts  []string
-	BlockHosts  []string
-	Transport   string
-	AuthToken   string
-	AuthHeaders map[string]string
-	TLSCertFile string
-	TLSKeyFile  string
+	TrustConfig  *config.TrustConfig
+	Probes       []string
+	AllowHosts   []string
+	BlockHosts   []string
+	Transport    string
+	AuthToken    string
+	AuthHeaders  map[string]string
+	TLSCertFile  string
+	TLSKeyFile   string
+	ToolAnalysis bool
 
 	TestConfigs []config.Config
 }
 
 func NewScanner() *Scanner {
-	return &Scanner{}
+	return &Scanner{ToolAnalysis: true}
 }
 
 func (s *Scanner) authConfig() AuthConfig {

@@ -200,6 +200,23 @@ func evalToolTextBlock(text, toolName, target string, worst *Result) {
 			Detail:   redactDetail(text),
 		}
 	}
+
+	for i, p := range promptInjectionPatterns {
+		if m := p.FindString(text); m != "" {
+			if worst.Severity < SevHigh {
+				*worst = Result{
+					Severity: SevHigh,
+					Server:   worst.Server,
+					Type:     "dynamic",
+					Finding: fmt.Sprintf(
+						"tool %q response contains prompt injection pattern %q (pattern #%d)",
+						toolName, m, i+1),
+					Detail: redactDetail(text),
+				}
+			}
+			return
+		}
+	}
 }
 
 func buildProbeArgs(tool mcp.Tool, target string) map[string]any {
@@ -291,6 +308,152 @@ func probeMCPTool(
 		}
 
 		results = append(results, analyzeCallToolResponse(callResult, srv, tool.Name, target))
+	}
+
+	return results
+}
+
+var promptInjectionPatterns = []*regexp.Regexp{
+	regexp.MustCompile(`(?i)(you are now|you are no longer|from now on you are)`),
+	regexp.MustCompile(`(?i)(ignore (all |)previous|forget (all |)prior|disregard (all |)above)`),
+	regexp.MustCompile(`(?i)(system:\s*|system prompt:\s*|<system>|\[system\]|<<SYSTEM>>)`),
+	regexp.MustCompile(`(?i)(act as .*(?:assistant|agent|tool|bot|hacker|adversary|attacker))`),
+	regexp.MustCompile(`(?i)(you must|you should|you will|your (?:new |)(?:goal|task|job|mission|objective))`),
+	regexp.MustCompile(`(?i)(base64|base\s*64)[\s:]*[A-Za-z0-9+/=]{20,}`),
+	regexp.MustCompile(`(?i)(secret (?:key|token|password|credential)|api[_-]?key\s*[:=])`),
+	regexp.MustCompile(`(?i)(bypass|override|exploit|inject|hijack|backdoor|trojan|malware)`),
+}
+
+var urlEmbedPattern = regexp.MustCompile(`(https?://[^\s)]+)`)
+
+func analyzeToolDescription(tool mcp.Tool, serverName, configPath string) []Result {
+	desc := strings.TrimSpace(tool.Description)
+	if desc == "" {
+		return []Result{{
+			Severity:   SevInfo,
+			Server:     serverName,
+			Type:       "static",
+			Finding:    fmt.Sprintf("tool %q has no description (information hiding)", tool.Name),
+			ConfigPath: configPath,
+		}}
+	}
+
+	var results []Result
+	for _, p := range promptInjectionPatterns {
+		if m := p.FindString(desc); m != "" {
+			results = append(results, Result{
+				Severity:   SevLow,
+				Server:     serverName,
+				Type:       "static",
+				Finding:    fmt.Sprintf("tool %q description matches injection pattern %q", tool.Name, m),
+				Detail:     redactDetail(desc),
+				ConfigPath: configPath,
+			})
+			break
+		}
+	}
+
+	if urls := urlEmbedPattern.FindAllString(desc, 20); len(urls) > 0 {
+		for _, u := range urls {
+			results = append(results, Result{
+				Severity:   SevLow,
+				Server:     serverName,
+				Type:       "static",
+				Finding:    fmt.Sprintf("tool %q description contains embedded URL: %s", tool.Name, u),
+				ConfigPath: configPath,
+			})
+		}
+	}
+
+	if len(results) == 0 {
+		results = append(results, Result{
+			Severity:   SevPass,
+			Server:     serverName,
+			Type:       "static",
+			Finding:    fmt.Sprintf("tool %q description clean — no injection patterns detected", tool.Name),
+			ConfigPath: configPath,
+		})
+	}
+
+	return results
+}
+
+func classifyToolCapabilities(schema map[string]any) []string {
+	props, _ := schema["properties"].(map[string]any)
+	if props == nil {
+		return nil
+	}
+
+	hasProp := func(keys []string) bool {
+		for key := range props {
+			lowKey := strings.ToLower(key)
+			for _, k := range keys {
+				if strings.Contains(lowKey, k) {
+					return true
+				}
+			}
+		}
+		return false
+	}
+
+	var caps []string
+	if hasProp([]string{"path", "file", "directory", "folder", "filename"}) {
+		caps = append(caps, "filesystem")
+	}
+	if hasProp([]string{"url", "uri", "endpoint", "host", "hostname"}) {
+		caps = append(caps, "network")
+	}
+	if hasProp([]string{"command", "cmd", "script", "exec", "shell"}) {
+		caps = append(caps, "shell")
+	}
+	if hasProp([]string{"query", "sql", "collection", "table", "database"}) {
+		caps = append(caps, "database")
+	}
+
+	return caps
+}
+
+func detectToolShadowing(allTools map[string][]mcp.Tool) []Result {
+	type toolRef struct {
+		server      string
+		description string
+	}
+	seen := make(map[string][]toolRef)
+
+	for srv, tools := range allTools {
+		for _, t := range tools {
+			seen[t.Name] = append(seen[t.Name], toolRef{srv, t.Description})
+		}
+	}
+
+	var results []Result
+	for name, refs := range seen {
+		if len(refs) < 2 {
+			continue
+		}
+		for i := range refs {
+			for j := i + 1; j < len(refs); j++ {
+				if refs[i].description != refs[j].description {
+					results = append(results, Result{
+						Severity: SevMedium,
+						Server:   refs[i].server,
+						Type:     "static",
+						Finding: fmt.Sprintf(
+							"tool %q shadowing: %q and %q have conflicting descriptions",
+							name, refs[i].server, refs[j].server),
+					})
+				} else {
+					results = append(results, Result{
+						Severity: SevInfo,
+						Server:   refs[i].server,
+						Type:     "static",
+						Finding: fmt.Sprintf(
+							"tool %q exposed by %q and %q with identical descriptions — potential impersonation",
+							name, refs[i].server, refs[j].server),
+					})
+				}
+			}
+		}
 	}
 
 	return results
