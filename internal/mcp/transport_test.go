@@ -36,7 +36,7 @@ func TestInitialize(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	client := NewClient(NewHTTPTransport(srv.URL, 5*time.Second))
+	client := NewClient(NewHTTPTransport(srv.URL, 5*time.Second, 65536))
 	result, err := client.Initialize(context.Background())
 	if err != nil {
 		t.Fatalf("Initialize: %v", err)
@@ -70,7 +70,7 @@ func TestListTools(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	client := NewClient(NewHTTPTransport(srv.URL, 5*time.Second))
+	client := NewClient(NewHTTPTransport(srv.URL, 5*time.Second, 65536))
 	_, err := client.Initialize(context.Background())
 	if err != nil {
 		t.Fatalf("Initialize: %v", err)
@@ -109,7 +109,7 @@ func TestCallTool(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	client := NewClient(NewHTTPTransport(srv.URL, 5*time.Second))
+	client := NewClient(NewHTTPTransport(srv.URL, 5*time.Second, 65536))
 	_, err := client.Initialize(context.Background())
 	if err != nil {
 		t.Fatalf("Initialize: %v", err)
@@ -133,7 +133,7 @@ func TestInitializeTimeout(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	client := NewClient(NewHTTPTransport(srv.URL, 50*time.Millisecond))
+	client := NewClient(NewHTTPTransport(srv.URL, 50*time.Millisecond, 65536))
 	_, err := client.Initialize(context.Background())
 	if err == nil {
 		t.Fatal("expected timeout error")
@@ -155,7 +155,7 @@ func TestRPCError(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	client := NewClient(NewHTTPTransport(srv.URL, 5*time.Second))
+	client := NewClient(NewHTTPTransport(srv.URL, 5*time.Second, 65536))
 	_, err := client.Initialize(context.Background())
 	if err == nil {
 		t.Fatal("expected RPC error")
@@ -237,7 +237,7 @@ func TestHTTPTransportSessionID(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	tr := NewHTTPTransport(srv.URL, 5*time.Second)
+	tr := NewHTTPTransport(srv.URL, 5*time.Second, 65536)
 
 	_, err := tr.Send(context.Background(), "initialize", nil)
 	if err != nil {
@@ -271,7 +271,7 @@ func TestHTTPTransportAuthHeader(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	tr := NewHTTPTransport(srv.URL, 5*time.Second)
+	tr := NewHTTPTransport(srv.URL, 5*time.Second, 65536)
 	tr.SetAuthToken("test-token")
 	tr.SetAuthHeaders(map[string]string{"X-API-Key": "key-123"})
 
@@ -353,7 +353,7 @@ func TestNewClient(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	tr := NewHTTPTransport(srv.URL, 5*time.Second)
+	tr := NewHTTPTransport(srv.URL, 5*time.Second, 65536)
 	client := NewClient(tr)
 
 	result, err := client.Initialize(context.Background())

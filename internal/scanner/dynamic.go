@@ -23,9 +23,14 @@ type probeResult struct {
 	err         error
 	redirect    string
 	redirectHop int
+	contentType string
+	duration    time.Duration
 }
 
-func probeTargetDirect(ctx context.Context, method, target string, depth ProbeDepth, headers ...string) probeResult {
+func probeTargetDirect(
+	ctx context.Context, method, target string, depth ProbeDepth, maxResp int64, headers ...string,
+) probeResult {
+	start := time.Now()
 	req, err := http.NewRequestWithContext(ctx, method, target, nil)
 	if err != nil {
 		return probeResult{target: target, err: err}
@@ -37,18 +42,20 @@ func probeTargetDirect(ctx context.Context, method, target string, depth ProbeDe
 	client := newProbeClient(5*time.Second, depth)
 	resp, err := client.Do(req)
 	if err != nil {
-		return probeResult{target: target, err: err}
+		return probeResult{target: target, err: err, duration: time.Since(start)}
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	limited := io.LimitReader(resp.Body, 4096)
+	limited := io.LimitReader(resp.Body, maxResp)
 	var buf strings.Builder
 	_, _ = io.Copy(&buf, limited)
 
 	result := probeResult{
-		target: target,
-		status: resp.StatusCode,
-		body:   buf.String(),
+		target:      target,
+		status:      resp.StatusCode,
+		body:        buf.String(),
+		contentType: resp.Header.Get("Content-Type"),
+		duration:    time.Since(start),
 	}
 
 	if resp.StatusCode >= 300 && resp.StatusCode < 400 {
@@ -99,8 +106,11 @@ func (s *Scanner) collectServers() []config.ServerEntry {
 	return servers
 }
 
-func runDirectProbes(httpServers []config.ServerEntry, targets []string, depth ProbeDepth) []Result {
+func runDirectProbes(
+	httpServers []config.ServerEntry, targets []string, depth ProbeDepth, maxResp int64,
+) ([]Result, []probeTiming) {
 	var results []Result
+	var timings []probeTiming
 	var mu sync.Mutex
 
 	g, ctx := errgroup.WithContext(context.Background())
@@ -116,16 +126,21 @@ func runDirectProbes(httpServers []config.ServerEntry, targets []string, depth P
 					}
 					if depth >= DepthExtended {
 						for hk, hv := range probeHeaders {
-							result := probeTargetDirect(ctx, method, target, depth, hk, hv)
+							result := probeTargetDirect(ctx, method, target, depth, maxResp, hk, hv)
 							r := analyzeProbeResult(result, srv)
 							r.ConfigPath = srv.ConfigPath
 							r.Finding = fmt.Sprintf("[%s|%s:%s] %s", method, hk, hv, r.Finding)
 							mu.Lock()
 							results = append(results, r)
+							if result.duration > 0 {
+								timings = append(timings, probeTiming{
+									server: srv.Name, duration: result.duration, configPath: srv.ConfigPath,
+								})
+							}
 							mu.Unlock()
 						}
 					}
-					result := probeTargetDirect(ctx, method, target, depth)
+					result := probeTargetDirect(ctx, method, target, depth, maxResp)
 					r := analyzeProbeResult(result, srv)
 					r.ConfigPath = srv.ConfigPath
 					if method != http.MethodGet {
@@ -136,6 +151,11 @@ func runDirectProbes(httpServers []config.ServerEntry, targets []string, depth P
 					}
 					mu.Lock()
 					results = append(results, r)
+					if result.duration > 0 {
+						timings = append(timings, probeTiming{
+							server: srv.Name, duration: result.duration, configPath: srv.ConfigPath,
+						})
+					}
 					mu.Unlock()
 				}
 				return nil
@@ -144,13 +164,13 @@ func runDirectProbes(httpServers []config.ServerEntry, targets []string, depth P
 	}
 
 	_ = g.Wait()
-	return results
+	return results, timings
 }
 
 func runMCPProbes(
 	servers []config.ServerEntry, targets []string, transportFlag string, auth AuthConfig,
 	toolAnalysis bool, allTools map[string][]mcp.Tool, driftCfg driftConfig,
-	depth ProbeDepth, cl *CallbackListener,
+	depth ProbeDepth, cl *CallbackListener, maxResp int64,
 ) []Result {
 	var results []Result
 	var mu sync.Mutex
@@ -163,7 +183,7 @@ func runMCPProbes(
 			probeCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 			defer cancel()
 			probeSingleServer(probeCtx, srv, &results, &mu, targets,
-				transportFlag, auth, toolAnalysis, allTools, driftCfg, depth, cl)
+				transportFlag, auth, toolAnalysis, allTools, driftCfg, depth, cl, maxResp)
 			return nil
 		})
 	}
@@ -185,8 +205,9 @@ func probeSingleServer(
 	driftCfg driftConfig,
 	depth ProbeDepth,
 	cl *CallbackListener,
+	maxResp int64,
 ) {
-	mcpClient, transport, err := handshakeServer(ctx, srv, transportFlag, auth)
+	mcpClient, transport, err := handshakeServer(ctx, srv, transportFlag, auth, maxResp)
 	if err != nil {
 		finding := fmt.Sprintf("MCP handshake failed: %v", err)
 		if noAuthConfigured(srv, auth) && errors.Is(err, mcp.ErrAuthRequired) {
@@ -353,22 +374,28 @@ func (s *Scanner) Probe(dryRun bool) []Result {
 		trustConfig:       s.TrustConfig,
 	}
 
+	maxResp := int64(s.MaxResponseSize)
 	var directResults, mcpResults []Result
+	var directTimings []probeTiming
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		directResults = runDirectProbes(httpServers, targets, depth)
+		directResults, directTimings = runDirectProbes(httpServers, targets, depth, maxResp)
 	}()
 	go func() {
 		defer wg.Done()
-		mcpResults = runMCPProbes(mcpServers, targets, s.Transport, auth, s.ToolAnalysis, allTools, driftCfg, depth, cl)
+		mcpResults = runMCPProbes(
+			mcpServers, targets, s.Transport, auth, s.ToolAnalysis, allTools, driftCfg, depth, cl,
+			maxResp,
+		)
 	}()
 	wg.Wait()
 
 	var results []Result
 	results = append(results, directResults...)
 	results = append(results, mcpResults...)
+	results = append(results, analyzeTiming(directTimings)...)
 
 	if cl != nil {
 		cl.drainCallbacks(30 * time.Second)

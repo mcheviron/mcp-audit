@@ -95,6 +95,7 @@ type flags struct {
 	probeDepth        string
 	callbackPort      int
 	targetsFile       string
+	maxResponse       int
 }
 
 func parseFlags(args []string) flags {
@@ -120,6 +121,7 @@ func parseFlags(args []string) flags {
 	fs.StringVar(&f.probeDepth, "probe-depth", "basic", "probe depth: basic, extended, full")
 	fs.IntVar(&f.callbackPort, "callback-port", 0, "callback listener port (0=random)")
 	fs.StringVar(&f.targetsFile, "targets-file", "", "file with probe target URLs (one per line)")
+	fs.IntVar(&f.maxResponse, "max-response", 65536, "max response body size in bytes (max 1048576)")
 	fs.SetOutput(os.Stderr)
 	_ = fs.Parse(args)
 	return f
@@ -180,6 +182,11 @@ func runProbe(args []string) {
 	s.ProbeDepth = scanner.ParseProbeDepth(f.probeDepth)
 	s.CallbackPort = f.callbackPort
 	s.TargetsFile = f.targetsFile
+	if f.maxResponse < 0 {
+		fmt.Fprintf(os.Stderr, "probe: --max-response must be >= 0, got %d\n", f.maxResponse)
+		os.Exit(2)
+	}
+	s.MaxResponseSize = min(f.maxResponse, 1048576)
 	if err := s.SetTrustConfig(f.trustConfig); err != nil {
 		if f.trustConfig != "" {
 			fmt.Fprintf(os.Stderr, "probe: trust config error: %v\n", err)
@@ -230,6 +237,7 @@ Flags:
   --probe-depth <level>  Probe depth: basic, extended, full (default: basic)
   --callback-port <n>    Callback listener port for blind SSRF (0=random)
   --targets-file <path>  File with probe target URLs (one per line)
+  --max-response <n>     Max response body size in bytes (default 65536, max 1048576)
   --trust-config <path>  Path to trust config JSON (default ~/.config/mcp-audit/trust.json)
   --transport <type>     Force transport type: stdio, sse, http
   --auth-token <token>   Bearer token for MCP server authentication

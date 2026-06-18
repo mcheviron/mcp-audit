@@ -9,7 +9,7 @@ import (
 	"github.com/mostafaelataby-cheviron/mcp-audit/internal/mcp"
 )
 
-func newTransport(srv config.ServerEntry, forceFlag string, auth AuthConfig) (mcp.Transport, error) {
+func newTransport(srv config.ServerEntry, forceFlag string, auth AuthConfig, maxResp int64) (mcp.Transport, error) {
 	kind := srv.Kind()
 	if forceFlag != "" {
 		switch forceFlag {
@@ -43,13 +43,13 @@ func newTransport(srv config.ServerEntry, forceFlag string, auth AuthConfig) (mc
 			return nil, fmt.Errorf("no URL for HTTP transport")
 		}
 		if forceFlag != "" {
-			tr := mcp.NewHTTPTransport(srv.URL, mcp.DefaultTimeout)
+			tr := mcp.NewHTTPTransport(srv.URL, mcp.DefaultTimeout, maxResp)
 			if err := applyAuth(tr, srv, auth); err != nil {
 				return nil, err
 			}
 			return tr, nil
 		}
-		tr := mcp.NewAutoTransport(srv.URL, mcp.DefaultTimeout)
+		tr := mcp.NewAutoTransport(srv.URL, mcp.DefaultTimeout, maxResp)
 		if err := applyAuth(tr, srv, auth); err != nil {
 			return nil, err
 		}
@@ -101,9 +101,9 @@ func applyAuth(tr mcp.Transport, srv config.ServerEntry, global AuthConfig) erro
 }
 
 func handshakeServer(
-	ctx context.Context, srv config.ServerEntry, transportFlag string, auth AuthConfig,
+	ctx context.Context, srv config.ServerEntry, transportFlag string, auth AuthConfig, maxResp int64,
 ) (mcp.Client, mcp.Transport, error) {
-	transport, err := newTransport(srv, transportFlag, auth)
+	transport, err := newTransport(srv, transportFlag, auth, maxResp)
 	if err != nil {
 		return nil, nil, err
 	}

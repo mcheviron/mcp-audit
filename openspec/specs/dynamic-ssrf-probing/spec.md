@@ -69,15 +69,15 @@ The system SHALL send crafted `tools/call` requests to each probed MCP server wh
 - **THEN** the probe includes `http://[::1]/` in the target list
 
 ### Requirement: Safe probing constraints
-The system SHALL enforce safety limits: maximum 5 seconds per probe, maximum 4KB response read, maximum 10 concurrent probes, minimum 100ms between probes to the same host.
+The system SHALL enforce safety limits: maximum 5 seconds per probe, configurable response read limit (default 64KB via `--max-response`), maximum 10 concurrent probes, minimum 100ms between probes to the same host.
 
 #### Scenario: Probe timeout enforced
 - **WHEN** a probe does not complete within 5 seconds
 - **THEN** the probe is cancelled and the finding is recorded with the timeout noted
 
 #### Scenario: Response truncated
-- **WHEN** a probe response exceeds 4KB
-- **THEN** only the first 4KB is read and analyzed; the connection is closed
+- **WHEN** a probe response exceeds the configured `--max-response` limit (default 64KB, max 1MB)
+- **THEN** only up to the configured byte count is read and analyzed; the connection is closed
 
 #### Scenario: Rate limiting between same-host probes
 - **WHEN** two probes target the same host
@@ -109,6 +109,41 @@ The system SHALL analyze probe responses for indicators of successful SSRF: clou
 #### Scenario: Clean response with no injection
 - **WHEN** a tool response contains no injection patterns and no credential/internal data
 - **THEN** the finding is classified as PASS
+
+### Requirement: Content-based response scoring
+The system SHALL compute a suspicion score (0.0-1.0) for each probe response using keyword-frequency analysis weighted by response size. Responses scoring above 0.7 SHALL trigger deeper regex analysis. Responses scoring below 0.3 SHALL be classified as PASS more aggressively.
+
+#### Scenario: High-suspicion response
+- **WHEN** a response contains multiple security-relevant keywords (access_key, token, password, secret) normalized to response size with score >0.7
+- **THEN** all credential and metadata regex patterns are applied
+
+### Requirement: Entropy analysis
+The system SHALL compute Shannon entropy on response bodies. Entropy above 7.5 SHALL be classified as encrypted/compressed (benign). Entropy below 1.5 with high keyword score SHALL raise a finding.
+
+#### Scenario: Low entropy with metadata
+- **WHEN** response entropy <1.5 and metadata pattern matches
+- **THEN** a HIGH finding reports "low-entropy metadata response detected"
+
+### Requirement: Response classification
+The system SHALL classify responses as metadata, error, data, or binary based on content-type header and body characteristics. Classification SHALL influence subsequent analysis path.
+
+#### Scenario: Metadata response
+- **WHEN** response body matches `(?i)(ami-id|instance-id|iam/)` and content-type is text
+- **THEN** the response is classified as metadata and analyzed with cloud credential patterns
+
+### Requirement: Timing analysis
+The system SHALL record response times per probe and flag outliers. Responses more than 2 standard deviations faster than the mean SHALL be flagged as potential internal-service access.
+
+#### Scenario: Anomalously fast response
+- **WHEN** a probe response takes 10ms while the mean for that server is 200ms
+- **THEN** an INFO finding reports "anomalously fast response (10ms vs 200ms mean) — possible internal service access"
+
+### Requirement: Configurable response limit
+The system SHALL support a `--max-response` flag (default 64KB) to control how much of each response body is read and analyzed. The previous 4KB limit SHALL be removed as a hardcoded constant.
+
+#### Scenario: Custom response limit
+- **WHEN** `--max-response 131072` is set
+- **THEN** up to 128KB of each response body is read and analyzed
 
 ### Requirement: Dynamic probing is opt-in
 The system SHALL require explicit user action to perform dynamic SSRF probing — either the `probe` subcommand or a `--probe` flag on `scan` with confirmation prompt.

@@ -26,17 +26,18 @@ type Transport interface {
 }
 
 type HTTPTransport struct {
-	httpClient  *http.Client
-	endpoint    string
-	idSeq       int
-	sessionID   string
-	authHeaders map[string]string
-	authToken   string
+	httpClient      *http.Client
+	endpoint        string
+	idSeq           int
+	sessionID       string
+	authHeaders     map[string]string
+	authToken       string
+	maxResponseSize int64
 }
 
 var _ Transport = (*HTTPTransport)(nil)
 
-func NewHTTPTransport(endpoint string, timeout time.Duration) *HTTPTransport {
+func NewHTTPTransport(endpoint string, timeout time.Duration, maxResp int64) *HTTPTransport {
 	return &HTTPTransport{
 		httpClient: &http.Client{
 			Timeout: timeout,
@@ -44,8 +45,13 @@ func NewHTTPTransport(endpoint string, timeout time.Duration) *HTTPTransport {
 				return http.ErrUseLastResponse
 			},
 		},
-		endpoint: endpoint,
+		endpoint:        endpoint,
+		maxResponseSize: maxResp,
 	}
+}
+
+func NewHTTPTransportDefault(endpoint string, timeout time.Duration) *HTTPTransport {
+	return NewHTTPTransport(endpoint, timeout, 65536)
 }
 
 func (t *HTTPTransport) SetAuthToken(token string) {
@@ -54,6 +60,10 @@ func (t *HTTPTransport) SetAuthToken(token string) {
 
 func (t *HTTPTransport) SetAuthHeaders(headers map[string]string) {
 	t.authHeaders = headers
+}
+
+func (t *HTTPTransport) SetMaxResponseSize(n int64) {
+	t.maxResponseSize = n
 }
 
 func (t *HTTPTransport) SetTLS(certFile, keyFile string) error {
@@ -110,7 +120,7 @@ func (t *HTTPTransport) Send(ctx context.Context, method string, params any) (js
 		t.sessionID = sid
 	}
 
-	limited := io.LimitReader(resp.Body, 4096)
+	limited := io.LimitReader(resp.Body, t.maxResponseSize)
 	var buf bytes.Buffer
 	if _, err := io.Copy(&buf, limited); err != nil {
 		return nil, fmt.Errorf("read response: %w", err)
@@ -152,11 +162,11 @@ type autoTransport struct {
 
 var _ Transport = (*autoTransport)(nil)
 
-func NewAutoTransport(url string, timeout time.Duration) Transport {
+func NewAutoTransport(url string, timeout time.Duration, maxResp int64) Transport {
 	return &autoTransport{
 		url:     url,
 		timeout: timeout,
-		http:    NewHTTPTransport(url, timeout),
+		http:    NewHTTPTransport(url, timeout, maxResp),
 	}
 }
 
@@ -211,6 +221,12 @@ func (a *autoTransport) SetAuthToken(token string) {
 	if a.sse != nil {
 		a.sse.SetAuthToken(token)
 	}
+}
+
+func (a *autoTransport) SetMaxResponseSize(n int64) {
+	a.mu.Lock()
+	a.http.maxResponseSize = n
+	a.mu.Unlock()
 }
 
 func (a *autoTransport) SetAuthHeaders(headers map[string]string) {

@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -258,13 +259,13 @@ func TestExpandedTargetsList(t *testing.T) {
 	doFound := false
 	oracleFound := false
 	for _, tgt := range expandedTargets {
-		if contains(tgt, "metadata/instance") {
+		if strings.Contains(tgt, "metadata/instance") {
 			azureFound = true
 		}
-		if contains(tgt, "metadata/v1") {
+		if strings.Contains(tgt, "metadata/v1") {
 			doFound = true
 		}
-		if contains(tgt, "opc/v1") {
+		if strings.Contains(tgt, "opc/v1") {
 			oracleFound = true
 		}
 	}
@@ -345,16 +346,11 @@ func TestIsInternalHostForDNSRebinding(t *testing.T) {
 }
 
 func TestRunDirectProbesDepthGating(t *testing.T) {
-	// Basic depth: only GET probes using the old ErrUseLastResponse redirect
-	probeResults := runDirectProbes(nil, []string{"http://127.0.0.1/", "http://example.com/"}, DepthBasic)
+	probeResults, _ := runDirectProbes(nil, []string{"http://127.0.0.1/", "http://example.com/"}, DepthBasic, 4096)
 	if len(probeResults) > 0 {
-		// With nil servers, there should be no results
-		// But we verify the function doesn't panic and probeMethods are correct
 	}
 
-	// Extended depth: GET, POST, PUT + header variants
-	_ = runDirectProbes(nil, nil, DepthExtended)
+	_, _ = runDirectProbes(nil, nil, DepthExtended, 4096)
 
-	// Full depth: same as extended
-	_ = runDirectProbes(nil, nil, DepthFull)
+	_, _ = runDirectProbes(nil, nil, DepthFull, 4096)
 }

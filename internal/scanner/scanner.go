@@ -70,15 +70,16 @@ type Scanner struct {
 	NoTrustOnFirstUse bool
 	NoSecretScan      bool
 
-	ProbeDepth   ProbeDepth
-	CallbackPort int
-	TargetsFile  string
+	ProbeDepth      ProbeDepth
+	CallbackPort    int
+	TargetsFile     string
+	MaxResponseSize int
 
 	TestConfigs []config.Config
 }
 
 func NewScanner() *Scanner {
-	return &Scanner{ToolAnalysis: true}
+	return &Scanner{ToolAnalysis: true, MaxResponseSize: 65536}
 }
 
 func (s *Scanner) authConfig() AuthConfig {
