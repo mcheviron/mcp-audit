@@ -91,6 +91,7 @@ type flags struct {
 	snapshotDir       string
 	noSnapshot        bool
 	noTrustOnFirstUse bool
+	noSecretScan      bool
 }
 
 func parseFlags(args []string) flags {
@@ -112,6 +113,7 @@ func parseFlags(args []string) flags {
 	fs.StringVar(&f.snapshotDir, "snapshot-dir", "", "override snapshot directory (default ~/.config/mcp-audit/snapshots)")
 	fs.BoolVar(&f.noSnapshot, "no-snapshot", false, "disable snapshot persistence and drift detection")
 	fs.BoolVar(&f.noTrustOnFirstUse, "no-trust-on-first-use", false, "require pre-populated pinned hashes for first scan")
+	fs.BoolVar(&f.noSecretScan, "no-secret-scan", false, "disable credential and secret scanning of config files")
 	fs.SetOutput(os.Stderr)
 	_ = fs.Parse(args)
 	return f
@@ -127,6 +129,7 @@ func runStaticAction(action string, args []string) {
 			os.Exit(2)
 		}
 	}
+	s.NoSecretScan = f.noSecretScan
 
 	results, err := s.Static()
 	if err != nil {
@@ -225,6 +228,7 @@ Flags:
 	  --snapshot-dir <path>  Override snapshot directory (default ~/.config/mcp-audit/snapshots)
 	  --no-snapshot           Disable snapshot persistence and drift detection
 	  --no-trust-on-first-use Require pre-populated pinned hashes for first scan
+	  --no-secret-scan       Disable credential and secret scanning of config files
 
 Examples:
   mcp-audit static

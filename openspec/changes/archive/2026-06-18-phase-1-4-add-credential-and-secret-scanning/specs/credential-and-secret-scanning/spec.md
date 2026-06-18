@@ -6,7 +6,7 @@ Static analysis of MCP config files and server configuration for hardcoded crede
 ## ADDED Requirements
 
 ### Requirement: Raw config credential scanning
-The system SHALL scan raw config file bytes with 16 credential detection regex patterns before JSON parsing. Any match SHALL be reported at CRITICAL severity with the credential type and file location. Credential values SHALL be redacted in output.
+The system SHALL scan the raw bytes of each discovered config file with 16 credential detection regex patterns. Scanning SHALL run on the raw bytes regardless of whether JSON parsing succeeds, so credentials in malformed or unparseable configs are still detected. Any match SHALL be reported at CRITICAL severity with the credential type and file location. Credential values SHALL be redacted in output.
 
 #### Scenario: AWS key detected in config
 - **WHEN** a config file contains a string matching `AKIA[0-9A-Z]{16}`

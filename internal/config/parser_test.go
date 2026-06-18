@@ -181,6 +181,51 @@ func TestParseOpenCode(t *testing.T) {
 	}
 }
 
+func TestParseClaudeEnvHeaders(t *testing.T) {
+	data := []byte(`{
+	  "mcpServers": {
+	    "leaky": {
+	      "command": "npx",
+	      "args": ["-y", "pkg"],
+	      "env": {"API_KEY": "sk-abc", "PORT": 8080, "DEBUG": true},
+	      "headers": {"Authorization": "Bearer xyz"}
+	    }
+	  }
+	}`)
+	servers, err := parseMcpServers(data, "claude")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(servers) != 1 {
+		t.Fatalf("expected 1 server, got %d", len(servers))
+	}
+	srv := servers[0]
+	if srv.Env["API_KEY"] != "sk-abc" {
+		t.Errorf("API_KEY env: got %q", srv.Env["API_KEY"])
+	}
+	if srv.Env["PORT"] != "8080" {
+		t.Errorf("PORT env coerced: got %q", srv.Env["PORT"])
+	}
+	if srv.Env["DEBUG"] != "true" {
+		t.Errorf("DEBUG env coerced: got %q", srv.Env["DEBUG"])
+	}
+	if srv.Headers["Authorization"] != "Bearer xyz" {
+		t.Errorf("Authorization header: got %q", srv.Headers["Authorization"])
+	}
+}
+
+func TestParseClaudeLegacyNoEnvHeaders(t *testing.T) {
+	servers, err := parseMcpServers(mustRead(t, "claude_valid.json"), "claude")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	for _, srv := range servers {
+		if srv.Env != nil || srv.Headers != nil {
+			t.Errorf("server %q: expected nil env/headers for legacy config", srv.Name)
+		}
+	}
+}
+
 func TestExtractPackage(t *testing.T) {
 	tests := []struct {
 		command  string

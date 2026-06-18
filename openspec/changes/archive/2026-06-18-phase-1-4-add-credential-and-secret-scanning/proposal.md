@@ -25,10 +25,11 @@ MCP config files frequently contain secrets in plaintext: API keys in `env` bloc
 
 ## Impact
 
-- `internal/scanner/analysis.go` — new `scanForCredentials(data []byte, context string) []Result`
-- `internal/config/discover.go` — call credential scan on raw config bytes before parsing
-- `internal/config/parser.go` — extract `env` and `headers` blocks from server entries into `ServerEntry` fields
-- `internal/config/types.go` — `ServerEntry` gains `Env map[string]string`, `Headers map[string]string`
+- `internal/secrets/` — new package: 16 credential detection regex patterns and `ScanRaw`/`ScanEnv`/`ScanArgs`/`ScanHeaders` functions returning `Finding` values (single source of truth for patterns)
+- `internal/scanner/credentials.go` — new `checkCredentials` orchestrates raw + structured scanning, converts `secrets.Finding` to `scanner.Result` at CRITICAL severity
+- `internal/config/discover.go` — preserve raw config bytes on `Config.Raw`
+- `internal/config/parser.go` — extract `env` and `headers` blocks from server entries into `ServerEntry` fields, coercing mixed value types to strings
+- `internal/config/types.go` — `ServerEntry` gains `Env map[string]string`, `Headers map[string]string`; `Config` gains `Raw []byte`
 - `main.go` — `--no-secret-scan` flag
 
 ## Non-Goals

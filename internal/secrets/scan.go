@@ -1,0 +1,78 @@
+package secrets
+
+import (
+	"fmt"
+	"strings"
+)
+
+type Finding struct {
+	Type     string
+	Location string
+}
+
+func ScanRaw(data []byte, location string) []Finding {
+	var findings []Finding
+	seen := map[string]bool{}
+	for _, p := range Patterns {
+		if !p.Re.Match(data) {
+			continue
+		}
+		key := p.Type + "|" + location
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		findings = append(findings, Finding{Type: p.Type, Location: location})
+	}
+	return findings
+}
+
+func ScanEnv(env map[string]string, serverName string) []Finding {
+	return scanMap(env, "env var", serverName)
+}
+
+func ScanHeaders(headers map[string]string, serverName string) []Finding {
+	return scanMap(headers, "header", serverName)
+}
+
+func ScanArgs(args []string, serverName string) []Finding {
+	if len(args) == 0 {
+		return nil
+	}
+	location := fmt.Sprintf("args for server %s", serverName)
+	var findings []Finding
+	for _, f := range scanString(strings.Join(args, " ")) {
+		findings = append(findings, Finding{Type: f.Type, Location: location})
+	}
+	return findings
+}
+
+func scanMap(m map[string]string, label, serverName string) []Finding {
+	if len(m) == 0 {
+		return nil
+	}
+	var findings []Finding
+	for key, val := range m {
+		location := fmt.Sprintf("%s %s for server %s", label, key, serverName)
+		for _, f := range scanString(val) {
+			findings = append(findings, Finding{Type: f.Type, Location: location})
+		}
+	}
+	return findings
+}
+
+func scanString(s string) []Finding {
+	var findings []Finding
+	seen := map[string]bool{}
+	for _, p := range Patterns {
+		if !p.Re.MatchString(s) {
+			continue
+		}
+		if seen[p.Type] {
+			continue
+		}
+		seen[p.Type] = true
+		findings = append(findings, Finding{Type: p.Type})
+	}
+	return findings
+}

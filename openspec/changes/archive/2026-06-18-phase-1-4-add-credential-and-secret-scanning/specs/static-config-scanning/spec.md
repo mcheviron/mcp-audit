@@ -3,7 +3,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Config file parsing
-The system SHALL parse discovered MCP config files and extract server entries with their `command`, `args`, `url`, `env`, `headers`, and `package` fields. `env` and `headers` fields SHALL be preserved in `ServerEntry` for credential scanning and transport auth configuration. Fields not recognized by the parser SHALL be preserved in a `Raw` map for extensibility.
+The system SHALL parse discovered MCP config files and extract server entries with their `command`, `args`, `url`, `env`, `headers`, and `package` fields. `env` and `headers` fields SHALL be preserved in `ServerEntry` for credential scanning and transport auth configuration. `env` and `headers` values of non-string JSON types (number, bool) SHALL be coerced to strings so they can be scanned and passed to transports.
 
 #### Scenario: Env block extracted
 - **WHEN** a config file contains `"mcpServers": {"myserver": {"command": "npx", "args": ["-y", "pkg"], "env": {"NODE_ENV": "production"}}}`

@@ -57,6 +57,7 @@ func (s *Scanner) Static() (*StaticResults, error) {
 
 	var results []Result
 	for _, cfg := range configs {
+		results = append(results, s.checkCredentials(cfg)...)
 		if cfg.Error != nil {
 			results = append(results, Result{
 				Severity:   SevInfo,

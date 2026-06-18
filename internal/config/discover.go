@@ -76,6 +76,8 @@ func Discover() []Config {
 				continue
 			}
 
+			cfg.Raw = data
+
 			servers, err := tp.Parse(data)
 			if err != nil {
 				cfg.Error = err

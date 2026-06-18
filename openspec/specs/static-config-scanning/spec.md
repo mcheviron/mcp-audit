@@ -19,7 +19,7 @@ The system SHALL locate MCP server configurations in the user's local environmen
 - **THEN** the scanner skips the missing config without error and continues scanning remaining tools
 
 ### Requirement: Parse MCP server metadata from config files
-The system SHALL extract for each discovered MCP server: the server name, transport type (stdio or HTTP), endpoint URL or command, and package identifier if present.
+The system SHALL extract for each discovered MCP server: the server name, transport type (stdio or HTTP), endpoint URL or command, package identifier if present, and `env` and `headers` blocks. `env` and `headers` fields SHALL be preserved on the server entry for credential scanning and transport auth configuration. `env` and `headers` values of non-string JSON types (number, bool) SHALL be coerced to strings so they can be scanned and passed to transports.
 
 #### Scenario: Stdio transport
 - **WHEN** a config entry specifies `"command": "npx"` with `"args": ["-y", "@scope/mcp-server"]`
@@ -32,6 +32,18 @@ The system SHALL extract for each discovered MCP server: the server name, transp
 #### Scenario: Malformed config
 - **WHEN** a config entry is missing both `command` and `url` fields
 - **THEN** the parser logs a warning with the server name and skips that entry
+
+#### Scenario: Env block extracted
+- **WHEN** a config file contains `"mcpServers": {"myserver": {"command": "npx", "args": ["-y", "pkg"], "env": {"NODE_ENV": "production"}}}`
+- **THEN** the server entry's `Env` contains `{"NODE_ENV": "production"}`
+
+#### Scenario: Headers extracted
+- **WHEN** a config file contains `"mcpServers": {"myserver": {"url": "https://example.com", "headers": {"x-api-key": "test"}}}`
+- **THEN** the server entry's `Headers` contains `{"x-api-key": "test"}`
+
+#### Scenario: Legacy config without env/headers
+- **WHEN** a config file does not contain `env` or `headers` fields
+- **THEN** the server entry's `Env` and `Headers` are nil
 
 ### Requirement: Cross-platform config path resolution
 The system SHALL resolve config file paths appropriate to the host OS, including platform-specific default locations and XDG/user-home conventions.

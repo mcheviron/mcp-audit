@@ -3,17 +3,19 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
 func parseMcpServers(data []byte, tool string) ([]ServerEntry, error) {
 	var wrapper struct {
 		McpServers map[string]struct {
-			Command string            `json:"command"`
-			Args    []string          `json:"args"`
-			URL     string            `json:"url"`
-			Headers map[string]string `json:"headers"`
-			Token   string            `json:"token"`
+			Command string         `json:"command"`
+			Args    []string       `json:"args"`
+			URL     string         `json:"url"`
+			Headers map[string]any `json:"headers"`
+			Env     map[string]any `json:"env"`
+			Token   string         `json:"token"`
 			TLS     *struct {
 				Cert string `json:"cert"`
 				Key  string `json:"key"`
@@ -27,13 +29,16 @@ func parseMcpServers(data []byte, tool string) ([]ServerEntry, error) {
 
 	var servers []ServerEntry
 	for name, s := range wrapper.McpServers {
+		headers := coerceMap(s.Headers)
 		entry := ServerEntry{
 			Name:        name,
 			Tool:        tool,
 			URL:         s.URL,
 			Args:        s.Args,
 			Command:     s.Command,
-			AuthHeaders: s.Headers,
+			AuthHeaders: headers,
+			Headers:     headers,
+			Env:         coerceMap(s.Env),
 			AuthToken:   s.Token,
 		}
 		if s.TLS != nil {
@@ -63,10 +68,12 @@ func parseContinue(data []byte) ([]ServerEntry, error) {
 		Experimental struct {
 			Servers []struct {
 				Transport struct {
-					Type    string   `json:"type"`
-					Command string   `json:"command"`
-					Args    []string `json:"args"`
-					URL     string   `json:"url"`
+					Type    string         `json:"type"`
+					Command string         `json:"command"`
+					Args    []string       `json:"args"`
+					URL     string         `json:"url"`
+					Headers map[string]any `json:"headers"`
+					Env     map[string]any `json:"env"`
 				} `json:"transport"`
 			} `json:"modelContextProtocolServers"`
 		} `json:"experimental"`
@@ -78,12 +85,16 @@ func parseContinue(data []byte) ([]ServerEntry, error) {
 
 	var servers []ServerEntry
 	for i, s := range wrapper.Experimental.Servers {
+		headers := coerceMap(s.Transport.Headers)
 		entry := ServerEntry{
-			Name:    fmt.Sprintf("continue-server-%d", i),
-			Tool:    "continue",
-			Command: s.Transport.Command,
-			Args:    s.Transport.Args,
-			URL:     s.Transport.URL,
+			Name:        fmt.Sprintf("continue-server-%d", i),
+			Tool:        "continue",
+			Command:     s.Transport.Command,
+			Args:        s.Transport.Args,
+			URL:         s.Transport.URL,
+			Headers:     headers,
+			AuthHeaders: headers,
+			Env:         coerceMap(s.Transport.Env),
 		}
 
 		switch {
@@ -106,10 +117,12 @@ func parseContinue(data []byte) ([]ServerEntry, error) {
 func parseOpenCode(data []byte) ([]ServerEntry, error) {
 	var wrapper struct {
 		Mcp map[string]struct {
-			Type    string   `json:"type"`
-			Command []string `json:"command"`
-			URL     string   `json:"url"`
-			Enabled bool     `json:"enabled"`
+			Type    string         `json:"type"`
+			Command []string       `json:"command"`
+			URL     string         `json:"url"`
+			Enabled bool           `json:"enabled"`
+			Headers map[string]any `json:"headers"`
+			Env     map[string]any `json:"env"`
 		} `json:"mcp"`
 	}
 
@@ -119,10 +132,14 @@ func parseOpenCode(data []byte) ([]ServerEntry, error) {
 
 	var servers []ServerEntry
 	for name, s := range wrapper.Mcp {
+		headers := coerceMap(s.Headers)
 		entry := ServerEntry{
-			Name: name,
-			Tool: "opencode",
-			URL:  s.URL,
+			Name:        name,
+			Tool:        "opencode",
+			URL:         s.URL,
+			Headers:     headers,
+			AuthHeaders: headers,
+			Env:         coerceMap(s.Env),
 		}
 
 		if len(s.Command) > 0 {
@@ -153,6 +170,32 @@ var runners = map[string]bool{
 	"npx": true, "npm": true, "npm exec": true,
 	"uvx": true, "uv": true, "uv run": true,
 	"pipx": true, "pipx run": true,
+}
+
+func coerceMap(in map[string]any) map[string]string {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(in))
+	for k, v := range in {
+		out[k] = coerceValue(v)
+	}
+	return out
+}
+
+func coerceValue(v any) string {
+	switch t := v.(type) {
+	case string:
+		return t
+	case float64:
+		return strconv.FormatFloat(t, 'f', -1, 64)
+	case bool:
+		return strconv.FormatBool(t)
+	case nil:
+		return ""
+	default:
+		return fmt.Sprintf("%v", t)
+	}
 }
 
 func extractPackage(command string, args []string) string {

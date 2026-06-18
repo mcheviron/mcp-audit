@@ -26,6 +26,7 @@ type Scanner struct {
 	SnapshotDir       string
 	NoSnapshot        bool
 	NoTrustOnFirstUse bool
+	NoSecretScan      bool
 
 	TestConfigs []config.Config
 }

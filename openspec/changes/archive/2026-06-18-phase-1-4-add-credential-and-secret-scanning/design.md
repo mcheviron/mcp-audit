@@ -40,13 +40,17 @@ Expand from current 4 redact patterns to 16 detection patterns covering:
 
 ### Scan points: three phases
 
-1. **Raw config scan**: before JSON parsing, regex-scan raw bytes for any credential pattern. Catch credentials in unexpected JSON locations.
+1. **Raw config scan**: `config.Discover()` preserves the raw bytes of each config file on `Config.Raw`. `scanner.checkCredentials` regex-scans those raw bytes for any credential pattern, running before the parse-error check so credentials in malformed/unparseable configs are still caught. Catch credentials in unexpected JSON locations.
 2. **Structured env scan**: after parsing, iterate `env` map values through patterns.
 3. **Args scan**: join args array, scan for database URLs and connection strings.
 
+### Package layout
+
+Credential patterns and scan functions live in a new `internal/secrets` package (single source of truth for the 16 patterns). `config` stores raw bytes only and does not import `secrets`; `scanner` owns all credential scanning and result construction, calling `secrets.ScanRaw`/`ScanEnv`/`ScanArgs`/`ScanHeaders` and converting `secrets.Finding` into `scanner.Result`. This keeps `config` a pure data/discovery layer and avoids a `config`↔`scanner` import cycle.
+
 ### Redaction in output
 
-Reuse `redactDetail()` from analysis.go. All credential values replaced with `[REDACTED]` in findings. The finding text says "credential detected in <location>" but never prints the actual secret.
+Credential values are never placed in finding text. Each finding carries only the credential type and location (e.g. "AWS access key detected in <filepath>", "OpenAI API key in env var API_KEY for server <name>"). The raw secret does not appear in stdout, stderr, JSON, or SARIF output.
 
 ### Integration with trust config
 

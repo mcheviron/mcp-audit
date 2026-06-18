@@ -13,6 +13,8 @@ type ServerEntry struct {
 	AuthToken   string
 	TLSCertFile string
 	TLSKeyFile  string
+	Env         map[string]string
+	Headers     map[string]string
 }
 
 type TransportKind int
@@ -41,6 +43,7 @@ type Config struct {
 	Path    string
 	Servers []ServerEntry
 	Error   error
+	Raw     []byte
 }
 
 type ToolParser struct {
