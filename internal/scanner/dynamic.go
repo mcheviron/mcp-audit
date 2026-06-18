@@ -245,7 +245,7 @@ func applyAuth(tr mcp.Transport, srv config.ServerEntry, global AuthConfig) erro
 func runMCPProbes(
 	servers []config.ServerEntry, existingResults *[]Result, mu *sync.Mutex,
 	targets []string, transportFlag string, auth AuthConfig, toolAnalysis bool,
-	allTools map[string][]mcp.Tool,
+	allTools map[string][]mcp.Tool, driftCfg driftConfig,
 ) {
 	g, ctx := errgroup.WithContext(context.Background())
 	g.SetLimit(10)
@@ -254,7 +254,8 @@ func runMCPProbes(
 		g.Go(func() error {
 			probeCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 			defer cancel()
-			probeSingleServer(probeCtx, srv, existingResults, mu, targets, transportFlag, auth, toolAnalysis, allTools)
+			probeSingleServer(probeCtx, srv, existingResults, mu, targets,
+				transportFlag, auth, toolAnalysis, allTools, driftCfg)
 			return nil
 		})
 	}
@@ -290,6 +291,7 @@ func probeSingleServer(
 	auth AuthConfig,
 	toolAnalysis bool,
 	allTools map[string][]mcp.Tool,
+	driftCfg driftConfig,
 ) {
 	mcpClient, transport, err := handshakeServer(ctx, srv, transportFlag, auth)
 	if err != nil {
@@ -322,6 +324,10 @@ func probeSingleServer(
 		})
 		mu.Unlock()
 		return
+	}
+
+	if !driftCfg.noSnapshot {
+		performDriftCheck(srv, tools.Tools, driftCfg, existingResults, mu)
 	}
 
 	if allTools != nil {
@@ -438,7 +444,13 @@ func (s *Scanner) Probe(dryRun bool) []Result {
 
 	var mu sync.Mutex
 	allTools := make(map[string][]mcp.Tool)
-	runMCPProbes(mcpServers, &results, &mu, targets, s.Transport, auth, s.ToolAnalysis, allTools)
+	driftCfg := driftConfig{
+		snapshotDir:       s.SnapshotDir,
+		noSnapshot:        s.NoSnapshot,
+		noTrustOnFirstUse: s.NoTrustOnFirstUse,
+		trustConfig:       s.TrustConfig,
+	}
+	runMCPProbes(mcpServers, &results, &mu, targets, s.Transport, auth, s.ToolAnalysis, allTools, driftCfg)
 
 	if s.ToolAnalysis && len(allTools) > 1 {
 		shadowResults := detectToolShadowing(allTools)

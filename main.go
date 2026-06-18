@@ -76,18 +76,21 @@ func splitCSV(s string) []string {
 }
 
 type flags struct {
-	format         string
-	dryRun         bool
-	allowHosts     string
-	blockHosts     string
-	targets        string
-	trustConfig    string
-	transport      string
-	authToken      string
-	authHeaders    string
-	tlsCert        string
-	tlsKey         string
-	noToolAnalysis bool
+	format            string
+	dryRun            bool
+	allowHosts        string
+	blockHosts        string
+	targets           string
+	trustConfig       string
+	transport         string
+	authToken         string
+	authHeaders       string
+	tlsCert           string
+	tlsKey            string
+	noToolAnalysis    bool
+	snapshotDir       string
+	noSnapshot        bool
+	noTrustOnFirstUse bool
 }
 
 func parseFlags(args []string) flags {
@@ -106,6 +109,9 @@ func parseFlags(args []string) flags {
 	fs.StringVar(&f.tlsCert, "tls-cert", "", "TLS client certificate file for mTLS")
 	fs.StringVar(&f.tlsKey, "tls-key", "", "TLS client key file for mTLS")
 	fs.BoolVar(&f.noToolAnalysis, "no-tool-analysis", false, "disable tool description and schema security analysis")
+	fs.StringVar(&f.snapshotDir, "snapshot-dir", "", "override snapshot directory (default ~/.config/mcp-audit/snapshots)")
+	fs.BoolVar(&f.noSnapshot, "no-snapshot", false, "disable snapshot persistence and drift detection")
+	fs.BoolVar(&f.noTrustOnFirstUse, "no-trust-on-first-use", false, "require pre-populated pinned hashes for first scan")
 	fs.SetOutput(os.Stderr)
 	_ = fs.Parse(args)
 	return f
@@ -159,6 +165,9 @@ func runProbe(args []string) {
 	s.TLSCertFile = firstNonEmpty(f.tlsCert, os.Getenv("MCP_TLS_CERT"))
 	s.TLSKeyFile = firstNonEmpty(f.tlsKey, os.Getenv("MCP_TLS_KEY"))
 	s.ToolAnalysis = !f.noToolAnalysis
+	s.SnapshotDir = f.snapshotDir
+	s.NoSnapshot = f.noSnapshot
+	s.NoTrustOnFirstUse = f.noTrustOnFirstUse
 	if err := s.SetTrustConfig(f.trustConfig); err != nil {
 		if f.trustConfig != "" {
 			fmt.Fprintf(os.Stderr, "probe: trust config error: %v\n", err)
@@ -213,6 +222,9 @@ Flags:
   --tls-cert <path>      TLS client certificate file for mTLS
   --tls-key <path>       TLS client key file for mTLS
   --no-tool-analysis     Disable tool description and schema security analysis
+	  --snapshot-dir <path>  Override snapshot directory (default ~/.config/mcp-audit/snapshots)
+	  --no-snapshot           Disable snapshot persistence and drift detection
+	  --no-trust-on-first-use Require pre-populated pinned hashes for first scan
 
 Examples:
   mcp-audit static

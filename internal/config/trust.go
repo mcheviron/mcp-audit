@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type TrustScope struct {
@@ -14,8 +15,9 @@ type TrustScope struct {
 
 type TrustConfig struct {
 	TrustScope
-	Tools   map[string]TrustScope `json:"tools,omitempty"`
-	Servers map[string]TrustScope `json:"servers,omitempty"`
+	Tools       map[string]TrustScope `json:"tools,omitempty"`
+	Servers     map[string]TrustScope `json:"servers,omitempty"`
+	PinnedTools map[string]string     `json:"pinned_tools,omitempty"`
 }
 
 func LoadTrust(path string) (*TrustConfig, error) {
@@ -38,6 +40,23 @@ func DefaultTrustPath() string {
 		return ""
 	}
 	return filepath.Join(home, ".config", "mcp-audit", "trust.json")
+}
+
+func (tc *TrustConfig) PinnedForServer(serverName string) map[string]string {
+	if tc == nil {
+		return nil
+	}
+	result := make(map[string]string)
+	prefix := serverName + "/"
+	for k, v := range tc.PinnedTools {
+		if strings.HasPrefix(k, prefix) && len(k) > len(prefix) {
+			result[k[len(prefix):]] = v
+		}
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
 }
 
 func (tc *TrustConfig) ScopeFor(serverName, toolName string) TrustScope {

@@ -23,6 +23,10 @@ type Scanner struct {
 	TLSKeyFile   string
 	ToolAnalysis bool
 
+	SnapshotDir       string
+	NoSnapshot        bool
+	NoTrustOnFirstUse bool
+
 	TestConfigs []config.Config
 }
 

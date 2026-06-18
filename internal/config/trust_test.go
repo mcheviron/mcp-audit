@@ -133,6 +133,47 @@ func TestScopeForUnknown(t *testing.T) {
 	}
 }
 
+func TestPinnedForServer(t *testing.T) {
+	tc := &TrustConfig{
+		PinnedTools: map[string]string{
+			"filesystem/read_file":  "sha256:abc",
+			"filesystem/write_file": "sha256:def",
+			"other/tool":            "sha256:xyz",
+		},
+	}
+
+	pinned := tc.PinnedForServer("filesystem")
+	if len(pinned) != 2 {
+		t.Fatalf("expected 2 pinned tools, got %d", len(pinned))
+	}
+	if pinned["read_file"] != "sha256:abc" {
+		t.Errorf("expected sha256:abc, got %s", pinned["read_file"])
+	}
+	if pinned["write_file"] != "sha256:def" {
+		t.Errorf("expected sha256:def, got %s", pinned["write_file"])
+	}
+
+	pinned = tc.PinnedForServer("nonexistent")
+	if pinned != nil {
+		t.Fatalf("expected nil for nonexistent server, got %v", pinned)
+	}
+
+	var nilCfg *TrustConfig
+	pinned = nilCfg.PinnedForServer("filesystem")
+	if pinned != nil {
+		t.Fatal("expected nil from nil TrustConfig")
+	}
+}
+
+func TestPinnedForServerEmpty(t *testing.T) {
+	tc := &TrustConfig{}
+
+	pinned := tc.PinnedForServer("any")
+	if pinned != nil {
+		t.Fatalf("expected nil for empty PinnedTools, got %v", pinned)
+	}
+}
+
 func TestLoadScopedConfig(t *testing.T) {
 	cfg, err := LoadTrust("testdata/trust_scoped.json")
 	if err != nil {
