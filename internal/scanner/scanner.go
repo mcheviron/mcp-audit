@@ -1,6 +1,8 @@
 package scanner
 
 import (
+	"sync"
+
 	"github.com/mostafaelataby-cheviron/mcp-audit/internal/config"
 )
 
@@ -9,6 +11,46 @@ type AuthConfig struct {
 	Headers map[string]string
 	Cert    string
 	Key     string
+}
+
+type ProbeDepth int
+
+const (
+	DepthBasic ProbeDepth = iota
+	DepthExtended
+	DepthFull
+)
+
+func (d ProbeDepth) String() string {
+	switch d {
+	case DepthBasic:
+		return "basic"
+	case DepthExtended:
+		return "extended"
+	case DepthFull:
+		return "full"
+	default:
+		return "basic"
+	}
+}
+
+func ParseProbeDepth(s string) ProbeDepth {
+	switch s {
+	case "extended":
+		return DepthExtended
+	case "full":
+		return DepthFull
+	default:
+		return DepthBasic
+	}
+}
+
+type CallbackListener struct {
+	Port     int
+	Callback chan string
+	Results  []Result
+	mu       sync.Mutex
+	done     chan struct{}
 }
 
 type Scanner struct {
@@ -27,6 +69,10 @@ type Scanner struct {
 	NoSnapshot        bool
 	NoTrustOnFirstUse bool
 	NoSecretScan      bool
+
+	ProbeDepth   ProbeDepth
+	CallbackPort int
+	TargetsFile  string
 
 	TestConfigs []config.Config
 }

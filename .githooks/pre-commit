@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "=== pre-commit: just check ==="
+echo ""
+
+export GOCACHE="${GOCACHE:-$HOME/Library/Caches/go-build}"
+
+just check

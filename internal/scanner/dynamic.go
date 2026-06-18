@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"maps"
 	"net/http"
 	"strings"
 	"sync"
@@ -17,80 +16,26 @@ import (
 	"github.com/mostafaelataby-cheviron/mcp-audit/internal/mcp"
 )
 
-var probeTargets = []string{
-	"http://127.0.0.1/",
-	"http://127.0.0.1:80/",
-	"http://127.0.0.1:8080/",
-	"http://127.0.0.1:3000/",
-	"http://[::1]/",
-	"http://0.0.0.0/",
-	"http://169.254.169.254/latest/meta-data/",
-	"http://169.254.169.254/latest/meta-data/iam/security-credentials/",
-	"http://169.254.169.254/latest/user-data/",
-	"http://metadata.google.internal/computeMetadata/v1/",
-	"http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token",
-	"http://192.168.1.1/",
-	"http://10.0.0.1/",
-	"http://172.16.0.1/",
-}
-
-func filterTargets(targets, allowHosts, blockHosts []string) []string {
-	if len(allowHosts) == 0 && len(blockHosts) == 0 {
-		return targets
-	}
-
-	var filtered []string
-	for _, t := range targets {
-		if len(blockHosts) > 0 && hostMatchesAny(t, blockHosts) {
-			continue
-		}
-		if len(allowHosts) > 0 && !hostMatchesAny(t, allowHosts) {
-			continue
-		}
-		filtered = append(filtered, t)
-	}
-	return filtered
-}
-
-func hostMatchesAny(target string, hosts []string) bool {
-	for _, h := range hosts {
-		if strings.Contains(target, h) {
-			return true
-		}
-	}
-	return false
-}
-
-type probeClient struct {
-	httpClient *http.Client
-}
-
-func newProbeClient(timeout time.Duration) *probeClient {
-	return &probeClient{
-		httpClient: &http.Client{
-			Timeout: timeout,
-			CheckRedirect: func(req *http.Request, via []*http.Request) error {
-				return http.ErrUseLastResponse
-			},
-		},
-	}
-}
-
 type probeResult struct {
-	target   string
-	status   int
-	body     string
-	err      error
-	redirect string
+	target      string
+	status      int
+	body        string
+	err         error
+	redirect    string
+	redirectHop int
 }
 
-func probeTargetDirect(ctx context.Context, client *probeClient, target string) probeResult {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
+func probeTargetDirect(ctx context.Context, method, target string, depth ProbeDepth, headers ...string) probeResult {
+	req, err := http.NewRequestWithContext(ctx, method, target, nil)
 	if err != nil {
 		return probeResult{target: target, err: err}
 	}
+	if len(headers) >= 2 && headers[0] != "" {
+		req.Header.Set(headers[0], headers[1])
+	}
 
-	resp, err := client.httpClient.Do(req)
+	client := newProbeClient(5*time.Second, depth)
+	resp, err := client.Do(req)
 	if err != nil {
 		return probeResult{target: target, err: err}
 	}
@@ -112,7 +57,37 @@ func probeTargetDirect(ctx context.Context, client *probeClient, target string) 
 		}
 	}
 
+	if depth >= DepthExtended {
+		hop, finalURL := countRedirectHops(resp)
+		if hop > 0 {
+			result.redirectHop = hop
+			if finalURL != "" && isInternalHost(finalURL) {
+				result.redirect = finalURL
+			}
+		}
+	}
+
 	return result
+}
+
+func newProbeClient(timeout time.Duration, depth ProbeDepth) *http.Client {
+	client := &http.Client{Timeout: timeout}
+	if depth >= DepthExtended {
+		client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 5 {
+				return errors.New("too many redirects")
+			}
+			if isInternalHost(req.URL.String()) {
+				return errors.New("redirect to internal host blocked")
+			}
+			return nil
+		}
+	} else {
+		client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		}
+	}
+	return client
 }
 
 func (s *Scanner) collectServers() []config.ServerEntry {
@@ -124,10 +99,9 @@ func (s *Scanner) collectServers() []config.ServerEntry {
 	return servers
 }
 
-func runDirectProbes(httpServers []config.ServerEntry, targets []string) []Result {
+func runDirectProbes(httpServers []config.ServerEntry, targets []string, depth ProbeDepth) []Result {
 	var results []Result
 	var mu sync.Mutex
-	client := newProbeClient(5 * time.Second)
 
 	g, ctx := errgroup.WithContext(context.Background())
 	g.SetLimit(10)
@@ -136,12 +110,34 @@ func runDirectProbes(httpServers []config.ServerEntry, targets []string) []Resul
 		for _, target := range targets {
 			srv, target := srv, target
 			g.Go(func() error {
-				result := probeTargetDirect(ctx, client, target)
-				r := analyzeProbeResult(result, srv)
-				r.ConfigPath = srv.ConfigPath
-				mu.Lock()
-				results = append(results, r)
-				mu.Unlock()
+				for _, method := range probeMethods {
+					if method != http.MethodGet && depth < DepthExtended {
+						continue
+					}
+					if depth >= DepthExtended {
+						for hk, hv := range probeHeaders {
+							result := probeTargetDirect(ctx, method, target, depth, hk, hv)
+							r := analyzeProbeResult(result, srv)
+							r.ConfigPath = srv.ConfigPath
+							r.Finding = fmt.Sprintf("[%s|%s:%s] %s", method, hk, hv, r.Finding)
+							mu.Lock()
+							results = append(results, r)
+							mu.Unlock()
+						}
+					}
+					result := probeTargetDirect(ctx, method, target, depth)
+					r := analyzeProbeResult(result, srv)
+					r.ConfigPath = srv.ConfigPath
+					if method != http.MethodGet {
+						r.Finding = fmt.Sprintf("[%s] %s", method, r.Finding)
+					}
+					if result.redirectHop > 0 {
+						r.Finding = fmt.Sprintf("redirect hop %d to %s: %s", result.redirectHop, result.redirect, r.Finding)
+					}
+					mu.Lock()
+					results = append(results, r)
+					mu.Unlock()
+				}
 				return nil
 			})
 		}
@@ -151,102 +147,14 @@ func runDirectProbes(httpServers []config.ServerEntry, targets []string) []Resul
 	return results
 }
 
-func newTransport(srv config.ServerEntry, forceFlag string, auth AuthConfig) (mcp.Transport, error) {
-	kind := srv.Kind()
-	if forceFlag != "" {
-		switch forceFlag {
-		case "stdio":
-			kind = config.TransportStdio
-		case "http":
-			kind = config.TransportHTTP
-		case "sse":
-			kind = config.TransportSSE
-		default:
-			return nil, fmt.Errorf("unknown transport flag: %s", forceFlag)
-		}
-	}
-
-	switch kind {
-	case config.TransportStdio:
-		if forceFlag == "" {
-			return nil, fmt.Errorf(
-				"stdio transport requires explicit --transport stdio flag to execute commands from config")
-		}
-		if srv.Command == "" {
-			return nil, fmt.Errorf("no command for stdio transport")
-		}
-		tr := mcp.NewStdioTransport(srv.Command, srv.Args, mcp.DefaultTimeout)
-		if err := applyAuth(tr, srv, auth); err != nil {
-			return nil, err
-		}
-		return tr, nil
-	case config.TransportHTTP:
-		if srv.URL == "" {
-			return nil, fmt.Errorf("no URL for HTTP transport")
-		}
-		if forceFlag != "" {
-			tr := mcp.NewHTTPTransport(srv.URL, mcp.DefaultTimeout)
-			if err := applyAuth(tr, srv, auth); err != nil {
-				return nil, err
-			}
-			return tr, nil
-		}
-		tr := mcp.NewAutoTransport(srv.URL, mcp.DefaultTimeout)
-		if err := applyAuth(tr, srv, auth); err != nil {
-			return nil, err
-		}
-		return tr, nil
-	case config.TransportSSE:
-		if srv.URL == "" {
-			return nil, fmt.Errorf("no URL for SSE transport")
-		}
-		tr := mcp.NewSSETransport(srv.URL, mcp.DefaultTimeout)
-		if err := applyAuth(tr, srv, auth); err != nil {
-			return nil, err
-		}
-		return tr, nil
-	default:
-		return nil, fmt.Errorf("unknown transport: %v", kind)
-	}
-}
-
-func applyAuth(tr mcp.Transport, srv config.ServerEntry, global AuthConfig) error {
-	token := srv.AuthToken
-	if token == "" {
-		token = global.Token
-	}
-	if token != "" {
-		tr.SetAuthToken(token)
-	}
-
-	if len(global.Headers) > 0 || len(srv.AuthHeaders) > 0 {
-		headers := make(map[string]string)
-		maps.Copy(headers, global.Headers)
-		maps.Copy(headers, srv.AuthHeaders)
-		tr.SetAuthHeaders(headers)
-	}
-
-	certFile := srv.TLSCertFile
-	if certFile == "" {
-		certFile = global.Cert
-	}
-	keyFile := srv.TLSKeyFile
-	if keyFile == "" {
-		keyFile = global.Key
-	}
-	if certFile != "" && keyFile != "" {
-		if err := tr.SetTLS(certFile, keyFile); err != nil {
-			return fmt.Errorf("TLS setup failed: %w", err)
-		}
-	}
-	return nil
-}
-
 func runMCPProbes(
-	servers []config.ServerEntry, existingResults *[]Result, mu *sync.Mutex,
-	targets []string, transportFlag string, auth AuthConfig, toolAnalysis bool,
-	allTools map[string][]mcp.Tool, driftCfg driftConfig,
-) {
+	servers []config.ServerEntry, targets []string, transportFlag string, auth AuthConfig,
+	toolAnalysis bool, allTools map[string][]mcp.Tool, driftCfg driftConfig,
+	depth ProbeDepth, cl *CallbackListener,
+) []Result {
+	var results []Result
+	var mu sync.Mutex
+
 	g, ctx := errgroup.WithContext(context.Background())
 	g.SetLimit(10)
 
@@ -254,31 +162,14 @@ func runMCPProbes(
 		g.Go(func() error {
 			probeCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 			defer cancel()
-			probeSingleServer(probeCtx, srv, existingResults, mu, targets,
-				transportFlag, auth, toolAnalysis, allTools, driftCfg)
+			probeSingleServer(probeCtx, srv, &results, &mu, targets,
+				transportFlag, auth, toolAnalysis, allTools, driftCfg, depth, cl)
 			return nil
 		})
 	}
 
 	_ = g.Wait()
-}
-
-func handshakeServer(
-	ctx context.Context, srv config.ServerEntry, transportFlag string, auth AuthConfig,
-) (mcp.Client, mcp.Transport, error) {
-	transport, err := newTransport(srv, transportFlag, auth)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	mcpClient := mcp.NewClient(transport)
-	_, err = mcpClient.Initialize(ctx)
-	if err != nil {
-		_ = transport.Close()
-		return nil, nil, err
-	}
-
-	return mcpClient, transport, nil
+	return results
 }
 
 func probeSingleServer(
@@ -292,6 +183,8 @@ func probeSingleServer(
 	toolAnalysis bool,
 	allTools map[string][]mcp.Tool,
 	driftCfg driftConfig,
+	depth ProbeDepth,
+	cl *CallbackListener,
 ) {
 	mcpClient, transport, err := handshakeServer(ctx, srv, transportFlag, auth)
 	if err != nil {
@@ -340,7 +233,8 @@ func probeSingleServer(
 	}
 
 	for _, tool := range tools.Tools {
-		toolResults := probeMCPTool(ctx, mcpClient, srv, tool, targets[:min(len(targets), 3)])
+		limit := min(len(targets), 3)
+		toolResults := probeMCPTool(ctx, mcpClient, srv, tool, targets[:limit], depth, cl)
 		for i := range toolResults {
 			toolResults[i].ConfigPath = srv.ConfigPath
 		}
@@ -387,19 +281,8 @@ func runToolAnalysis(tools *mcp.ListToolsResult, srv config.ServerEntry, results
 	mu.Unlock()
 }
 
-func noAuthConfigured(srv config.ServerEntry, global AuthConfig) bool {
-	return srv.AuthToken == "" && len(srv.AuthHeaders) == 0 &&
-		global.Token == "" && len(global.Headers) == 0 &&
-		srv.TLSCertFile == "" && srv.TLSKeyFile == "" &&
-		global.Cert == "" && global.Key == ""
-}
-
-func (s *Scanner) Probe(dryRun bool) []Result {
-	allServers := s.collectServers()
-
-	var httpServers []config.ServerEntry
-	var mcpServers []config.ServerEntry
-	for _, srv := range allServers {
+func (s *Scanner) partitionServers() (httpServers, mcpServers []config.ServerEntry) {
+	for _, srv := range s.collectServers() {
 		if s.TrustConfig != nil {
 			scope := s.TrustConfig.ScopeFor(srv.Name, srv.Tool)
 			if len(scope.Blocked) > 0 {
@@ -411,38 +294,57 @@ func (s *Scanner) Probe(dryRun bool) []Result {
 		}
 		mcpServers = append(mcpServers, srv)
 	}
+	return httpServers, mcpServers
+}
 
-	baseTargets := probeTargets
+func (s *Scanner) resolveTargets(depth ProbeDepth) []string {
 	if len(s.Probes) > 0 {
-		baseTargets = s.Probes
+		return filterTargets(s.Probes, s.AllowHosts, s.BlockHosts)
 	}
-	targets := filterTargets(baseTargets, s.AllowHosts, s.BlockHosts)
+	probeURLs := getProbeTargets(depth)
+	if s.TargetsFile != "" {
+		if loaded := loadTargetsFile(s.TargetsFile); len(loaded) > 0 {
+			probeURLs = loaded
+		}
+	}
+	return filterTargets(probeURLs, s.AllowHosts, s.BlockHosts)
+}
+
+func dryRunResults(mcpServers []config.ServerEntry, targets []string, depth ProbeDepth) []Result {
+	var results []Result
+	for _, srv := range mcpServers {
+		desc := srv.URL
+		if srv.Command != "" {
+			desc = srv.Command
+		}
+		results = append(results, Result{
+			Severity:   SevInfo,
+			Server:     srv.Name,
+			Type:       "dynamic",
+			ConfigPath: srv.ConfigPath,
+			Finding: fmt.Sprintf(
+				"would probe %d targets on %s (transport: %s, depth: %s)", len(targets), desc, srv.Transport, depth,
+			),
+		})
+	}
+	return results
+}
+
+func (s *Scanner) Probe(dryRun bool) []Result {
+	httpServers, mcpServers := s.partitionServers()
+	depth := s.ProbeDepth
+	targets := s.resolveTargets(depth)
 
 	if dryRun {
-		var results []Result
-		for _, srv := range mcpServers {
-			desc := srv.URL
-			if srv.Command != "" {
-				desc = srv.Command
-			}
-			results = append(results, Result{
-				Severity:   SevInfo,
-				Server:     srv.Name,
-				Type:       "dynamic",
-				ConfigPath: srv.ConfigPath,
-				Finding: fmt.Sprintf(
-					"would probe %d targets on %s (transport: %s)", len(targets), desc, srv.Transport,
-				),
-			})
-		}
-		return results
+		return dryRunResults(mcpServers, targets, depth)
 	}
 
-	results := runDirectProbes(httpServers, targets)
+	var cl *CallbackListener
+	if depth >= DepthFull {
+		cl = startCallbackListener(s.CallbackPort)
+	}
 
 	auth := s.authConfig()
-
-	var mu sync.Mutex
 	allTools := make(map[string][]mcp.Tool)
 	driftCfg := driftConfig{
 		snapshotDir:       s.SnapshotDir,
@@ -450,7 +352,31 @@ func (s *Scanner) Probe(dryRun bool) []Result {
 		noTrustOnFirstUse: s.NoTrustOnFirstUse,
 		trustConfig:       s.TrustConfig,
 	}
-	runMCPProbes(mcpServers, &results, &mu, targets, s.Transport, auth, s.ToolAnalysis, allTools, driftCfg)
+
+	var directResults, mcpResults []Result
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		directResults = runDirectProbes(httpServers, targets, depth)
+	}()
+	go func() {
+		defer wg.Done()
+		mcpResults = runMCPProbes(mcpServers, targets, s.Transport, auth, s.ToolAnalysis, allTools, driftCfg, depth, cl)
+	}()
+	wg.Wait()
+
+	var results []Result
+	results = append(results, directResults...)
+	results = append(results, mcpResults...)
+
+	if cl != nil {
+		cl.drainCallbacks(30 * time.Second)
+		for _, srv := range mcpServers {
+			results = append(results, cl.collectCallbackResults(srv.Name, srv.ConfigPath)...)
+		}
+		cl.stopCallbackListener()
+	}
 
 	if s.ToolAnalysis && len(allTools) > 1 {
 		shadowResults := detectToolShadowing(allTools)

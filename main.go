@@ -92,6 +92,9 @@ type flags struct {
 	noSnapshot        bool
 	noTrustOnFirstUse bool
 	noSecretScan      bool
+	probeDepth        string
+	callbackPort      int
+	targetsFile       string
 }
 
 func parseFlags(args []string) flags {
@@ -114,6 +117,9 @@ func parseFlags(args []string) flags {
 	fs.BoolVar(&f.noSnapshot, "no-snapshot", false, "disable snapshot persistence and drift detection")
 	fs.BoolVar(&f.noTrustOnFirstUse, "no-trust-on-first-use", false, "require pre-populated pinned hashes for first scan")
 	fs.BoolVar(&f.noSecretScan, "no-secret-scan", false, "disable credential and secret scanning of config files")
+	fs.StringVar(&f.probeDepth, "probe-depth", "basic", "probe depth: basic, extended, full")
+	fs.IntVar(&f.callbackPort, "callback-port", 0, "callback listener port (0=random)")
+	fs.StringVar(&f.targetsFile, "targets-file", "", "file with probe target URLs (one per line)")
 	fs.SetOutput(os.Stderr)
 	_ = fs.Parse(args)
 	return f
@@ -171,6 +177,9 @@ func runProbe(args []string) {
 	s.SnapshotDir = f.snapshotDir
 	s.NoSnapshot = f.noSnapshot
 	s.NoTrustOnFirstUse = f.noTrustOnFirstUse
+	s.ProbeDepth = scanner.ParseProbeDepth(f.probeDepth)
+	s.CallbackPort = f.callbackPort
+	s.TargetsFile = f.targetsFile
 	if err := s.SetTrustConfig(f.trustConfig); err != nil {
 		if f.trustConfig != "" {
 			fmt.Fprintf(os.Stderr, "probe: trust config error: %v\n", err)
@@ -218,6 +227,9 @@ Flags:
   --targets <urls>       Comma-separated probe target URLs (overrides built-in list)
   --allow-hosts <ips>    Comma-separated hosts/IPs to allow for probing
   --block-hosts <ips>    Comma-separated hosts/IPs to block from probing
+  --probe-depth <level>  Probe depth: basic, extended, full (default: basic)
+  --callback-port <n>    Callback listener port for blind SSRF (0=random)
+  --targets-file <path>  File with probe target URLs (one per line)
   --trust-config <path>  Path to trust config JSON (default ~/.config/mcp-audit/trust.json)
   --transport <type>     Force transport type: stdio, sse, http
   --auth-token <token>   Bearer token for MCP server authentication
@@ -238,5 +250,8 @@ Examples:
   mcp-audit probe --targets http://127.0.0.1:8080/,http://10.0.0.1/
   mcp-audit probe --block-hosts 169.254.169.254
   MCP_AUTH_TOKEN=my-token mcp-audit probe
+  mcp-audit probe --probe-depth full
+  mcp-audit probe --callback-port 9999
+  mcp-audit probe --targets-file ./targets.txt
   mcp-audit probe --transport stdio`)
 }

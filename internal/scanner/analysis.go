@@ -219,14 +219,20 @@ func evalToolTextBlock(text, toolName, target string, worst *Result) {
 	}
 }
 
-func buildProbeArgs(tool mcp.Tool, target string) map[string]any {
+func buildProbeArgs(tool mcp.Tool, target string, callbackURL string) map[string]any {
 	schema := tool.InputSchema
 	props, _ := schema["properties"].(map[string]any)
 
 	args := map[string]any{}
 
-	if urlKeys := findURLKeys(props); len(urlKeys) > 0 {
-		args[urlKeys[0]] = target
+	urlKeys := findURLKeys(props)
+	if len(urlKeys) > 0 {
+		key := urlKeys[0]
+		if callbackURL != "" {
+			args[key] = callbackURL
+		} else {
+			args[key] = target
+		}
 		return args
 	}
 
@@ -253,6 +259,10 @@ func buildProbeArgs(tool mcp.Tool, target string) map[string]any {
 
 	if len(args) == 0 {
 		args["url"] = target
+	}
+
+	if callbackURL != "" {
+		args["callback_url"] = callbackURL
 	}
 
 	return args
@@ -291,11 +301,17 @@ func probeMCPTool(
 	srv config.ServerEntry,
 	tool mcp.Tool,
 	targets []string,
+	depth ProbeDepth,
+	cl *CallbackListener,
 ) []Result {
 	var results []Result
 
 	for _, target := range targets {
-		args := buildProbeArgs(tool, target)
+		callbackURL := ""
+		if depth >= DepthFull && cl != nil {
+			callbackURL = fmt.Sprintf("http://127.0.0.1:%d/callback", cl.Port)
+		}
+		args := buildProbeArgs(tool, target, callbackURL)
 		callResult, err := mcpClient.CallTool(ctx, tool.Name, args)
 		if err != nil {
 			results = append(results, Result{
@@ -308,9 +324,35 @@ func probeMCPTool(
 		}
 
 		results = append(results, analyzeCallToolResponse(callResult, srv, tool.Name, target))
+
+		if depth >= DepthExtended {
+			for hk, hv := range probeHeaders {
+				hdrArgs := buildProbeArgs(tool, target, "")
+				injectHeaderArg(hdrArgs, hk, hv)
+				hdrResult, hdrErr := mcpClient.CallTool(ctx, tool.Name, hdrArgs)
+				if hdrErr != nil {
+					continue
+				}
+				r := analyzeCallToolResponse(hdrResult, srv, tool.Name, target)
+				r.Finding = fmt.Sprintf("[header:%s=%s] %s", hk, hv, r.Finding)
+				results = append(results, r)
+			}
+		}
 	}
 
 	return results
+}
+
+func injectHeaderArg(args map[string]any, key, value string) {
+	headerKey := "headers"
+	if _, ok := args[headerKey]; !ok {
+		headerKey = "header"
+	}
+	if _, ok := args[headerKey]; ok {
+		args[headerKey] = map[string]string{key: value}
+	} else {
+		args["extra_headers"] = map[string]string{key: value}
+	}
 }
 
 var promptInjectionPatterns = []*regexp.Regexp{
@@ -411,50 +453,4 @@ func classifyToolCapabilities(schema map[string]any) []string {
 	}
 
 	return caps
-}
-
-func detectToolShadowing(allTools map[string][]mcp.Tool) []Result {
-	type toolRef struct {
-		server      string
-		description string
-	}
-	seen := make(map[string][]toolRef)
-
-	for srv, tools := range allTools {
-		for _, t := range tools {
-			seen[t.Name] = append(seen[t.Name], toolRef{srv, t.Description})
-		}
-	}
-
-	var results []Result
-	for name, refs := range seen {
-		if len(refs) < 2 {
-			continue
-		}
-		for i := range refs {
-			for j := i + 1; j < len(refs); j++ {
-				if refs[i].description != refs[j].description {
-					results = append(results, Result{
-						Severity: SevMedium,
-						Server:   refs[i].server,
-						Type:     "static",
-						Finding: fmt.Sprintf(
-							"tool %q shadowing: %q and %q have conflicting descriptions",
-							name, refs[i].server, refs[j].server),
-					})
-				} else {
-					results = append(results, Result{
-						Severity: SevInfo,
-						Server:   refs[i].server,
-						Type:     "static",
-						Finding: fmt.Sprintf(
-							"tool %q exposed by %q and %q with identical descriptions — potential impersonation",
-							name, refs[i].server, refs[j].server),
-					})
-				}
-			}
-		}
-	}
-
-	return results
 }
