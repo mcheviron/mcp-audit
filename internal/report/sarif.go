@@ -74,10 +74,10 @@ func writeSARIF(w io.Writer, results []scanner.Result) error {
 			uri = r.ConfigPath
 		}
 		sarifResults = append(sarifResults, result{
-			RuleID: fmt.Sprintf("mcp-audit/%s-%s", r.Type, stringsToLower(r.Severity.String())),
+			RuleID: fmt.Sprintf("mcp-audit/%s-%s", r.Type, strings.ToLower(r.Severity.String())),
 			Level:  severityToSARIF(r.Severity),
 			Message: message{
-				Text: fmt.Sprintf("[%s] %s: %s", r.Severity, r.Server, r.Finding),
+				Text: sarifMessageText(r),
 			},
 			Locations: []loc{{
 				PhysicalLocation: physLoc{
@@ -108,6 +108,10 @@ func writeSARIF(w io.Writer, results []scanner.Result) error {
 	return enc.Encode(log)
 }
 
-func stringsToLower(s string) string {
-	return strings.ToLower(s)
+func sarifMessageText(r scanner.Result) string {
+	t := fmt.Sprintf("[%s] %s: %s", r.Severity, r.Server, r.Finding)
+	if r.Remediation != "" {
+		t += " | Remediation: " + r.Remediation
+	}
+	return t
 }

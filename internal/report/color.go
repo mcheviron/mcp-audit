@@ -6,10 +6,12 @@ import (
 	"golang.org/x/term"
 )
 
-var isTTY = term.IsTerminal(int(os.Stdout.Fd()))
+func useColor() bool {
+	return term.IsTerminal(int(os.Stdout.Fd())) && os.Getenv("NO_COLOR") == ""
+}
 
 func colorize(level string) string {
-	if !isTTY {
+	if !useColor() {
 		return level
 	}
 	switch level {

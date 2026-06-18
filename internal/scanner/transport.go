@@ -3,6 +3,7 @@ package scanner
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"maps"
 
 	"github.com/mostafaelataby-cheviron/mcp-audit/internal/config"
@@ -111,7 +112,9 @@ func handshakeServer(
 	mcpClient := mcp.NewClient(transport)
 	_, err = mcpClient.Initialize(ctx)
 	if err != nil {
-		_ = transport.Close()
+		if cerr := transport.Close(); cerr != nil {
+			slog.Debug("close transport after init failure", "err", cerr)
+		}
 		return nil, nil, err
 	}
 

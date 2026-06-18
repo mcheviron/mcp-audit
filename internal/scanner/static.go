@@ -9,12 +9,13 @@ import (
 )
 
 type Result struct {
-	Severity   Severity
-	Server     string
-	Type       string
-	Finding    string
-	Detail     string
-	ConfigPath string
+	Severity    Severity
+	Server      string
+	Type        string
+	Finding     string
+	Detail      string
+	ConfigPath  string
+	Remediation string
 }
 
 type Severity int
@@ -44,6 +45,25 @@ func (s Severity) String() string {
 		return "CRITICAL"
 	default:
 		return "UNKNOWN"
+	}
+}
+
+func ParseSeverity(s string) Severity {
+	switch s {
+	case "PASS":
+		return SevPass
+	case "INFO":
+		return SevInfo
+	case "LOW":
+		return SevLow
+	case "MEDIUM":
+		return SevMedium
+	case "HIGH":
+		return SevHigh
+	case "CRITICAL":
+		return SevCritical
+	default:
+		return SevPass
 	}
 }
 

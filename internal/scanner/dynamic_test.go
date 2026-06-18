@@ -346,11 +346,11 @@ func TestIsInternalHostForDNSRebinding(t *testing.T) {
 }
 
 func TestRunDirectProbesDepthGating(t *testing.T) {
-	probeResults, _ := runDirectProbes(nil, []string{"http://127.0.0.1/", "http://example.com/"}, DepthBasic, 4096)
+	probeResults, _ := runDirectProbes(nil, []string{"http://127.0.0.1/", "http://example.com/"}, DepthBasic, 4096, 10)
 	if len(probeResults) > 0 {
 	}
 
-	_, _ = runDirectProbes(nil, nil, DepthExtended, 4096)
+	_, _ = runDirectProbes(nil, nil, DepthExtended, 4096, 10)
 
-	_, _ = runDirectProbes(nil, nil, DepthFull, 4096)
+	_, _ = runDirectProbes(nil, nil, DepthFull, 4096, 10)
 }

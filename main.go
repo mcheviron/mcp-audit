@@ -3,9 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
+	"log/slog"
 	"os"
 	"strings"
+	"time"
 
+	"github.com/mostafaelataby-cheviron/mcp-audit/internal/configfile"
 	"github.com/mostafaelataby-cheviron/mcp-audit/internal/report"
 	"github.com/mostafaelataby-cheviron/mcp-audit/internal/scanner"
 )
@@ -76,7 +80,7 @@ func splitCSV(s string) []string {
 }
 
 type flags struct {
-	format            string
+	format            report.Format
 	dryRun            bool
 	allowHosts        string
 	blockHosts        string
@@ -92,16 +96,34 @@ type flags struct {
 	noSnapshot        bool
 	noTrustOnFirstUse bool
 	noSecretScan      bool
-	probeDepth        string
+	probeDepth        scanner.ProbeDepth
 	callbackPort      int
 	targetsFile       string
 	maxResponse       int
+	verbose           bool
+	quiet             bool
+	debug             bool
+	severityMin       scanner.Severity
+	outputFile        string
+	timeout           int
+	concurrency       int
+	noColor           bool
 }
 
-func parseFlags(args []string) flags {
+var validSeverities = map[string]bool{
+	"PASS": true, "INFO": true, "LOW": true, "MEDIUM": true, "HIGH": true, "CRITICAL": true,
+}
+
+var validFormats = map[string]bool{"table": true, "json": true, "sarif": true}
+
+var validProbeDepths = map[string]bool{"basic": true, "extended": true, "full": true}
+
+func parseFlags(args []string) (flags, error) {
 	var f flags
+	var severityMinRaw, probeDepthRaw, formatRaw string
+
 	fs := flag.NewFlagSet("mcp-audit", flag.ContinueOnError)
-	fs.StringVar(&f.format, "format", "table", "output format: table, json, sarif")
+	fs.StringVar(&formatRaw, "format", "table", "output format: table, json, sarif")
 	fs.BoolVar(&f.dryRun, "dry-run", false, "print what would be probed without making requests")
 	fs.StringVar(&f.allowHosts, "allow-hosts", "", "comma-separated hosts/IPs to allow for probing")
 	fs.StringVar(&f.blockHosts, "block-hosts", "", "comma-separated hosts/IPs to block from probing")
@@ -118,43 +140,171 @@ func parseFlags(args []string) flags {
 	fs.BoolVar(&f.noSnapshot, "no-snapshot", false, "disable snapshot persistence and drift detection")
 	fs.BoolVar(&f.noTrustOnFirstUse, "no-trust-on-first-use", false, "require pre-populated pinned hashes for first scan")
 	fs.BoolVar(&f.noSecretScan, "no-secret-scan", false, "disable credential and secret scanning of config files")
-	fs.StringVar(&f.probeDepth, "probe-depth", "basic", "probe depth: basic, extended, full")
+	fs.StringVar(&probeDepthRaw, "probe-depth", "basic", "probe depth: basic, extended, full")
 	fs.IntVar(&f.callbackPort, "callback-port", 0, "callback listener port (0=random)")
 	fs.StringVar(&f.targetsFile, "targets-file", "", "file with probe target URLs (one per line)")
 	fs.IntVar(&f.maxResponse, "max-response", 65536, "max response body size in bytes (max 1048576)")
+	fs.BoolVar(&f.verbose, "verbose", false, "enable debug logging (DEBUG level)")
+	fs.BoolVar(&f.quiet, "quiet", false, "suppress info logs (WARN level and above)")
+	fs.BoolVar(&f.debug, "debug", false, "include source file location in log lines")
+	fs.StringVar(&severityMinRaw, "severity-min", "",
+		"minimum severity to display (PASS, INFO, LOW, MEDIUM, HIGH, CRITICAL)")
+	fs.StringVar(&f.outputFile, "output-file", "", "write report to file instead of stdout")
+	fs.IntVar(&f.timeout, "timeout", 30, "timeout in seconds for MCP handshake")
+	fs.IntVar(&f.concurrency, "concurrency", 10, "maximum concurrent probes")
+	fs.BoolVar(&f.noColor, "no-color", false, "disable terminal color codes")
 	fs.SetOutput(os.Stderr)
-	_ = fs.Parse(args)
-	return f
+	if err := fs.Parse(args); err != nil {
+		return f, err
+	}
+
+	if !validFormats[formatRaw] {
+		fmt.Fprintf(os.Stderr, "invalid --format %q: must be table, json, or sarif\n", formatRaw)
+		os.Exit(2)
+	}
+	f.format = report.ResolveFormat(formatRaw)
+
+	if !validProbeDepths[probeDepthRaw] {
+		fmt.Fprintf(os.Stderr, "invalid --probe-depth %q: must be basic, extended, or full\n", probeDepthRaw)
+		os.Exit(2)
+	}
+	f.probeDepth = scanner.ParseProbeDepth(probeDepthRaw)
+
+	if severityMinRaw != "" {
+		if !validSeverities[severityMinRaw] {
+			fmt.Fprintf(os.Stderr,
+				"invalid --severity-min %q: must be PASS, INFO, LOW, MEDIUM, HIGH, or CRITICAL\n",
+				severityMinRaw)
+			os.Exit(2)
+		}
+		f.severityMin = scanner.ParseSeverity(severityMinRaw)
+	}
+
+	return f, nil
+}
+
+func newLogger(verbose, quiet, debug bool) *slog.Logger {
+	level := slog.LevelInfo
+	if verbose {
+		level = slog.LevelDebug
+	}
+	if quiet {
+		level = slog.LevelWarn
+	}
+	opts := &slog.HandlerOptions{Level: level}
+	if debug {
+		opts.AddSource = true
+	}
+	logger := slog.New(slog.NewTextHandler(os.Stderr, opts))
+	slog.SetDefault(logger)
+	return logger
+}
+
+type spinner struct {
+	stop   chan struct{}
+	frames []string
+}
+
+func startSpinner(msg string) *spinner {
+	s := &spinner{
+		stop:   make(chan struct{}),
+		frames: []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"},
+	}
+	go func() {
+		ticker := time.NewTicker(100 * time.Millisecond)
+		defer ticker.Stop()
+		i := 0
+		for {
+			select {
+			case <-s.stop:
+				fmt.Fprintf(os.Stderr, "\r\033[K")
+				return
+			case <-ticker.C:
+				fmt.Fprintf(os.Stderr, "\r%s %s", s.frames[i%len(s.frames)], msg)
+				i++
+			}
+		}
+	}()
+	return s
+}
+
+func (s *spinner) clear() {
+	close(s.stop)
+}
+
+func applyConfigDefaults(f *flags) {
+	cfg := configfile.Load()
+	if cfg.Format != "" && f.format == report.FormatTable {
+		f.format = report.ResolveFormat(cfg.Format)
+	}
+	if cfg.TrustConfig != "" && f.trustConfig == "" {
+		f.trustConfig = cfg.TrustConfig
+	}
+	if cfg.Targets != "" && f.targets == "" {
+		f.targets = cfg.Targets
+	}
+	if cfg.AllowHosts != "" && f.allowHosts == "" {
+		f.allowHosts = cfg.AllowHosts
+	}
+	if cfg.BlockHosts != "" && f.blockHosts == "" {
+		f.blockHosts = cfg.BlockHosts
+	}
+	if cfg.Timeout != 0 && f.timeout == 30 {
+		f.timeout = cfg.Timeout
+	}
+	if cfg.Concurrency != 0 && f.concurrency == 10 {
+		f.concurrency = cfg.Concurrency
+	}
+	if cfg.ProbeDepth != "" && f.probeDepth == scanner.DepthBasic {
+		f.probeDepth = scanner.ParseProbeDepth(cfg.ProbeDepth)
+	}
+	if cfg.MaxResponse != 0 && f.maxResponse == 65536 {
+		f.maxResponse = cfg.MaxResponse
+	}
+	if cfg.NoColor && !f.noColor {
+		f.noColor = cfg.NoColor
+	}
+	if cfg.SnapshotDir != "" && f.snapshotDir == "" {
+		f.snapshotDir = cfg.SnapshotDir
+	}
 }
 
 func runStaticAction(action string, args []string) {
-	f := parseFlags(args)
+	f, err := parseFlags(args)
+	if err != nil {
+		os.Exit(2)
+	}
+	applyConfigDefaults(&f)
+
+	logger := newLogger(f.verbose, f.quiet, f.debug)
+	logger.Debug("starting", "action", action)
 
 	s := scanner.NewScanner()
+	s.NoSecretScan = f.noSecretScan
 	if err := s.SetTrustConfig(f.trustConfig); err != nil {
 		if f.trustConfig != "" {
-			fmt.Fprintf(os.Stderr, "%s: trust config error: %v\n", action, err)
+			logger.Error("trust config error", "error", err)
 			os.Exit(2)
 		}
 	}
-	s.NoSecretScan = f.noSecretScan
 
+	sp := startSpinner("Discovering configs...")
 	results, err := s.Static()
+	sp.clear()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s: %v\n", action, err)
+		logger.Error("scan failed", "error", err)
 		os.Exit(2)
 	}
 
-	writeResults(results.Results, f.format)
+	writeResults(results.Results, f)
 
 	var serverCount int
-	for _, cfg := range results.Configs {
-		serverCount += len(cfg.Servers)
+	for _, c := range results.Configs {
+		serverCount += len(c.Servers)
 	}
 
 	if action == "scan" {
-		fmt.Fprintf(os.Stderr, "\nStatic scan: %d servers found. Run 'mcp-audit probe' for SSRF testing.\n", serverCount)
-		fmt.Fprintf(os.Stderr, "Or run 'mcp-audit probe --dry-run' to preview without making requests.\n")
+		logger.Info("static scan complete, run probe for SSRF testing", "servers", serverCount)
 	}
 
 	report.PrintSummary(results.Results, serverCount)
@@ -162,7 +312,14 @@ func runStaticAction(action string, args []string) {
 }
 
 func runProbe(args []string) {
-	f := parseFlags(args)
+	f, err := parseFlags(args)
+	if err != nil {
+		os.Exit(2)
+	}
+	applyConfigDefaults(&f)
+
+	logger := newLogger(f.verbose, f.quiet, f.debug)
+	logger.Debug("starting probe")
 
 	s := scanner.NewScanner()
 	s.AllowHosts = splitCSV(f.allowHosts)
@@ -179,23 +336,28 @@ func runProbe(args []string) {
 	s.SnapshotDir = f.snapshotDir
 	s.NoSnapshot = f.noSnapshot
 	s.NoTrustOnFirstUse = f.noTrustOnFirstUse
-	s.ProbeDepth = scanner.ParseProbeDepth(f.probeDepth)
+	s.ProbeDepth = f.probeDepth
 	s.CallbackPort = f.callbackPort
 	s.TargetsFile = f.targetsFile
+	s.TimeoutSecs = f.timeout
+	s.Concurrency = f.concurrency
 	if f.maxResponse < 0 {
-		fmt.Fprintf(os.Stderr, "probe: --max-response must be >= 0, got %d\n", f.maxResponse)
+		logger.Error("--max-response must be >= 0", "got", f.maxResponse)
 		os.Exit(2)
 	}
 	s.MaxResponseSize = min(f.maxResponse, 1048576)
 	if err := s.SetTrustConfig(f.trustConfig); err != nil {
 		if f.trustConfig != "" {
-			fmt.Fprintf(os.Stderr, "probe: trust config error: %v\n", err)
+			logger.Error("trust config error", "error", err)
 			os.Exit(2)
 		}
 	}
-	dynResults := s.Probe(f.dryRun)
 
-	writeResults(dynResults, f.format)
+	sp := startSpinner("Probing servers...")
+	dynResults := s.Probe(f.dryRun)
+	sp.clear()
+
+	writeResults(dynResults, f)
 
 	var serverCount int
 	seen := map[string]bool{}
@@ -210,12 +372,56 @@ func runProbe(args []string) {
 	os.Exit(report.ExitCode(dynResults))
 }
 
-func writeResults(results []scanner.Result, formatFlag string) {
-	format := report.ResolveFormat(formatFlag)
-	if err := report.Write(os.Stdout, results, format); err != nil {
+func writeResults(results []scanner.Result, f flags) {
+	for i := range results {
+		scanner.PopulateRemediation(&results[i])
+	}
+	if f.noColor {
+		if err := os.Setenv("NO_COLOR", "1"); err != nil {
+			slog.Debug("set NO_COLOR", "err", err)
+		}
+	}
+	if f.severityMin > scanner.SevPass {
+		results = filterBySeverity(results, f.severityMin)
+	}
+	results = report.Deduplicate(results)
+
+	var w io.Writer = os.Stdout
+	var outFile *os.File
+	if f.outputFile != "" {
+		var err error
+		outFile, err = os.Create(f.outputFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error opening output file: %v\n", err)
+			os.Exit(2)
+		}
+		w = outFile
+	}
+
+	if err := report.Write(w, results, f.format); err != nil {
+		if outFile != nil {
+			if cerr := outFile.Close(); cerr != nil {
+				slog.Debug("close output file", "err", cerr)
+			}
+		}
 		fmt.Fprintf(os.Stderr, "error writing output: %v\n", err)
 		os.Exit(2)
 	}
+	if outFile != nil {
+		if cerr := outFile.Close(); cerr != nil {
+			slog.Debug("close output file", "err", cerr)
+		}
+	}
+}
+
+func filterBySeverity(results []scanner.Result, min scanner.Severity) []scanner.Result {
+	var filtered []scanner.Result
+	for _, r := range results {
+		if r.Severity >= min {
+			filtered = append(filtered, r)
+		}
+	}
+	return filtered
 }
 
 func printUsage() {

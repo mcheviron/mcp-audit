@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
 	"sync"
@@ -65,14 +66,18 @@ func (t *sseTransport) connect(ctx context.Context) error {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		_ = resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			slog.Debug("close sse response body", "err", err)
+		}
 		return fmt.Errorf("SSE connect HTTP %d", resp.StatusCode)
 	}
 
 	reader := bufio.NewReader(resp.Body)
 	endpoint, ok := readSSEEndpoint(reader, t.serverURL)
 	if !ok {
-		_ = resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			slog.Debug("close sse response body", "err", err)
+		}
 		return fmt.Errorf("SSE connect: no endpoint event received")
 	}
 	t.endpoint = endpoint
@@ -130,7 +135,11 @@ func readSSEEndpoint(reader *bufio.Reader, serverURL string) (string, bool) {
 
 func (t *sseTransport) readEvents(ctx context.Context, body io.ReadCloser) {
 	defer close(t.readerDone)
-	defer func() { _ = body.Close() }()
+	defer func() {
+		if err := body.Close(); err != nil {
+			slog.Debug("close sse body", "err", err)
+		}
+	}()
 
 	scanner := bufio.NewScanner(body)
 	scanner.Buffer(make([]byte, 0, 4096), 64*1024)
@@ -241,7 +250,9 @@ func (t *sseTransport) Send(ctx context.Context, method string, params any) (jso
 	if err != nil {
 		return nil, fmt.Errorf("SSE post: %w", err)
 	}
-	_ = postResp.Body.Close()
+	if cerr := postResp.Body.Close(); cerr != nil {
+		slog.Debug("close sse post body", "err", cerr)
+	}
 	if postResp.StatusCode < 200 || postResp.StatusCode >= 300 {
 		if postResp.StatusCode == http.StatusUnauthorized || postResp.StatusCode == http.StatusForbidden {
 			return nil, fmt.Errorf("SSE post HTTP %d: %w", postResp.StatusCode, ErrAuthRequired)

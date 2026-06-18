@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
 	"sync"
@@ -44,11 +45,17 @@ func probeTargetDirect(
 	if err != nil {
 		return probeResult{target: target, err: err, duration: time.Since(start)}
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			slog.Debug("close response body", "err", err)
+		}
+	}()
 
 	limited := io.LimitReader(resp.Body, maxResp)
 	var buf strings.Builder
-	_, _ = io.Copy(&buf, limited)
+	if _, err := io.Copy(&buf, limited); err != nil {
+		slog.Debug("copy response body", "err", err)
+	}
 
 	result := probeResult{
 		target:      target,
@@ -106,15 +113,16 @@ func (s *Scanner) collectServers() []config.ServerEntry {
 	return servers
 }
 
-func runDirectProbes(
+func runDirectProbes( //nolint:funlen
 	httpServers []config.ServerEntry, targets []string, depth ProbeDepth, maxResp int64,
+	concurrency int,
 ) ([]Result, []probeTiming) {
 	var results []Result
 	var timings []probeTiming
 	var mu sync.Mutex
 
 	g, ctx := errgroup.WithContext(context.Background())
-	g.SetLimit(10)
+	g.SetLimit(concurrency)
 
 	for _, srv := range httpServers {
 		for _, target := range targets {
@@ -126,7 +134,13 @@ func runDirectProbes(
 					}
 					if depth >= DepthExtended {
 						for hk, hv := range probeHeaders {
-							result := probeTargetDirect(ctx, method, target, depth, maxResp, hk, hv)
+							var result probeResult
+							if err := retry(ctx, 3, func() error {
+								result = probeTargetDirect(ctx, method, target, depth, maxResp, hk, hv)
+								return result.err
+							}); err != nil {
+								slog.Debug("probe retry exhausted", "target", target, "err", err)
+							}
 							r := analyzeProbeResult(result, srv)
 							r.ConfigPath = srv.ConfigPath
 							r.Finding = fmt.Sprintf("[%s|%s:%s] %s", method, hk, hv, r.Finding)
@@ -140,7 +154,13 @@ func runDirectProbes(
 							mu.Unlock()
 						}
 					}
-					result := probeTargetDirect(ctx, method, target, depth, maxResp)
+					var result probeResult
+					if err := retry(ctx, 3, func() error {
+						result = probeTargetDirect(ctx, method, target, depth, maxResp)
+						return result.err
+					}); err != nil {
+						slog.Debug("probe retry exhausted", "target", target, "err", err)
+					}
 					r := analyzeProbeResult(result, srv)
 					r.ConfigPath = srv.ConfigPath
 					if method != http.MethodGet {
@@ -163,7 +183,9 @@ func runDirectProbes(
 		}
 	}
 
-	_ = g.Wait()
+	if err := g.Wait(); err != nil {
+		slog.Debug("direct probe group error", "err", err)
+	}
 	return results, timings
 }
 
@@ -171,16 +193,17 @@ func runMCPProbes(
 	servers []config.ServerEntry, targets []string, transportFlag string, auth AuthConfig,
 	toolAnalysis bool, allTools map[string][]mcp.Tool, driftCfg driftConfig,
 	depth ProbeDepth, cl *CallbackListener, maxResp int64,
+	concurrency, timeoutSecs int,
 ) []Result {
 	var results []Result
 	var mu sync.Mutex
 
 	g, ctx := errgroup.WithContext(context.Background())
-	g.SetLimit(10)
+	g.SetLimit(concurrency)
 
 	for _, srv := range servers {
 		g.Go(func() error {
-			probeCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+			probeCtx, cancel := context.WithTimeout(ctx, time.Duration(timeoutSecs)*time.Second)
 			defer cancel()
 			probeSingleServer(probeCtx, srv, &results, &mu, targets,
 				transportFlag, auth, toolAnalysis, allTools, driftCfg, depth, cl, maxResp)
@@ -188,7 +211,9 @@ func runMCPProbes(
 		})
 	}
 
-	_ = g.Wait()
+	if err := g.Wait(); err != nil {
+		slog.Debug("MCP probe group error", "err", err)
+	}
 	return results
 }
 
@@ -209,22 +234,14 @@ func probeSingleServer(
 ) {
 	mcpClient, transport, err := handshakeServer(ctx, srv, transportFlag, auth, maxResp)
 	if err != nil {
-		finding := fmt.Sprintf("MCP handshake failed: %v", err)
-		if noAuthConfigured(srv, auth) && errors.Is(err, mcp.ErrAuthRequired) {
-			finding += " (no auth configured — server returned 401/403)"
-		}
-		mu.Lock()
-		*existingResults = append(*existingResults, Result{
-			Severity:   SevInfo,
-			Server:     srv.Name,
-			Type:       "dynamic",
-			Finding:    finding,
-			ConfigPath: srv.ConfigPath,
-		})
-		mu.Unlock()
+		addHandshakeError(err, srv, auth, existingResults, mu)
 		return
 	}
-	defer func() { _ = transport.Close() }()
+	defer func() {
+		if err := transport.Close(); err != nil {
+			slog.Debug("close transport", "err", err)
+		}
+	}()
 
 	tools, err := mcpClient.ListTools(ctx)
 	if err != nil {
@@ -263,6 +280,22 @@ func probeSingleServer(
 		*existingResults = append(*existingResults, toolResults...)
 		mu.Unlock()
 	}
+}
+
+func addHandshakeError(err error, srv config.ServerEntry, auth AuthConfig, results *[]Result, mu *sync.Mutex) {
+	finding := fmt.Sprintf("MCP handshake failed: %v", err)
+	if noAuthConfigured(srv, auth) && errors.Is(err, mcp.ErrAuthRequired) {
+		finding += " (no auth configured — server returned 401/403)"
+	}
+	mu.Lock()
+	*results = append(*results, Result{
+		Severity:   SevInfo,
+		Server:     srv.Name,
+		Type:       "dynamic",
+		Finding:    finding,
+		ConfigPath: srv.ConfigPath,
+	})
+	mu.Unlock()
 }
 
 func runToolAnalysis(tools *mcp.ListToolsResult, srv config.ServerEntry, results *[]Result, mu *sync.Mutex) {
@@ -375,19 +408,27 @@ func (s *Scanner) Probe(dryRun bool) []Result {
 	}
 
 	maxResp := int64(s.MaxResponseSize)
+	concurrency := s.Concurrency
+	if concurrency <= 0 {
+		concurrency = 10
+	}
+	timeoutSecs := s.TimeoutSecs
+	if timeoutSecs <= 0 {
+		timeoutSecs = 30
+	}
 	var directResults, mcpResults []Result
 	var directTimings []probeTiming
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		directResults, directTimings = runDirectProbes(httpServers, targets, depth, maxResp)
+		directResults, directTimings = runDirectProbes(httpServers, targets, depth, maxResp, concurrency)
 	}()
 	go func() {
 		defer wg.Done()
 		mcpResults = runMCPProbes(
 			mcpServers, targets, s.Transport, auth, s.ToolAnalysis, allTools, driftCfg, depth, cl,
-			maxResp,
+			maxResp, concurrency, timeoutSecs,
 		)
 	}()
 	wg.Wait()

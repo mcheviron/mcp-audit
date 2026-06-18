@@ -23,7 +23,7 @@ The system SHALL support `--format json` producing structured output with an arr
 
 #### Scenario: JSON schema stability
 - **WHEN** a finding is serialized to JSON
-- **THEN** it SHALL include fields: `severity`, `server`, `type` (static/dynamic), `finding`, `detail` (optional, with probe response data)
+- **THEN** it SHALL include fields: `severity`, `server`, `type` (static/dynamic), `finding`, `detail` (optional, with probe response data), `remediation` (optional, severity-appropriate fix guidance)
 
 ### Requirement: SARIF output for CI integration
 The system SHALL support `--format sarif` producing SARIF v2.1.0 compliant output suitable for GitHub Code Scanning and other SARIF-consuming tools.
@@ -35,6 +35,21 @@ The system SHALL support `--format sarif` producing SARIF v2.1.0 compliant outpu
 #### Scenario: SARIF severity mapping
 - **WHEN** a CRITICAL finding is emitted in SARIF
 - **THEN** it maps to SARIF severity `error`; HIGH maps to `error`; MEDIUM maps to `warning`; LOW and INFO map to `note`
+
+### Requirement: Remediation guidance
+The system SHALL include a remediation field in each finding providing actionable fix guidance. Remediation text SHALL be severity-appropriate and specific to the finding type.
+
+#### Scenario: SSRF remediation
+- **WHEN** a CRITICAL SSRF finding is reported
+- **THEN** the Remediation field reads "Configure the MCP server to validate and sanitize all user-supplied URLs. Implement an allowlist of permitted outbound destinations. Never pass tool arguments directly to HTTP clients without validation."
+
+#### Scenario: Typosquat remediation
+- **WHEN** an INFO typosquat finding is reported
+- **THEN** the Remediation field reads "Verify the package name is correct. Consider adding it to the trust config trusted list if legitimate, or the blocked list if malicious."
+
+#### Scenario: PASS finding
+- **WHEN** a PASS finding is reported
+- **THEN** no remediation field is included (nothing to fix)
 
 ### Requirement: Exit codes
 The system SHALL exit with a non-zero exit code when CRITICAL or HIGH severity findings are present, enabling CI pipeline gating.

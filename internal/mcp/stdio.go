@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"os/exec"
 	"path/filepath"
 	"sync"
@@ -82,13 +83,19 @@ func (t *stdioTransport) start(ctx context.Context) error {
 
 	stdoutPipe, err := t.cmd.StdoutPipe()
 	if err != nil {
-		_ = t.stdin.Close()
+		if err := t.stdin.Close(); err != nil {
+			slog.Debug("close stdin", "err", err)
+		}
 		return fmt.Errorf("stdout pipe: %w", err)
 	}
 
 	if err := t.cmd.Start(); err != nil {
-		_ = t.stdin.Close()
-		_ = stdoutPipe.Close()
+		if err := t.stdin.Close(); err != nil {
+			slog.Debug("close stdin", "err", err)
+		}
+		if err := stdoutPipe.Close(); err != nil {
+			slog.Debug("close stdout pipe", "err", err)
+		}
 		return fmt.Errorf("start command: %w", err)
 	}
 
@@ -105,7 +112,9 @@ func (t *stdioTransport) kill() {
 	}
 	if t.cmd != nil && t.cmd.Process != nil {
 		_ = t.cmd.Process.Kill()
-		_ = t.cmd.Wait()
+		if err := t.cmd.Wait(); err != nil {
+			slog.Debug("wait stdio cmd", "err", err)
+		}
 	}
 	t.running = false
 	t.cmd = nil

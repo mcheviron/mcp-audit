@@ -51,29 +51,34 @@ func writeTable(w io.Writer, results []scanner.Result) error {
 		if r.Detail != "" {
 			_, _ = fmt.Fprintf(tw, "\t\t%s\n", r.Detail)
 		}
+		if r.Remediation != "" {
+			_, _ = fmt.Fprintf(tw, "\t\tRemediation: %s\n", r.Remediation)
+		}
 	}
 	return tw.Flush()
 }
 
 func writeJSON(w io.Writer, results []scanner.Result) error {
 	type entry struct {
-		Severity   string `json:"severity"`
-		Server     string `json:"server"`
-		Type       string `json:"type"`
-		Finding    string `json:"finding"`
-		Detail     string `json:"detail,omitempty"`
-		ConfigPath string `json:"config_path,omitempty"`
+		Severity    string `json:"severity"`
+		Server      string `json:"server"`
+		Type        string `json:"type"`
+		Finding     string `json:"finding"`
+		Detail      string `json:"detail,omitempty"`
+		ConfigPath  string `json:"config_path,omitempty"`
+		Remediation string `json:"remediation,omitempty"`
 	}
 
 	entries := make([]entry, len(results))
 	for i, r := range results {
 		entries[i] = entry{
-			Severity:   r.Severity.String(),
-			Server:     r.Server,
-			Type:       r.Type,
-			Finding:    r.Finding,
-			Detail:     r.Detail,
-			ConfigPath: r.ConfigPath,
+			Severity:    r.Severity.String(),
+			Server:      r.Server,
+			Type:        r.Type,
+			Finding:     r.Finding,
+			Detail:      r.Detail,
+			ConfigPath:  r.ConfigPath,
+			Remediation: r.Remediation,
 		}
 	}
 

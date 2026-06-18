@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"sync"
 	"time"
@@ -114,7 +115,11 @@ func (t *HTTPTransport) Send(ctx context.Context, method string, params any) (js
 	if err != nil {
 		return nil, fmt.Errorf("send request: %w", err)
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			slog.Debug("close response body", "err", cerr)
+		}
+	}()
 
 	if sid := resp.Header.Get("Mcp-Session-Id"); sid != "" {
 		t.sessionID = sid
@@ -191,7 +196,9 @@ func (a *autoTransport) Send(ctx context.Context, method string, params any) (js
 		return nil, err
 	}
 
-	_ = a.http.Close()
+	if cerr := a.http.Close(); cerr != nil {
+		slog.Debug("close http transport", "err", cerr)
+	}
 
 	a.mu.Lock()
 	if a.failed {
@@ -245,9 +252,13 @@ func (a *autoTransport) SetTLS(certFile, keyFile string) error {
 func (a *autoTransport) Close() error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	_ = a.http.Close()
+	if cerr := a.http.Close(); cerr != nil {
+		slog.Debug("close http auto transport", "err", cerr)
+	}
 	if a.sse != nil {
-		_ = a.sse.Close()
+		if cerr := a.sse.Close(); cerr != nil {
+			slog.Debug("close sse auto transport", "err", cerr)
+		}
 	}
 	return nil
 }

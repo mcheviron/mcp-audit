@@ -74,6 +74,8 @@ type Scanner struct {
 	CallbackPort    int
 	TargetsFile     string
 	MaxResponseSize int
+	TimeoutSecs     int
+	Concurrency     int
 
 	TestConfigs []config.Config
 }

@@ -3,6 +3,7 @@ package scanner
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"time"
@@ -31,15 +32,23 @@ func startCallbackListener(port int) *CallbackListener {
 		default:
 		}
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok"))
+		if _, err := w.Write([]byte("ok")); err != nil {
+			slog.Debug("callback write response", "err", err)
+		}
 	})
 
 	srv := &http.Server{Handler: mux, ReadHeaderTimeout: 10 * time.Second}
-	go func() { _ = srv.Serve(lis) }()
+	go func() {
+		if err := srv.Serve(lis); err != nil && err != http.ErrServerClosed {
+			slog.Debug("callback server serve", "err", err)
+		}
+	}()
 
 	go func() {
 		<-cl.done
-		_ = srv.Close()
+		if err := srv.Close(); err != nil {
+			slog.Debug("callback server close", "err", err)
+		}
 	}()
 
 	return cl
