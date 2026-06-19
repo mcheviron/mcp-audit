@@ -19,7 +19,7 @@ export const meta = {
     { title: 'Implement', detail: 'openspec-apply-change skill → implements code tasks' },
     { title: 'Build+E2E', detail: 'Build, lint, then E2E tests from spec scenarios' },
     { title: 'Verify', detail: 'openspec-verify-change skill' },
-    { title: 'Simplify', detail: 'simplify skill (effort: high)' },
+    { title: 'Simplify', detail: 'simplify skill (effort: max)' },
     { title: 'Code Review', detail: 'code-review skill (effort: max)' },
     { title: 'Fix', detail: 'Apply all review + simplify findings' },
     { title: 'Sync+Archive', detail: 'openspec-sync-specs then openspec-archive-change' },
@@ -91,11 +91,11 @@ phase('Simplify')
 
 const simplifyResult = await agent(
   `Invoke the simplify skill on the diff for change "${changeName}".
-Use effort: high.
+Use effort: max.
 The skill reviews changed code for reuse, simplification, efficiency, and altitude cleanups.
 It does NOT hunt for bugs — that's the code-review phase next.
 Return every finding and what was fixed.`,
-  { model: 'sonnet', effort: 'high' }
+  { model: 'sonnet', effort: 'max' }
 )
 log(`Simplify: ${simplifyResult?.substring(0, 300)}`)
 

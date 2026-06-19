@@ -9,9 +9,16 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mostafaelataby-cheviron/mcp-audit/internal/completion"
 	"github.com/mostafaelataby-cheviron/mcp-audit/internal/configfile"
 	"github.com/mostafaelataby-cheviron/mcp-audit/internal/report"
 	"github.com/mostafaelataby-cheviron/mcp-audit/internal/scanner"
+)
+
+var (
+	version = "dev"
+	commit  = "unknown"
+	date    = "unknown"
 )
 
 func main() {
@@ -29,7 +36,17 @@ func main() {
 	case "probe":
 		runProbe(os.Args[2:])
 	case "version":
-		fmt.Println("mcp-audit v0.1.0")
+		fmt.Printf("mcp-audit %s\n", version)
+		fmt.Printf("  commit: %s\n", commit)
+		fmt.Printf("  date:   %s\n", date)
+	case "completion":
+		shell := "bash"
+		if len(os.Args) > 2 {
+			shell = os.Args[2]
+		}
+		if err := completion.Generate(shell, os.Stdout); err != nil {
+			os.Exit(1)
+		}
 	case "help", "-h", "--help":
 		printUsage()
 	default:
@@ -428,14 +445,15 @@ func printUsage() {
 	fmt.Println(`mcp-audit — MCP ecosystem security auditor
 
 Usage:
-  mcp-audit scan     Full audit (static analysis + dynamic SSRF probing)
-  mcp-audit static   Config-only scan (no network requests)
-  mcp-audit probe    Dynamic SSRF probe only
-  mcp-audit version  Print version
-  mcp-audit help     Show this help
+  mcp-audit scan        Full audit (static analysis + dynamic SSRF probing)
+  mcp-audit static      Config-only scan (no network requests)
+  mcp-audit probe       Dynamic SSRF probe only
+  mcp-audit version     Print version
+  mcp-audit completion  Generate shell completion (bash|zsh|fish)
+  mcp-audit help        Show this help
 
 Flags:
-  --format <fmt>         Output format: table (default), json, sarif
+  --format <fmt>         Output format: table (default), json, sarif, junit
   --dry-run              Print what would be probed without making requests
   --targets <urls>       Comma-separated probe target URLs (overrides built-in list)
   --allow-hosts <ips>    Comma-separated hosts/IPs to allow for probing

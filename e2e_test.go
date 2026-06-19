@@ -302,7 +302,7 @@ func TestE2EVersion(t *testing.T) {
 	if code != 0 {
 		t.Errorf("expected exit 0 for version, got %d\noutput:\n%s", code, out)
 	}
-	if !strings.Contains(out, "mcp-audit v0.1.0") {
+	if !strings.Contains(out, "mcp-audit dev") {
 		t.Errorf("expected version string, got:\n%s", out)
 	}
 }
