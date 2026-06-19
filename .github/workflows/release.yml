@@ -23,7 +23,7 @@ jobs:
       - uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac  # v3
       - name: Generate completions
         run: |
-          go build -o /tmp/mcp-audit .
+          go build -o /tmp/mcp-audit ./cmd/mcp-audit
           mkdir -p completions
           /tmp/mcp-audit completion bash > completions/mcp-audit.bash
           /tmp/mcp-audit completion zsh  > completions/mcp-audit.zsh

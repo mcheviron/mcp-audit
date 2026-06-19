@@ -6,7 +6,7 @@ before:
 
 builds:
   - id: mcp-audit
-    main: .
+    main: ./cmd/mcp-audit
     binary: mcp-audit
     env:
       - CGO_ENABLED=0

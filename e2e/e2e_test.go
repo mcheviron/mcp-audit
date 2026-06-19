@@ -1,4 +1,4 @@
-package main
+package e2e_test
 
 import (
 	"bytes"
@@ -16,7 +16,7 @@ import (
 func buildBinary(t *testing.T) string {
 	t.Helper()
 	bin := filepath.Join(t.TempDir(), "mcp-audit")
-	cmd := exec.Command("go", "build", "-o", bin, ".")
+	cmd := exec.Command("go", "build", "-o", bin, "../cmd/mcp-audit")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("build failed: %v\n%s", err, out)
 	}
@@ -116,6 +116,94 @@ func newE2EMockMCPServer(t *testing.T) *httptest.Server {
 	}))
 
 	return srv
+}
+
+func newMCPMockWithTools(t *testing.T, serverName string, tools []map[string]any) *httptest.Server {
+	t.Helper()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("ok"))
+			return
+		}
+
+		var req struct {
+			JSONRPC string          `json:"jsonrpc"`
+			ID      int             `json:"id"`
+			Method  string          `json:"method"`
+			Params  json.RawMessage `json:"params"`
+		}
+
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		var result json.RawMessage
+		switch req.Method {
+		case "initialize":
+			result = json.RawMessage(fmt.Sprintf(`{"protocolVersion":"2024-11-05","capabilities":{"tools":{"listChanged":true}},"serverInfo":{"name":%q,"version":"1.0"}}`, serverName))
+		case "tools/list":
+			toolBytes, _ := json.Marshal(map[string]any{"tools": tools})
+			result = json.RawMessage(toolBytes)
+		case "tools/call":
+			result = json.RawMessage(`{"content":[{"type":"text","text":"ok"}],"isError":false}`)
+		default:
+			result = json.RawMessage(`{}`)
+		}
+
+		resp := map[string]any{
+			"jsonrpc": "2.0",
+			"id":      req.ID,
+			"result":  result,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	}))
+
+	return srv
+}
+
+func setupMultiServerConfig(t *testing.T, servers map[string]string) string {
+	t.Helper()
+	home := t.TempDir()
+
+	claudeDir := filepath.Join(home, "Library", "Application Support", "Claude")
+	if err := os.MkdirAll(claudeDir, 0755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	mcpServers := make(map[string]any)
+	for name, url := range servers {
+		mcpServers[name] = map[string]any{"url": url}
+	}
+
+	cfg := map[string]any{"mcpServers": mcpServers}
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	if err := os.WriteFile(
+		filepath.Join(claudeDir, "claude_desktop_config.json"),
+		data, 0644,
+	); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	return home
+}
+
+func parseJSONFindings(t *testing.T, out string) []map[string]any {
+	t.Helper()
+	var wrapper struct {
+		Findings []map[string]any `json:"findings"`
+	}
+	if err := json.Unmarshal([]byte(out), &wrapper); err != nil {
+		t.Fatalf("json parse failed: %v\noutput:\n%s", err, out)
+	}
+	return wrapper.Findings
 }
 
 func TestE2EStaticTrustedPackage(t *testing.T) {

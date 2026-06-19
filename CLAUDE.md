@@ -24,7 +24,8 @@ Three‑phase pipeline: **discover** configs → **scan** statically (typosquat)
 
 ### Packages
 
-- `main.go` — CLI entry. Four subcommands: `scan`, `static`, `probe`, `version`. Flag-based, not cobra.
+- `cmd/mcp-audit/` — CLI entry point. Subcommands: `scan`, `static`, `probe`, `watch`, `proxy`, `trust`, `upload`, `version`. Flag-based, not cobra. Also contains unit tests for CLI logic.
+- `e2e/` — end-to-end tests (package `e2e_test`). Builds binary from `cmd/mcp-audit` and exercises it via subprocess.
 - `internal/config/` — discovers MCP config files across 6 AI tools. `discover.go` + `parser.go` dispatch to `parseMcpServers` or `parseContinue`.
 - `internal/scanner/` — `static.go` runs typosquat checks via embedded package lists. `dynamic.go` does direct HTTP probes + MCP tool‑call probes against internal endpoints.
 - `internal/mcp/` — minimal MCP JSON‑RPC 2.0 client (`Initialize`, `ListTools`, `CallTool`). No SDK.
