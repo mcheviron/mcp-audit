@@ -101,34 +101,35 @@ func splitCSV(s string) []string {
 }
 
 type flags struct {
-	format            report.Format
-	dryRun            bool
-	allowHosts        string
-	blockHosts        string
-	targets           string
-	trustConfig       string
-	transport         string
-	authToken         string
-	authHeaders       string
-	tlsCert           string
-	tlsKey            string
-	noToolAnalysis    bool
-	snapshotDir       string
-	noSnapshot        bool
-	noTrustOnFirstUse bool
-	noSecretScan      bool
-	probeDepth        scanner.ProbeDepth
-	callbackPort      int
-	targetsFile       string
-	maxResponse       int
-	verbose           bool
-	quiet             bool
-	debug             bool
-	severityMin       scanner.Severity
-	outputFile        string
-	timeout           int
-	concurrency       int
-	noColor           bool
+	format                report.Format
+	dryRun                bool
+	allowHosts            string
+	blockHosts            string
+	targets               string
+	trustConfig           string
+	transport             string
+	authToken             string
+	authHeaders           string
+	tlsCert               string
+	tlsKey                string
+	noToolAnalysis        bool
+	snapshotDir           string
+	noSnapshot            bool
+	noTrustOnFirstUse     bool
+	noSecretScan          bool
+	probeDepth            scanner.ProbeDepth
+	callbackPort          int
+	targetsFile           string
+	maxResponse           int
+	verbose               bool
+	quiet                 bool
+	debug                 bool
+	severityMin           scanner.Severity
+	outputFile            string
+	timeout               int
+	concurrency           int
+	noColor               bool
+	noCrossServerAnalysis bool
 }
 
 var validSeverities = map[string]bool{
@@ -174,6 +175,7 @@ func parseFlags(args []string) (flags, error) {
 	fs.IntVar(&f.timeout, "timeout", 30, "timeout in seconds for MCP handshake")
 	fs.IntVar(&f.concurrency, "concurrency", 10, "maximum concurrent probes")
 	fs.BoolVar(&f.noColor, "no-color", false, "disable terminal color codes")
+	fs.BoolVar(&f.noCrossServerAnalysis, "no-cross-server-analysis", false, "disable cross-server analysis")
 	fs.SetOutput(os.Stderr)
 	if err := fs.Parse(args); err != nil {
 		return f, err
@@ -354,6 +356,7 @@ func runProbe(args []string) {
 	s.TLSCertFile = firstNonEmpty(f.tlsCert, os.Getenv("MCP_TLS_CERT"))
 	s.TLSKeyFile = firstNonEmpty(f.tlsKey, os.Getenv("MCP_TLS_KEY"))
 	s.ToolAnalysis = !f.noToolAnalysis
+	s.CrossServerAnalysis = !f.noCrossServerAnalysis
 	s.SnapshotDir = f.snapshotDir
 	s.NoSnapshot = f.noSnapshot
 	s.NoTrustOnFirstUse = f.noTrustOnFirstUse
@@ -479,6 +482,7 @@ Scan/probe flags:
 	  --no-snapshot           Disable snapshot persistence and drift detection
 	  --no-trust-on-first-use Require pre-populated pinned hashes for first scan
 	  --no-secret-scan       Disable credential and secret scanning of config files
+  --no-cross-server-analysis Disable cross-server relationship analysis
 
 Watch flags:
   --watch-interval <n>   Periodic re-scan seconds (default: 300)
@@ -490,11 +494,6 @@ Proxy flags:
   --block-critical       Block responses with CRITICAL findings
 
 Examples:
-  mcp-audit static
-  mcp-audit static --trust-config ./my-trust.json
-  mcp-audit probe --targets http://127.0.0.1:8080/,http://10.0.0.1/
-  mcp-audit probe --block-hosts 169.254.169.254
-  mcp-audit probe --probe-depth full
-  mcp-audit watch --watch-interval 60 --on-finding "notify-send 'new findings'"
+  mcp-audit probe --targets http://127.0.0.1:8080/ --probe-depth full
   mcp-audit proxy --target http://localhost:9000 --block-critical`)
 }

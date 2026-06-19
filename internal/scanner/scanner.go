@@ -77,11 +77,13 @@ type Scanner struct {
 	TimeoutSecs     int
 	Concurrency     int
 
+	CrossServerAnalysis bool
+
 	TestConfigs []config.Config
 }
 
 func NewScanner() *Scanner {
-	return &Scanner{ToolAnalysis: true, MaxResponseSize: 65536}
+	return &Scanner{ToolAnalysis: true, CrossServerAnalysis: true, MaxResponseSize: 65536}
 }
 
 func (s *Scanner) authConfig() AuthConfig {

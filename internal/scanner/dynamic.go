@@ -13,6 +13,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"github.com/mostafaelataby-cheviron/mcp-audit/internal/analysis"
 	"github.com/mostafaelataby-cheviron/mcp-audit/internal/config"
 	"github.com/mostafaelataby-cheviron/mcp-audit/internal/mcp"
 )
@@ -446,10 +447,34 @@ func (s *Scanner) Probe(dryRun bool) []Result {
 		cl.stopCallbackListener()
 	}
 
+	results = s.analyzeCollectedTools(allTools, results)
+
+	return results
+}
+
+func (s *Scanner) analyzeCollectedTools(allTools map[string][]mcp.Tool, results []Result) []Result {
 	if s.ToolAnalysis && len(allTools) > 1 {
 		shadowResults := detectToolShadowing(allTools)
 		results = append(results, shadowResults...)
 	}
 
+	if s.CrossServerAnalysis && len(allTools) > 1 {
+		crossResults := runCrossServerAnalysis(allTools)
+		results = append(results, crossResults...)
+	}
+	return results
+}
+
+func runCrossServerAnalysis(allTools map[string][]mcp.Tool) []Result {
+	findings := analysis.Run(allTools)
+	results := make([]Result, len(findings))
+	for i, f := range findings {
+		results[i] = Result{
+			Severity: ParseSeverity(f.Severity),
+			Server:   f.Server,
+			Type:     f.Type,
+			Finding:  f.Description,
+		}
+	}
 	return results
 }
