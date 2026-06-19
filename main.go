@@ -114,7 +114,7 @@ var validSeverities = map[string]bool{
 	"PASS": true, "INFO": true, "LOW": true, "MEDIUM": true, "HIGH": true, "CRITICAL": true,
 }
 
-var validFormats = map[string]bool{"table": true, "json": true, "sarif": true}
+var validFormats = map[string]bool{"table": true, "json": true, "sarif": true, "junit": true}
 
 var validProbeDepths = map[string]bool{"basic": true, "extended": true, "full": true}
 
@@ -123,7 +123,7 @@ func parseFlags(args []string) (flags, error) {
 	var severityMinRaw, probeDepthRaw, formatRaw string
 
 	fs := flag.NewFlagSet("mcp-audit", flag.ContinueOnError)
-	fs.StringVar(&formatRaw, "format", "table", "output format: table, json, sarif")
+	fs.StringVar(&formatRaw, "format", "table", "output format: table, json, sarif, junit")
 	fs.BoolVar(&f.dryRun, "dry-run", false, "print what would be probed without making requests")
 	fs.StringVar(&f.allowHosts, "allow-hosts", "", "comma-separated hosts/IPs to allow for probing")
 	fs.StringVar(&f.blockHosts, "block-hosts", "", "comma-separated hosts/IPs to block from probing")
@@ -159,7 +159,7 @@ func parseFlags(args []string) (flags, error) {
 	}
 
 	if !validFormats[formatRaw] {
-		fmt.Fprintf(os.Stderr, "invalid --format %q: must be table, json, or sarif\n", formatRaw)
+		fmt.Fprintf(os.Stderr, "invalid --format %q: must be table, json, sarif, or junit\n", formatRaw)
 		os.Exit(2)
 	}
 	f.format = report.ResolveFormat(formatRaw)
@@ -284,7 +284,7 @@ func runStaticAction(action string, args []string) {
 	if err := s.SetTrustConfig(f.trustConfig); err != nil {
 		if f.trustConfig != "" {
 			logger.Error("trust config error", "error", err)
-			os.Exit(2)
+			os.Exit(4)
 		}
 	}
 
@@ -293,7 +293,7 @@ func runStaticAction(action string, args []string) {
 	sp.clear()
 	if err != nil {
 		logger.Error("scan failed", "error", err)
-		os.Exit(2)
+		os.Exit(4)
 	}
 
 	writeResults(results.Results, f)
@@ -343,13 +343,13 @@ func runProbe(args []string) {
 	s.Concurrency = f.concurrency
 	if f.maxResponse < 0 {
 		logger.Error("--max-response must be >= 0", "got", f.maxResponse)
-		os.Exit(2)
+		os.Exit(4)
 	}
 	s.MaxResponseSize = min(f.maxResponse, 1048576)
 	if err := s.SetTrustConfig(f.trustConfig); err != nil {
 		if f.trustConfig != "" {
 			logger.Error("trust config error", "error", err)
-			os.Exit(2)
+			os.Exit(4)
 		}
 	}
 

@@ -44,7 +44,7 @@ The system SHALL exit with 0 (clean), 1 (CRITICAL found), 2 (HIGH found), 3 (MED
 
 ## MODIFIED Requirements
 
-### Requirement: SARIF output completeness
+### Requirement: SARIF output for CI integration
 The system SHALL include PASS results in SARIF output as `note` level findings. Previously PASS results were excluded from SARIF entirely.
 
 #### Scenario: PASS included in SARIF

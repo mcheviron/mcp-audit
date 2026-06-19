@@ -1,7 +1,7 @@
 # report-formatting Specification
 
 ## Purpose
-Table (colorized TTY), JSON, and SARIF v2.1.0 output with severity-anchored exit codes for CI gating.
+Table (colorized TTY), JUnit XML, JSON, and SARIF v2.1.0 output with severity-anchored exit codes for CI gating, including CWE taxonomy metadata.
 ## Requirements
 ### Requirement: Terminal table output (default)
 The system SHALL output scan results as a formatted terminal table by default, with columns for severity, server name, and finding description.
@@ -25,6 +25,13 @@ The system SHALL support `--format json` producing structured output with an arr
 - **WHEN** a finding is serialized to JSON
 - **THEN** it SHALL include fields: `severity`, `server`, `type` (static/dynamic), `finding`, `detail` (optional, with probe response data), `remediation` (optional, severity-appropriate fix guidance)
 
+### Requirement: JSON metadata
+The system SHALL include `tool`, `version`, `scan_time`, and `summary` fields in JSON output wrapping the findings array.
+
+#### Scenario: JSON with metadata
+- **WHEN** output format is JSON
+- **THEN** the output includes top-level `tool`, `version`, `scan_time`, and `summary` fields
+
 ### Requirement: SARIF output for CI integration
 The system SHALL support `--format sarif` producing SARIF v2.1.0 compliant output suitable for GitHub Code Scanning and other SARIF-consuming tools.
 
@@ -35,6 +42,32 @@ The system SHALL support `--format sarif` producing SARIF v2.1.0 compliant outpu
 #### Scenario: SARIF severity mapping
 - **WHEN** a CRITICAL finding is emitted in SARIF
 - **THEN** it maps to SARIF severity `error`; HIGH maps to `error`; MEDIUM maps to `warning`; LOW and INFO map to `note`
+
+#### Scenario: PASS included in SARIF
+- **WHEN** output format is SARIF and there are PASS findings
+- **THEN** PASS findings appear as `note` level results with ruleId `mcp-audit/static-pass` or `mcp-audit/dynamic-pass`
+
+### Requirement: CWE taxonomy in SARIF
+The system SHALL include a `taxa` section in SARIF output mapping rule IDs to CWE identifiers. Each `reportingDescriptor` SHALL reference the relevant OWASP MCP Top 10 category.
+
+#### Scenario: SARIF with CWE mapping
+- **WHEN** output format is SARIF
+- **THEN** the output includes `taxa` entries for CWE-918 (SSRF), CWE-200 (Info Exposure), CWE-350 (Typosquat), CWE-506 (Malicious Code)
+- **AND** each result's rule references a `reportingDescriptor` with CWE and OWASP MCP Top 10 help URI
+
+### Requirement: JUnit XML output
+The system SHALL support `--format junit` producing JUnit XML. Each finding SHALL become a `<testcase>`. CRITICAL/HIGH -> `<failure>`, MEDIUM -> `<error>`, LOW/INFO -> `<skipped>`, PASS -> passed testcase.
+
+#### Scenario: JUnit output
+- **WHEN** `--format junit` is set
+- **THEN** output is valid JUnit XML with `<testsuite>` containing one `<testcase>` per finding
+
+### Requirement: Table grouping
+The system SHALL group table output by severity with headers between groups. A summary header SHALL display counts before the findings list.
+
+#### Scenario: Table grouped by severity
+- **WHEN** output format is table
+- **THEN** findings are grouped under "CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO", "PASS" headers with blank line between groups
 
 ### Requirement: Remediation guidance
 The system SHALL include a remediation field in each finding providing actionable fix guidance. Remediation text SHALL be severity-appropriate and specific to the finding type.
@@ -51,20 +84,20 @@ The system SHALL include a remediation field in each finding providing actionabl
 - **WHEN** a PASS finding is reported
 - **THEN** no remediation field is included (nothing to fix)
 
-### Requirement: Exit codes
-The system SHALL exit with a non-zero exit code when CRITICAL or HIGH severity findings are present, enabling CI pipeline gating.
+### Requirement: Exit code granularity
+The system SHALL exit with 0 (clean), 1 (CRITICAL found), 2 (HIGH found), 3 (MEDIUM found), 4 (scan error). LOW/INFO/PASS SHALL not affect exit code.
 
-#### Scenario: Clean scan
-- **WHEN** scan completes with zero CRITICAL or HIGH findings
-- **THEN** exit code is 0
+#### Scenario: Exit code 1 for CRITICAL
+- **WHEN** any finding has CRITICAL severity
+- **THEN** the process exits with code 1
 
-#### Scenario: Critical finding found
-- **WHEN** scan reports at least one CRITICAL or HIGH finding
-- **THEN** exit code is 1
+#### Scenario: Exit code 0 for INFO only
+- **WHEN** findings are only INFO and PASS
+- **THEN** the process exits with code 0
 
 #### Scenario: Scan error
 - **WHEN** scanner encounters an unrecoverable error (e.g., no config files readable due to permissions)
-- **THEN** exit code is 2, error details printed to stderr
+- **THEN** exit code is 4, error details printed to stderr
 
 ### Requirement: Summary block
 The system SHALL print a summary block after all findings showing: total servers scanned, findings per severity tier, and counts of static vs dynamic findings.
