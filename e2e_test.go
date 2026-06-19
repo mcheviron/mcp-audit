@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -49,12 +50,12 @@ func writeTrustConfig(t *testing.T, dir, content string) string {
 	return path
 }
 
-func runMCPAudit(t *testing.T, bin, home string, args ...string) (string, int) {
+func runMCPAudit(t *testing.T, bin, home string, args ...string) (string, string, int) {
 	t.Helper()
 	cmd := exec.Command(bin, args...)
 	cmd.Env = append(os.Environ(), "HOME="+home)
 
-	var stdout, stderr strings.Builder
+	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
@@ -68,262 +69,7 @@ func runMCPAudit(t *testing.T, bin, home string, args ...string) (string, int) {
 		}
 	}
 
-	return stdout.String() + stderr.String(), code
-}
-
-func TestE2EStaticTrustedPackage(t *testing.T) {
-	bin := buildBinary(t)
-
-	claudeCfg := `{
-		"mcpServers": {
-			"filesystem": {
-				"command": "npx",
-				"args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
-			}
-		}
-	}`
-
-	home := setupHomeDir(t, claudeCfg)
-	trustCfg := writeTrustConfig(t, t.TempDir(), `{
-		"trusted": ["@modelcontextprotocol/server-filesystem"]
-	}`)
-
-	out, code := runMCPAudit(t, bin, home, "static", "--trust-config", trustCfg)
-	if code != 0 {
-		t.Errorf("expected exit 0 for trusted package, got %d\noutput:\n%s", code, out)
-	}
-	if !strings.Contains(out, "PASS") {
-		t.Errorf("expected PASS finding for trusted package\noutput:\n%s", out)
-	}
-}
-
-func TestE2EStaticTyposquatDetected(t *testing.T) {
-	bin := buildBinary(t)
-
-	claudeCfg := `{
-		"mcpServers": {
-			"filesystem": {
-				"command": "npx",
-				"args": ["-y", "@modelcontextprotocol/server-filesytem", "/tmp"]
-			}
-		}
-	}`
-
-	home := setupHomeDir(t, claudeCfg)
-	trustCfg := writeTrustConfig(t, t.TempDir(), `{
-		"trusted": ["@modelcontextprotocol/server-filesystem"]
-	}`)
-
-	out, code := runMCPAudit(t, bin, home, "static", "--trust-config", trustCfg)
-	if code != 0 {
-		t.Errorf("expected exit 0 for typosquat (INFO only), got %d\noutput:\n%s", code, out)
-	}
-	if !strings.Contains(out, "typosquat") {
-		t.Errorf("expected typosquat detection in output\noutput:\n%s", out)
-	}
-}
-
-func TestE2EStaticBlockedPackage(t *testing.T) {
-	bin := buildBinary(t)
-
-	claudeCfg := `{
-		"mcpServers": {
-			"evil": {
-				"command": "npx",
-				"args": ["-y", "evil-package"]
-			}
-		}
-	}`
-
-	home := setupHomeDir(t, claudeCfg)
-	trustCfg := writeTrustConfig(t, t.TempDir(), `{
-		"blocked": ["evil-package"]
-	}`)
-
-	out, code := runMCPAudit(t, bin, home, "static", "--trust-config", trustCfg)
-	if code != 1 {
-		t.Errorf("expected exit 1 for blocked package (CRITICAL), got %d\noutput:\n%s", code, out)
-	}
-	if !strings.Contains(out, "CRITICAL") {
-		t.Errorf("expected CRITICAL for blocked package\noutput:\n%s", out)
-	}
-}
-
-func TestE2EStaticNoTrustConfig(t *testing.T) {
-	bin := buildBinary(t)
-
-	claudeCfg := `{
-		"mcpServers": {
-			"filesystem": {
-				"command": "npx",
-				"args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
-			}
-		}
-	}`
-
-	home := setupHomeDir(t, claudeCfg)
-	out, code := runMCPAudit(t, bin, home, "static")
-	if code != 0 {
-		t.Errorf("expected exit 0 without trust config, got %d\noutput:\n%s", code, out)
-	}
-	if !strings.Contains(out, "no trust config") {
-		t.Errorf("expected 'no trust config' in output\noutput:\n%s", out)
-	}
-}
-
-func TestE2EStaticPerToolScope(t *testing.T) {
-	bin := buildBinary(t)
-
-	claudeCfg := `{
-		"mcpServers": {
-			"filesystem": {
-				"command": "npx",
-				"args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
-			}
-		}
-	}`
-
-	home := setupHomeDir(t, claudeCfg)
-	trustCfg := writeTrustConfig(t, t.TempDir(), `{
-		"tools": {
-			"claude": {
-				"trusted": ["@modelcontextprotocol/server-filesystem"]
-			}
-		}
-	}`)
-
-	out, code := runMCPAudit(t, bin, home, "static", "--trust-config", trustCfg)
-	if code != 0 {
-		t.Errorf("expected exit 0 for per-tool trusted, got %d\noutput:\n%s", code, out)
-	}
-	if !strings.Contains(out, "PASS") {
-		t.Errorf("expected PASS with per-tool trust scope\noutput:\n%s", out)
-	}
-}
-
-func TestE2EProbeBasic(t *testing.T) {
-	srv := newE2EMockMCPServer(t)
-	defer srv.Close()
-
-	bin := buildBinary(t)
-
-	claudeCfg := fmt.Sprintf(`{
-		"mcpServers": {
-			"test-srv": {
-				"url": "%s"
-			}
-		}
-	}`, srv.URL)
-
-	home := setupHomeDir(t, claudeCfg)
-
-	out, code := runMCPAudit(t, bin, home, "probe", "--format", "json")
-	if code == 2 {
-		t.Errorf("probe exited with scan error code 2\noutput:\n%s", out)
-	}
-	if !strings.Contains(out, `"server"`) && !strings.Contains(out, `"Server"`) {
-		t.Errorf("expected JSON output with server field\noutput:\n%s", out)
-	}
-}
-
-func TestE2EProbeDryRun(t *testing.T) {
-	bin := buildBinary(t)
-
-	claudeCfg := `{
-		"mcpServers": {
-			"test-srv": {
-				"url": "http://127.0.0.1:19999"
-			}
-		}
-	}`
-
-	home := setupHomeDir(t, claudeCfg)
-
-	out, code := runMCPAudit(t, bin, home, "probe", "--dry-run")
-	if code != 0 {
-		t.Errorf("expected exit 0 for dry-run, got %d\noutput:\n%s", code, out)
-	}
-	if !strings.Contains(out, "would probe") {
-		t.Errorf("expected 'would probe' in dry-run output\noutput:\n%s", out)
-	}
-}
-
-func TestE2EProbeOutputFormats(t *testing.T) {
-	bin := buildBinary(t)
-
-	claudeCfg := `{
-		"mcpServers": {
-			"test-srv": {
-				"url": "http://127.0.0.1:19999"
-			}
-		}
-	}`
-
-	home := setupHomeDir(t, claudeCfg)
-
-	for _, tc := range []struct {
-		format, want string
-	}{
-		{"json", `"severity"`},
-		{"sarif", `"$schema"`},
-	} {
-		t.Run(tc.format, func(t *testing.T) {
-			out, code := runMCPAudit(t, bin, home, "probe", "--dry-run", "--format", tc.format)
-			if code != 0 {
-				t.Errorf("exit %d for format %s\noutput:\n%s", code, tc.format, out)
-			}
-			if !strings.Contains(out, tc.want) {
-				t.Errorf("expected %q in %s output\noutput:\n%s", tc.want, tc.format, out)
-			}
-		})
-	}
-}
-
-func TestE2EProbeBlockHosts(t *testing.T) {
-	bin := buildBinary(t)
-
-	claudeCfg := `{
-		"mcpServers": {}
-	}`
-
-	home := setupHomeDir(t, claudeCfg)
-	out, code := runMCPAudit(t, bin, home, "probe", "--dry-run", "--block-hosts", "169.254.169.254,metadata.google.internal")
-	if code != 0 {
-		t.Errorf("expected exit 0, got %d\noutput:\n%s", code, out)
-	}
-	if strings.Contains(out, "169.254.169.254") || strings.Contains(out, "metadata.google.internal") {
-		t.Errorf("blocked hosts should not appear in dry-run output\noutput:\n%s", out)
-	}
-}
-
-func TestE2EVersion(t *testing.T) {
-	bin := buildBinary(t)
-	out, code := runMCPAudit(t, bin, os.Getenv("HOME"), "version")
-	if code != 0 {
-		t.Errorf("expected exit 0 for version, got %d\noutput:\n%s", code, out)
-	}
-	if !strings.Contains(out, "mcp-audit dev") {
-		t.Errorf("expected version string, got:\n%s", out)
-	}
-}
-
-func TestE2EScan(t *testing.T) {
-	bin := buildBinary(t)
-
-	claudeCfg := `{
-		"mcpServers": {
-			"filesystem": {
-				"command": "npx",
-				"args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
-			}
-		}
-	}`
-
-	home := setupHomeDir(t, claudeCfg)
-	_, code := runMCPAudit(t, bin, home, "scan", "--dry-run")
-	if code == 2 {
-		t.Errorf("scan exited with error code 2")
-	}
+	return stdout.String(), stderr.String(), code
 }
 
 func newE2EMockMCPServer(t *testing.T) *httptest.Server {
@@ -370,4 +116,259 @@ func newE2EMockMCPServer(t *testing.T) *httptest.Server {
 	}))
 
 	return srv
+}
+
+func TestE2EStaticTrustedPackage(t *testing.T) {
+	bin := buildBinary(t)
+
+	claudeCfg := `{
+		"mcpServers": {
+			"filesystem": {
+				"command": "npx",
+				"args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
+			}
+		}
+	}`
+
+	home := setupHomeDir(t, claudeCfg)
+	trustCfg := writeTrustConfig(t, t.TempDir(), `{
+		"trusted": ["@modelcontextprotocol/server-filesystem"]
+	}`)
+
+	out, _, code := runMCPAudit(t, bin, home, "static", "--trust-config", trustCfg)
+	if code != 0 {
+		t.Errorf("expected exit 0 for trusted package, got %d\noutput:\n%s", code, out)
+	}
+	if !strings.Contains(out, "PASS") {
+		t.Errorf("expected PASS finding for trusted package\noutput:\n%s", out)
+	}
+}
+
+func TestE2EStaticTyposquatDetected(t *testing.T) {
+	bin := buildBinary(t)
+
+	claudeCfg := `{
+		"mcpServers": {
+			"filesystem": {
+				"command": "npx",
+				"args": ["-y", "@modelcontextprotocol/server-filesytem", "/tmp"]
+			}
+		}
+	}`
+
+	home := setupHomeDir(t, claudeCfg)
+	trustCfg := writeTrustConfig(t, t.TempDir(), `{
+		"trusted": ["@modelcontextprotocol/server-filesystem"]
+	}`)
+
+	out, _, code := runMCPAudit(t, bin, home, "static", "--trust-config", trustCfg)
+	if code != 0 {
+		t.Errorf("expected exit 0 for typosquat (INFO only), got %d\noutput:\n%s", code, out)
+	}
+	if !strings.Contains(out, "typosquat") {
+		t.Errorf("expected typosquat detection in output\noutput:\n%s", out)
+	}
+}
+
+func TestE2EStaticBlockedPackage(t *testing.T) {
+	bin := buildBinary(t)
+
+	claudeCfg := `{
+		"mcpServers": {
+			"evil": {
+				"command": "npx",
+				"args": ["-y", "evil-package"]
+			}
+		}
+	}`
+
+	home := setupHomeDir(t, claudeCfg)
+	trustCfg := writeTrustConfig(t, t.TempDir(), `{
+		"blocked": ["evil-package"]
+	}`)
+
+	out, _, code := runMCPAudit(t, bin, home, "static", "--trust-config", trustCfg)
+	if code != 1 {
+		t.Errorf("expected exit 1 for blocked package (CRITICAL), got %d\noutput:\n%s", code, out)
+	}
+	if !strings.Contains(out, "CRITICAL") {
+		t.Errorf("expected CRITICAL for blocked package\noutput:\n%s", out)
+	}
+}
+
+func TestE2EStaticNoTrustConfig(t *testing.T) {
+	bin := buildBinary(t)
+
+	claudeCfg := `{
+		"mcpServers": {
+			"filesystem": {
+				"command": "npx",
+				"args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
+			}
+		}
+	}`
+
+	home := setupHomeDir(t, claudeCfg)
+	out, _, code := runMCPAudit(t, bin, home, "static")
+	if code != 0 {
+		t.Errorf("expected exit 0 without trust config, got %d\noutput:\n%s", code, out)
+	}
+	if !strings.Contains(out, "no trust config") {
+		t.Errorf("expected 'no trust config' in output\noutput:\n%s", out)
+	}
+}
+
+func TestE2EStaticPerToolScope(t *testing.T) {
+	bin := buildBinary(t)
+
+	claudeCfg := `{
+		"mcpServers": {
+			"filesystem": {
+				"command": "npx",
+				"args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
+			}
+		}
+	}`
+
+	home := setupHomeDir(t, claudeCfg)
+	trustCfg := writeTrustConfig(t, t.TempDir(), `{
+		"tools": {
+			"claude": {
+				"trusted": ["@modelcontextprotocol/server-filesystem"]
+			}
+		}
+	}`)
+
+	out, _, code := runMCPAudit(t, bin, home, "static", "--trust-config", trustCfg)
+	if code != 0 {
+		t.Errorf("expected exit 0 for per-tool trusted, got %d\noutput:\n%s", code, out)
+	}
+	if !strings.Contains(out, "PASS") {
+		t.Errorf("expected PASS with per-tool trust scope\noutput:\n%s", out)
+	}
+}
+
+func TestE2EProbeBasic(t *testing.T) {
+	srv := newE2EMockMCPServer(t)
+	defer srv.Close()
+
+	bin := buildBinary(t)
+
+	claudeCfg := fmt.Sprintf(`{
+		"mcpServers": {
+			"test-srv": {
+				"url": "%s"
+			}
+		}
+	}`, srv.URL)
+
+	home := setupHomeDir(t, claudeCfg)
+
+	out, _, code := runMCPAudit(t, bin, home, "probe", "--format", "json")
+	if code == 2 {
+		t.Errorf("probe exited with scan error code 2\noutput:\n%s", out)
+	}
+	if !strings.Contains(out, `"server"`) && !strings.Contains(out, `"Server"`) {
+		t.Errorf("expected JSON output with server field\noutput:\n%s", out)
+	}
+}
+
+func TestE2EProbeDryRun(t *testing.T) {
+	bin := buildBinary(t)
+
+	claudeCfg := `{
+		"mcpServers": {
+			"test-srv": {
+				"url": "http://127.0.0.1:19999"
+			}
+		}
+	}`
+
+	home := setupHomeDir(t, claudeCfg)
+
+	out, _, code := runMCPAudit(t, bin, home, "probe", "--dry-run")
+	if code != 0 {
+		t.Errorf("expected exit 0 for dry-run, got %d\noutput:\n%s", code, out)
+	}
+	if !strings.Contains(out, "would probe") {
+		t.Errorf("expected 'would probe' in dry-run output\noutput:\n%s", out)
+	}
+}
+
+func TestE2EProbeOutputFormats(t *testing.T) {
+	bin := buildBinary(t)
+
+	claudeCfg := `{
+		"mcpServers": {
+			"test-srv": {
+				"url": "http://127.0.0.1:19999"
+			}
+		}
+	}`
+
+	home := setupHomeDir(t, claudeCfg)
+
+	for _, tc := range []struct {
+		format, want string
+	}{
+		{"json", `"severity"`},
+		{"sarif", `"$schema"`},
+	} {
+		t.Run(tc.format, func(t *testing.T) {
+			out, _, code := runMCPAudit(t, bin, home, "probe", "--dry-run", "--format", tc.format)
+			if code != 0 {
+				t.Errorf("exit %d for format %s\noutput:\n%s", code, tc.format, out)
+			}
+			if !strings.Contains(out, tc.want) {
+				t.Errorf("expected %q in %s output\noutput:\n%s", tc.want, tc.format, out)
+			}
+		})
+	}
+}
+
+func TestE2EProbeBlockHosts(t *testing.T) {
+	bin := buildBinary(t)
+
+	claudeCfg := `{
+		"mcpServers": {}
+	}`
+
+	home := setupHomeDir(t, claudeCfg)
+	out, _, code := runMCPAudit(t, bin, home, "probe", "--dry-run", "--block-hosts", "169.254.169.254,metadata.google.internal")
+	if code != 0 {
+		t.Errorf("expected exit 0, got %d\noutput:\n%s", code, out)
+	}
+	if strings.Contains(out, "169.254.169.254") || strings.Contains(out, "metadata.google.internal") {
+		t.Errorf("blocked hosts should not appear in dry-run output\noutput:\n%s", out)
+	}
+}
+
+func TestE2EVersion(t *testing.T) {
+	bin := buildBinary(t)
+	out, _, code := runMCPAudit(t, bin, os.Getenv("HOME"), "version")
+	if code != 0 {
+		t.Errorf("expected exit 0 for version, got %d\noutput:\n%s", code, out)
+	}
+	if !strings.Contains(out, "mcp-audit dev") {
+		t.Errorf("expected version string, got:\n%s", out)
+	}
+}
+
+func TestE2EScan(t *testing.T) {
+	bin := buildBinary(t)
+
+	claudeCfg := `{
+		"mcpServers": {
+			"filesystem": {
+				"command": "npx",
+				"args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
+			}
+		}
+	}`
+
+	home := setupHomeDir(t, claudeCfg)
+	_, _, code := runMCPAudit(t, bin, home, "scan", "--dry-run")
+	if code == 2 {
+		t.Errorf("scan exited with error code 2")
+	}
 }

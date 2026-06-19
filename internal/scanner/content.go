@@ -114,7 +114,7 @@ func classifyResponse(body, contentType string) ResponseClass {
 		if strings.Contains(lowerBody, `"error"`) || strings.Contains(lowerBody, "exception") {
 			return ResponseError
 		}
-		if metadataPattern.MatchString(body) {
+		if MetadataPattern.MatchString(body) {
 			return ResponseMetadata
 		}
 		return ResponseData

@@ -14,6 +14,11 @@ import (
 	"time"
 )
 
+type CallbackHooks struct {
+	OnRequest  func(method string, params any)
+	OnResponse func(method string, result json.RawMessage, duration time.Duration)
+}
+
 var ErrAuthRequired = errors.New("authentication required")
 
 const DefaultTimeout = 5 * time.Second
@@ -23,6 +28,7 @@ type Transport interface {
 	SetAuthToken(token string)
 	SetAuthHeaders(headers map[string]string)
 	SetTLS(certFile, keyFile string) error
+	SetCallbacks(hooks *CallbackHooks)
 	Close() error
 }
 
@@ -34,6 +40,7 @@ type HTTPTransport struct {
 	authHeaders     map[string]string
 	authToken       string
 	maxResponseSize int64
+	callbacks       *CallbackHooks
 }
 
 var _ Transport = (*HTTPTransport)(nil)
@@ -67,6 +74,10 @@ func (t *HTTPTransport) SetMaxResponseSize(n int64) {
 	t.maxResponseSize = n
 }
 
+func (t *HTTPTransport) SetCallbacks(hooks *CallbackHooks) {
+	t.callbacks = hooks
+}
+
 func (t *HTTPTransport) SetTLS(certFile, keyFile string) error {
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {
@@ -95,22 +106,15 @@ func (t *HTTPTransport) Send(ctx context.Context, method string, params any) (js
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
+	t.invokeOnRequest(method, params)
+
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, t.endpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
-	httpReq.Header.Set("Content-Type", "application/json")
+	t.setRequestHeaders(httpReq)
 
-	if t.sessionID != "" {
-		httpReq.Header.Set("Mcp-Session-Id", t.sessionID)
-	}
-	if t.authToken != "" {
-		httpReq.Header.Set("Authorization", "Bearer "+t.authToken)
-	}
-	for k, v := range t.authHeaders {
-		httpReq.Header.Set(k, v)
-	}
-
+	start := time.Now()
 	resp, err := t.httpClient.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("send request: %w", err)
@@ -125,6 +129,43 @@ func (t *HTTPTransport) Send(ctx context.Context, method string, params any) (js
 		t.sessionID = sid
 	}
 
+	rpcResp, err := t.parseResponse(resp)
+	if err != nil {
+		return nil, err
+	}
+
+	t.invokeOnResponse(method, rpcResp.Result, time.Since(start))
+
+	return rpcResp.Result, nil
+}
+
+func (t *HTTPTransport) invokeOnRequest(method string, params any) {
+	if t.callbacks != nil && t.callbacks.OnRequest != nil {
+		t.callbacks.OnRequest(method, params)
+	}
+}
+
+func (t *HTTPTransport) invokeOnResponse(method string, result json.RawMessage, d time.Duration) {
+	if t.callbacks != nil && t.callbacks.OnResponse != nil {
+		t.callbacks.OnResponse(method, result, d)
+	}
+}
+
+func (t *HTTPTransport) setRequestHeaders(req *http.Request) {
+	req.Header.Set("Content-Type", "application/json")
+
+	if t.sessionID != "" {
+		req.Header.Set("Mcp-Session-Id", t.sessionID)
+	}
+	if t.authToken != "" {
+		req.Header.Set("Authorization", "Bearer "+t.authToken)
+	}
+	for k, v := range t.authHeaders {
+		req.Header.Set(k, v)
+	}
+}
+
+func (t *HTTPTransport) parseResponse(resp *http.Response) (*response, error) {
 	limited := io.LimitReader(resp.Body, t.maxResponseSize)
 	var buf bytes.Buffer
 	if _, err := io.Copy(&buf, limited); err != nil {
@@ -147,7 +188,7 @@ func (t *HTTPTransport) Send(ctx context.Context, method string, params any) (js
 		return nil, fmt.Errorf("RPC error %d: %s", rpcResp.Error.Code, rpcResp.Error.Message)
 	}
 
-	return rpcResp.Result, nil
+	return &rpcResp, nil
 }
 
 func (t *HTTPTransport) Close() error {
@@ -242,6 +283,13 @@ func (a *autoTransport) SetAuthHeaders(headers map[string]string) {
 	a.http.SetAuthHeaders(headers)
 	if a.sse != nil {
 		a.sse.SetAuthHeaders(headers)
+	}
+}
+
+func (a *autoTransport) SetCallbacks(hooks *CallbackHooks) {
+	a.http.callbacks = hooks
+	if a.sse != nil {
+		a.sse.SetCallbacks(hooks)
 	}
 }
 

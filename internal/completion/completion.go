@@ -49,6 +49,11 @@ var knownFlags = []flagInfo{
 	{"--timeout", "Timeout in seconds for MCP handshake", "", pathNone},
 	{"--concurrency", "Maximum concurrent probes", "", pathNone},
 	{"--no-color", "Disable terminal color codes", "", pathNone},
+	{"--watch-interval", "Periodic re-scan interval in seconds", "", pathNone},
+	{"--on-finding", "Shell command for new finding notification", "", pathNone},
+	{"--listen", "Address to listen on", "", pathNone},
+	{"--target", "Target MCP server URL", "", pathNone},
+	{"--block-critical", "Block responses with CRITICAL findings", "", pathNone},
 }
 
 func allFlagNames() string {
@@ -88,7 +93,7 @@ _mcp_audit_completion() {
 	_init_completion || return
 	case $prev in
 		mcp-audit)
-			COMPREPLY=( $(compgen -W "scan static probe version completion help" -- "$cur") )
+			COMPREPLY=( $(compgen -W "scan static probe watch proxy version completion help" -- "$cur") )
 			return
 			;;
 %s
@@ -104,7 +109,9 @@ complete -F _mcp_audit_completion mcp-audit
 
 func genZsh(w io.Writer) error {
 	var b strings.Builder
-	b.WriteString("#compdef mcp-audit\n\nlocal -a subcmds\nsubcmds=(scan static probe version completion help)\n\n")
+	b.WriteString("#compdef mcp-audit\n\n")
+	b.WriteString("local -a subcmds\n")
+	b.WriteString("subcmds=(scan static probe watch proxy version completion help)\n\n")
 	for _, f := range knownFlags {
 		if f.vals != "" {
 			fmt.Fprintf(&b, "local -a %s_vals\n%s_vals=(%s)\n", f.name[2:], f.name[2:], f.vals)
@@ -137,7 +144,7 @@ func genFish(w io.Writer) error {
 	var b strings.Builder
 	b.WriteString("# fish completion for mcp-audit\n\ncomplete -c mcp-audit -f\n\n")
 	b.WriteString(
-		"complete -c mcp-audit -n \"__fish_is_first_token\" -a \"scan static probe version completion help\"\n\n")
+		"complete -c mcp-audit -n \"__fish_is_first_token\" -a \"scan static probe watch proxy version completion help\"\n\n")
 	for _, f := range knownFlags {
 		switch {
 		case f.vals != "":

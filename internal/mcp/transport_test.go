@@ -365,6 +365,77 @@ func TestNewClient(t *testing.T) {
 	}
 }
 
+func TestHTTPTransportCallbacks(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req request
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Errorf("decode request: %v", err)
+		}
+		result, _ := json.Marshal(map[string]string{"status": "ok"})
+		resp := response{JSONRPC: "2.0", ID: req.ID, Result: result}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer srv.Close()
+
+	var reqCalled bool
+	var respCalled bool
+	var respDuration time.Duration
+
+	hooks := &CallbackHooks{
+		OnRequest: func(method string, params any) {
+			reqCalled = true
+			if method != "test/method" {
+				t.Errorf("expected test/method, got %s", method)
+			}
+		},
+		OnResponse: func(method string, result json.RawMessage, duration time.Duration) {
+			respCalled = true
+			respDuration = duration
+			if method != "test/method" {
+				t.Errorf("expected test/method, got %s", method)
+			}
+		},
+	}
+
+	tr := NewHTTPTransport(srv.URL, 5*time.Second, 65536)
+	tr.SetCallbacks(hooks)
+
+	_, err := tr.Send(context.Background(), "test/method", map[string]string{"key": "value"})
+	if err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	if !reqCalled {
+		t.Error("OnRequest was not called")
+	}
+	if !respCalled {
+		t.Error("OnResponse was not called")
+	}
+	if respDuration <= 0 {
+		t.Error("expected positive response duration")
+	}
+}
+
+func TestHTTPTransportCallbacksNil(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req request
+		json.NewDecoder(r.Body).Decode(&req)
+		result, _ := json.Marshal(map[string]string{"status": "ok"})
+		resp := response{JSONRPC: "2.0", ID: req.ID, Result: result}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer srv.Close()
+
+	tr := NewHTTPTransport(srv.URL, 5*time.Second, 65536)
+
+	_, err := tr.Send(context.Background(), "test/method", nil)
+	if err != nil {
+		t.Fatalf("Send with nil callbacks: %v", err)
+	}
+}
+
 func TestTransportInterface(t *testing.T) {
 	var _ Transport = (*HTTPTransport)(nil)
 	var _ Transport = (*stdioTransport)(nil)

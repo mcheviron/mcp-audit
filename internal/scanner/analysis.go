@@ -7,18 +7,18 @@ import (
 	"github.com/mostafaelataby-cheviron/mcp-audit/internal/config"
 )
 
-var awsKeyPattern = regexp.MustCompile(`AKIA[0-9A-Z]{16}`)
-var gcpTokenPattern = regexp.MustCompile(`(?i)"access_token"\s*:\s*"ya29\.`)
+var AwsKeyPattern = regexp.MustCompile(`AKIA[0-9A-Z]{16}`)
+var GcpTokenPattern = regexp.MustCompile(`(?i)"access_token"\s*:\s*"ya29\.`)
 
-var metadataPattern = regexp.MustCompile(
+var MetadataPattern = regexp.MustCompile(
 	`(?i)(ami-id|instance-id|public-keys|security-groups|service-accounts|access_token|privateKey)`,
 )
 
-var internalBodyPattern = regexp.MustCompile(
+var InternalBodyPattern = regexp.MustCompile(
 	`(?i)(internal|admin|localhost|127\.0\.0\.1|192\.168\.|10\.\d+\.|172\.(1[6-9]|2\d|3[01])\.)`,
 )
 
-var redactPatterns = []*regexp.Regexp{
+var RedactPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`AKIA[0-9A-Z]{16}`),
 	regexp.MustCompile(`(?i)ya29\.[0-9a-z_-]+`),
 	regexp.MustCompile(`(?i)"access_token"\s*:\s*"[^"]+"`),
@@ -27,7 +27,7 @@ var redactPatterns = []*regexp.Regexp{
 }
 
 func redactDetail(body string) string {
-	for _, p := range redactPatterns {
+	for _, p := range RedactPatterns {
 		body = p.ReplaceAllString(body, "[REDACTED]")
 	}
 	if len(body) > 200 {
@@ -138,7 +138,7 @@ func classifyAnalysisPath(
 }
 
 func checkCriticalPatterns(result probeResult, srv config.ServerEntry) *Result {
-	if awsKeyPattern.MatchString(result.body) {
+	if AwsKeyPattern.MatchString(result.body) {
 		return &Result{
 			Severity: SevCritical,
 			Server:   srv.Name,
@@ -148,7 +148,7 @@ func checkCriticalPatterns(result probeResult, srv config.ServerEntry) *Result {
 		}
 	}
 
-	if gcpTokenPattern.MatchString(result.body) {
+	if GcpTokenPattern.MatchString(result.body) {
 		return &Result{
 			Severity: SevCritical,
 			Server:   srv.Name,
@@ -158,7 +158,7 @@ func checkCriticalPatterns(result probeResult, srv config.ServerEntry) *Result {
 		}
 	}
 
-	if metadataPattern.MatchString(result.body) {
+	if MetadataPattern.MatchString(result.body) {
 		return &Result{
 			Severity: SevCritical,
 			Server:   srv.Name,
@@ -168,7 +168,7 @@ func checkCriticalPatterns(result probeResult, srv config.ServerEntry) *Result {
 		}
 	}
 
-	if internalBodyPattern.MatchString(result.body) {
+	if InternalBodyPattern.MatchString(result.body) {
 		return &Result{
 			Severity: SevHigh,
 			Server:   srv.Name,

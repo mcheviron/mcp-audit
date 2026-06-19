@@ -62,7 +62,7 @@ func evalToolTextBlock(text, toolName, target string, worst *Result) {
 		}
 	}
 
-	for i, p := range promptInjectionPatterns {
+	for i, p := range PromptInjectionPatterns {
 		if m := p.FindString(text); m != "" {
 			if worst.Severity < SevHigh {
 				*worst = Result{
@@ -79,28 +79,28 @@ func evalToolTextBlock(text, toolName, target string, worst *Result) {
 }
 
 func checkCriticalToolPatterns(text, toolName, target string, worst *Result) {
-	if metadataPattern.MatchString(text) && worst.Severity < SevCritical {
+	if MetadataPattern.MatchString(text) && worst.Severity < SevCritical {
 		*worst = Result{
 			Severity: SevCritical, Server: worst.Server, Type: "dynamic",
 			Finding: fmt.Sprintf("tool %q leaked metadata via probe to %s", toolName, target),
 			Detail:  redactDetail(text),
 		}
 	}
-	if awsKeyPattern.MatchString(text) && worst.Severity < SevCritical {
+	if AwsKeyPattern.MatchString(text) && worst.Severity < SevCritical {
 		*worst = Result{
 			Severity: SevCritical, Server: worst.Server, Type: "dynamic",
 			Finding: fmt.Sprintf("tool %q returned AWS credentials via probe to %s", toolName, target),
 			Detail:  redactDetail(text),
 		}
 	}
-	if gcpTokenPattern.MatchString(text) && worst.Severity < SevCritical {
+	if GcpTokenPattern.MatchString(text) && worst.Severity < SevCritical {
 		*worst = Result{
 			Severity: SevCritical, Server: worst.Server, Type: "dynamic",
 			Finding: fmt.Sprintf("tool %q returned GCP token via probe to %s", toolName, target),
 			Detail:  redactDetail(text),
 		}
 	}
-	if internalBodyPattern.MatchString(text) && worst.Severity < SevHigh {
+	if InternalBodyPattern.MatchString(text) && worst.Severity < SevHigh {
 		*worst = Result{
 			Severity: SevHigh, Server: worst.Server, Type: "dynamic",
 			Finding: fmt.Sprintf("tool %q returned internal content via probe to %s", toolName, target),
@@ -245,7 +245,7 @@ func injectHeaderArg(args map[string]any, key, value string) {
 	}
 }
 
-var promptInjectionPatterns = []*regexp.Regexp{
+var PromptInjectionPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)(you are now|you are no longer|from now on you are)`),
 	regexp.MustCompile(`(?i)(ignore (all |)previous|forget (all |)prior|disregard (all |)above)`),
 	regexp.MustCompile(`(?i)(system:\s*|system prompt:\s*|<system>|\[system\]|<<SYSTEM>>)`),
@@ -271,7 +271,7 @@ func analyzeToolDescription(tool mcp.Tool, serverName, configPath string) []Resu
 	}
 
 	var results []Result
-	for _, p := range promptInjectionPatterns {
+	for _, p := range PromptInjectionPatterns {
 		if m := p.FindString(desc); m != "" {
 			results = append(results, Result{
 				Severity:   SevLow,

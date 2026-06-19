@@ -217,6 +217,7 @@ func (t *stdioTransport) readLine(ctx context.Context) ([]byte, error) {
 	return stdout.Bytes(), nil
 }
 
+func (t *stdioTransport) SetCallbacks(hooks *CallbackHooks)        {}
 func (t *stdioTransport) SetAuthToken(token string)                {}
 func (t *stdioTransport) SetAuthHeaders(headers map[string]string) {}
 func (t *stdioTransport) SetTLS(certFile, keyFile string) error    { return nil }

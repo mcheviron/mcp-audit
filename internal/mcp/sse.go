@@ -291,6 +291,8 @@ func (t *sseTransport) SetAuthHeaders(headers map[string]string) {
 	t.authHeaders = headers
 }
 
+func (t *sseTransport) SetCallbacks(hooks *CallbackHooks) {}
+
 func (t *sseTransport) SetTLS(certFile, keyFile string) error {
 	return nil
 }

@@ -35,6 +35,10 @@ func main() {
 		runStaticAction("static", os.Args[2:])
 	case "probe":
 		runProbe(os.Args[2:])
+	case "watch":
+		runWatch(os.Args[2:])
+	case "proxy":
+		runProxy(os.Args[2:])
 	case "version":
 		fmt.Printf("mcp-audit %s\n", version)
 		fmt.Printf("  commit: %s\n", commit)
@@ -448,11 +452,13 @@ Usage:
   mcp-audit scan        Full audit (static analysis + dynamic SSRF probing)
   mcp-audit static      Config-only scan (no network requests)
   mcp-audit probe       Dynamic SSRF probe only
+  mcp-audit watch       Watch config files and re-scan on changes
+  mcp-audit proxy       Start a transparent auditing MCP proxy
   mcp-audit version     Print version
   mcp-audit completion  Generate shell completion (bash|zsh|fish)
   mcp-audit help        Show this help
 
-Flags:
+Scan/probe flags:
   --format <fmt>         Output format: table (default), json, sarif, junit
   --dry-run              Print what would be probed without making requests
   --targets <urls>       Comma-separated probe target URLs (overrides built-in list)
@@ -474,16 +480,21 @@ Flags:
 	  --no-trust-on-first-use Require pre-populated pinned hashes for first scan
 	  --no-secret-scan       Disable credential and secret scanning of config files
 
+Watch flags:
+  --watch-interval <n>   Periodic re-scan seconds (default: 300)
+  --on-finding <cmd>     Shell command on new findings
+
+Proxy flags:
+  --listen <addr>        Listen address (default: 127.0.0.1:8080)
+  --target <url>         Target MCP server URL (required)
+  --block-critical       Block responses with CRITICAL findings
+
 Examples:
   mcp-audit static
   mcp-audit static --trust-config ./my-trust.json
-  mcp-audit scan --format json
-  mcp-audit probe --dry-run
   mcp-audit probe --targets http://127.0.0.1:8080/,http://10.0.0.1/
   mcp-audit probe --block-hosts 169.254.169.254
-  MCP_AUTH_TOKEN=my-token mcp-audit probe
   mcp-audit probe --probe-depth full
-  mcp-audit probe --callback-port 9999
-  mcp-audit probe --targets-file ./targets.txt
-  mcp-audit probe --transport stdio`)
+  mcp-audit watch --watch-interval 60 --on-finding "notify-send 'new findings'"
+  mcp-audit proxy --target http://localhost:9000 --block-critical`)
 }
