@@ -1,0 +1,65 @@
+name: Validate and Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'trusted.json'
+      - 'blocked.json'
+      - 'cve.json'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'trusted.json'
+      - 'blocked.json'
+      - 'cve.json'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate trusted.json
+        run: python3 -m json.tool trusted.json > /dev/null
+
+      - name: Validate blocked.json
+        run: python3 -m json.tool blocked.json > /dev/null
+
+      - name: Validate cve.json
+        run: python3 -m json.tool cve.json > /dev/null
+
+      - name: Validate schema fields
+        run: |
+          python3 -c "
+          import json
+          with open('trusted.json') as f:
+              d = json.load(f)
+              assert 'version' in d, 'missing version'
+              assert 'generated_at' in d, 'missing generated_at'
+              assert isinstance(d.get('trusted', []), list), 'trusted must be list'
+          with open('cve.json') as f:
+              cves = json.load(f)
+              for c in cves:
+                  for field in ('name', 'cve', 'cvss', 'affected_versions', 'description'):
+                      assert field in c, f'missing {field} in CVE entry'
+          print('All validations passed')
+          "
+
+  release:
+    needs: validate
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.run_number }}
+          name: Release v${{ github.run_number }}
+          files: |
+            trusted.json
+            blocked.json
+            cve.json
+          generate_release_notes: true

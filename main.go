@@ -29,10 +29,8 @@ func main() {
 
 	cmd := os.Args[1]
 	switch cmd {
-	case "scan":
-		runStaticAction("scan", os.Args[2:])
-	case "static":
-		runStaticAction("static", os.Args[2:])
+	case "scan", "static":
+		runStaticAction(cmd, os.Args[2:])
 	case "probe":
 		runProbe(os.Args[2:])
 	case "watch":
@@ -51,6 +49,10 @@ func main() {
 		if err := completion.Generate(shell, os.Stdout); err != nil {
 			os.Exit(1)
 		}
+	case "trust":
+		runTrustCmd(os.Args[2:])
+	case "upload":
+		runUpload(os.Args[2:])
 	case "help", "-h", "--help":
 		printUsage()
 	default:
@@ -457,6 +459,8 @@ Usage:
   mcp-audit probe       Dynamic SSRF probe only
   mcp-audit watch       Watch config files and re-scan on changes
   mcp-audit proxy       Start a transparent auditing MCP proxy
+  mcp-audit trust       Manage trust config (update, export, import)
+  mcp-audit upload      Anonymize and upload findings to community DB
   mcp-audit version     Print version
   mcp-audit completion  Generate shell completion (bash|zsh|fish)
   mcp-audit help        Show this help
@@ -483,14 +487,11 @@ Scan/probe flags:
 	  --no-trust-on-first-use Require pre-populated pinned hashes for first scan
 	  --no-secret-scan       Disable credential and secret scanning of config files
   --no-cross-server-analysis Disable cross-server relationship analysis
-
 Watch flags:
   --watch-interval <n>   Periodic re-scan seconds (default: 300)
-  --on-finding <cmd>     Shell command on new findings
 
 Proxy flags:
   --listen <addr>        Listen address (default: 127.0.0.1:8080)
-  --target <url>         Target MCP server URL (required)
   --block-critical       Block responses with CRITICAL findings
 
 Examples:

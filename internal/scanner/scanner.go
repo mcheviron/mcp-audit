@@ -1,9 +1,13 @@
 package scanner
 
 import (
+	"log/slog"
+	"maps"
 	"sync"
+	"time"
 
 	"github.com/mostafaelataby-cheviron/mcp-audit/internal/config"
+	"github.com/mostafaelataby-cheviron/mcp-audit/internal/intel"
 )
 
 type AuthConfig struct {
@@ -82,6 +86,8 @@ type Scanner struct {
 	TestConfigs []config.Config
 }
 
+const embeddedTrustStaleness = 90 * 24 * time.Hour
+
 func NewScanner() *Scanner {
 	return &Scanner{ToolAnalysis: true, CrossServerAnalysis: true, MaxResponseSize: 65536}
 }
@@ -103,16 +109,49 @@ func (s *Scanner) discoverConfigs() []config.Config {
 }
 
 func (s *Scanner) SetTrustConfig(path string) error {
+	userSpecified := path != ""
 	if path == "" {
 		path = config.DefaultTrustPath()
 	}
 	if path == "" {
-		return nil
+		return s.loadEmbeddedDefaults()
 	}
 	tc, err := config.LoadTrust(path)
 	if err != nil {
-		return err
+		if userSpecified {
+			return err
+		}
+		slog.Debug("no user trust config, falling back to embedded defaults", "error", err)
+		return s.loadEmbeddedDefaults()
 	}
 	s.TrustConfig = tc
+	return nil
+}
+
+func (s *Scanner) loadEmbeddedDefaults() error {
+	tf, err := intel.LoadDefaults()
+	if err != nil {
+		return err
+	}
+	s.TrustConfig = &config.TrustConfig{
+		TrustScope: config.TrustScope{
+			Trusted: tf.Trusted,
+			Blocked: tf.Blocked,
+		},
+		Servers:     make(map[string]config.TrustScope),
+		Tools:       make(map[string]config.TrustScope),
+		PinnedTools: make(map[string]string),
+	}
+	for k, v := range tf.Servers {
+		s.TrustConfig.Servers[k] = config.TrustScope{Trusted: v.Trusted, Blocked: v.Blocked}
+	}
+	for k, v := range tf.Tools {
+		s.TrustConfig.Tools[k] = config.TrustScope{Trusted: v.Trusted, Blocked: v.Blocked}
+	}
+	maps.Copy(s.TrustConfig.PinnedTools, tf.PinnedTools)
+	if tf.IsStale(embeddedTrustStaleness) {
+		slog.Warn("embedded trust config is over 90 days old, consider running 'mcp-audit trust update'",
+			"age", tf.Age().String())
+	}
 	return nil
 }

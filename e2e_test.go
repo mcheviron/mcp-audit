@@ -213,8 +213,8 @@ func TestE2EStaticNoTrustConfig(t *testing.T) {
 	if code != 0 {
 		t.Errorf("expected exit 0 without trust config, got %d\noutput:\n%s", code, out)
 	}
-	if !strings.Contains(out, "no trust config") {
-		t.Errorf("expected 'no trust config' in output\noutput:\n%s", out)
+	if !strings.Contains(out, "PASS") {
+		t.Errorf("expected 'PASS' in output\noutput:\n%s", out)
 	}
 }
 

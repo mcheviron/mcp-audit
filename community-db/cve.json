@@ -1,0 +1,15 @@
+[
+  {
+    "name": "MCP-2026-0001",
+    "cve": "CVE-2026-00001",
+    "cvss": 7.5,
+    "affected_versions": ["<1.2.0"],
+    "description": "SSRF in server-filesystem tool allowing internal network access via crafted path traversal",
+    "package": "@modelcontextprotocol/server-filesystem",
+    "published": "2026-01-15T00:00:00Z",
+    "references": [
+      "https://github.com/modelcontextprotocol/servers/security/advisories/GHSA-xxxx-xxxx-xxxx"
+    ],
+    "remediation": "Upgrade to @modelcontextprotocol/server-filesystem@1.2.0 or later"
+  }
+]
