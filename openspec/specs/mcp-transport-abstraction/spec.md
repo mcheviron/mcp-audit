@@ -21,7 +21,7 @@ The system SHALL define a `Transport` interface with `Send(ctx context.Context, 
 - **THEN** all underlying connections, subprocesses, and file descriptors are released
 
 ### Requirement: Stdio transport
-The system SHALL support an stdio transport that spawns the MCP server as a subprocess using the `command` and `args` fields from `ServerEntry`. Communication SHALL use newline-delimited JSON over stdin/stdout. The transport SHALL enforce a configurable startup timeout (default 5s) via context cancellation. Transport SHALL send `SIGKILL` to the process on `Close()`.
+The system SHALL support an stdio transport that spawns the MCP server as a subprocess using the `command` and `args` fields from `ServerEntry`. Communication SHALL use newline-delimited JSON over stdin/stdout. The transport SHALL enforce a configurable startup timeout (default 5s) for the initial process spawn and readiness check. Per-request timeouts SHALL be controlled by the caller's context on `Send`, not by the process-lifetime context. Transport SHALL send `SIGKILL` to the process on `Close()`. The process command SHALL use `cmd.WaitDelay` (2s) so pipes close promptly on kill.
 
 #### Scenario: Successful stdio handshake
 - **WHEN** a stdio server is spawned with valid command and args
@@ -38,6 +38,10 @@ The system SHALL support an stdio transport that spawns the MCP server as a subp
 #### Scenario: Stdio request timeout
 - **WHEN** a `Send` call with a deadline context expires while waiting for response
 - **THEN** the transport returns a context deadline exceeded error and the subprocess is killed and restarted on the next Send
+
+#### Scenario: Multi-step interaction survives beyond 5 seconds
+- **WHEN** a stdio server takes longer than 5 seconds total across multiple `Send` calls (e.g., initialize at 2s, list tools at 4s, call tool at 7s elapsed)
+- **THEN** all calls succeed because the process lifetime is not bounded by the 5s startup timeout
 
 #### Scenario: Malformed stdio output
 - **WHEN** the subprocess writes non-JSON or a non-JSON-RPC response to stdout
@@ -62,6 +66,21 @@ The system SHALL support SSE transport for legacy pre-2024-11-05 MCP servers. Th
 #### Scenario: SSE transport timeout
 - **WHEN** no SSE event is received within the configured timeout (default 10s)
 - **THEN** the transport returns a timeout error
+
+### Requirement: SSE endpoint path validation
+The system SHALL validate the SSE endpoint path received from the `endpoint` event. The endpoint URL SHALL be parsed and its host SHALL match the original server URL host. The path SHALL not contain `..` segments. If validation fails, the transport SHALL return a connection error.
+
+#### Scenario: Valid SSE endpoint path
+- **WHEN** the SSE endpoint event contains a path `/messages` on the same host
+- **THEN** the transport accepts the endpoint and uses it for message posting
+
+#### Scenario: Path traversal in SSE endpoint
+- **WHEN** the SSE endpoint event contains a path with `..` segments (e.g., `/../admin`)
+- **THEN** the transport returns a connection error
+
+#### Scenario: Different host in SSE endpoint
+- **WHEN** the SSE endpoint event contains a URL with a different host than the original server URL
+- **THEN** the transport returns a connection error
 
 ### Requirement: Streamable HTTP transport
 The system SHALL support Streamable HTTP per MCP 2024-11-05 specification. The transport SHALL extract `Mcp-Session-Id` from response headers and inject it into all subsequent requests for that session. A new session SHALL be created for each probe run (no cross-run session persistence).
@@ -98,7 +117,7 @@ The system SHALL use a unified `newTransport` factory function to construct tran
 - **THEN** the transport layer attempts SSE as a fallback
 
 ### Requirement: Authentication support
-The system SHALL support authentication via static headers, Bearer tokens, and mTLS client certificates. Auth configuration SHALL be parsed from `ServerEntry` fields (`AuthHeaders`, `AuthToken`, `TLSCertFile`, `TLSKeyFile`). Auth methods (`SetAuthToken`, `SetAuthHeaders`, `SetTLS`) SHALL be on the `Transport` interface, allowing uniform auth application to all transport types. Auth headers SHALL be injected into every HTTP and SSE request for that server.
+The system SHALL support authentication via static headers, Bearer tokens, and mTLS client certificates. Auth configuration SHALL be parsed from `ServerEntry` fields (`AuthHeaders`, `AuthToken`, `TLSCertFile`, `TLSKeyFile`). Auth methods (`SetAuthToken`, `SetAuthHeaders`, `SetTLS`) SHALL be on the `Transport` interface, allowing uniform auth application to all transport types. Auth headers SHALL be injected into every HTTP and SSE request for that server. `SetTLS` on transports that do not support TLS SHALL return an error explaining the limitation instead of silently ignoring the configuration.
 
 #### Scenario: Bearer token injection
 - **WHEN** `ServerEntry.AuthToken` is set to "secret123"
@@ -115,6 +134,10 @@ The system SHALL support authentication via static headers, Bearer tokens, and m
 #### Scenario: mTLS client certificate
 - **WHEN** `ServerEntry.TLSCertFile` and `TLSKeyFile` point to valid PEM files
 - **THEN** the HTTP client presents the certificate during TLS handshake
+
+#### Scenario: SSE transport rejects TLS configuration
+- **WHEN** `SetTLS(certFile, keyFile)` is called on an SSE transport
+- **THEN** an error is returned indicating SSE does not support client certificates and the user should use `--transport http`
 
 #### Scenario: Auth methods are no-ops on stdio
 - **WHEN** using stdio transport

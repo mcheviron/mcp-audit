@@ -13,7 +13,6 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/mostafaelataby-cheviron/mcp-audit/internal/analysis"
 	"github.com/mostafaelataby-cheviron/mcp-audit/internal/config"
 	"github.com/mostafaelataby-cheviron/mcp-audit/internal/mcp"
 )
@@ -117,7 +116,7 @@ func (s *Scanner) collectServers() []config.ServerEntry {
 func runDirectProbes( //nolint:funlen
 	httpServers []config.ServerEntry, targets []string, depth ProbeDepth, maxResp int64,
 	concurrency int,
-) ([]Result, []probeTiming) {
+) ([]Result, []probeTiming, error) {
 	var results []Result
 	var timings []probeTiming
 	var mu sync.Mutex
@@ -185,21 +184,22 @@ func runDirectProbes( //nolint:funlen
 	}
 
 	if err := g.Wait(); err != nil {
-		slog.Debug("direct probe group error", "err", err)
+		return results, timings, fmt.Errorf("direct probe group: %w", err)
 	}
-	return results, timings
+	return results, timings, nil
 }
 
 func runMCPProbes(
+	parentCtx context.Context,
 	servers []config.ServerEntry, targets []string, transportFlag string, auth AuthConfig,
 	toolAnalysis bool, allTools map[string][]mcp.Tool, driftCfg driftConfig,
 	depth ProbeDepth, cl *CallbackListener, maxResp int64,
 	concurrency, timeoutSecs int,
-) []Result {
+) ([]Result, error) {
 	var results []Result
 	var mu sync.Mutex
 
-	g, ctx := errgroup.WithContext(context.Background())
+	g, ctx := errgroup.WithContext(parentCtx)
 	g.SetLimit(concurrency)
 
 	for _, srv := range servers {
@@ -213,9 +213,9 @@ func runMCPProbes(
 	}
 
 	if err := g.Wait(); err != nil {
-		slog.Debug("MCP probe group error", "err", err)
+		return results, fmt.Errorf("MCP probe group: %w", err)
 	}
-	return results
+	return results, nil
 }
 
 func probeSingleServer(
@@ -394,21 +394,6 @@ func (s *Scanner) Probe(dryRun bool) []Result {
 		return dryRunResults(mcpServers, targets, depth)
 	}
 
-	var cl *CallbackListener
-	if depth >= DepthFull {
-		cl = startCallbackListener(s.CallbackPort)
-	}
-
-	auth := s.authConfig()
-	allTools := make(map[string][]mcp.Tool)
-	driftCfg := driftConfig{
-		snapshotDir:       s.SnapshotDir,
-		noSnapshot:        s.NoSnapshot,
-		noTrustOnFirstUse: s.NoTrustOnFirstUse,
-		trustConfig:       s.TrustConfig,
-	}
-
-	maxResp := int64(s.MaxResponseSize)
 	concurrency := s.Concurrency
 	if concurrency <= 0 {
 		concurrency = 10
@@ -417,27 +402,14 @@ func (s *Scanner) Probe(dryRun bool) []Result {
 	if timeoutSecs <= 0 {
 		timeoutSecs = 30
 	}
-	var directResults, mcpResults []Result
-	var directTimings []probeTiming
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
-		directResults, directTimings = runDirectProbes(httpServers, targets, depth, maxResp, concurrency)
-	}()
-	go func() {
-		defer wg.Done()
-		mcpResults = runMCPProbes(
-			mcpServers, targets, s.Transport, auth, s.ToolAnalysis, allTools, driftCfg, depth, cl,
-			maxResp, concurrency, timeoutSecs,
-		)
-	}()
-	wg.Wait()
 
-	var results []Result
-	results = append(results, directResults...)
-	results = append(results, mcpResults...)
-	results = append(results, analyzeTiming(directTimings)...)
+	overallTimeout := time.Duration(timeoutSecs*concurrency+30) * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), overallTimeout)
+	defer cancel()
+
+	cl := s.setupCallbackListener(depth)
+
+	results := s.runProbes(ctx, httpServers, mcpServers, targets, depth, concurrency, timeoutSecs, cl)
 
 	if cl != nil {
 		cl.drainCallbacks(30 * time.Second)
@@ -447,6 +419,62 @@ func (s *Scanner) Probe(dryRun bool) []Result {
 		cl.stopCallbackListener()
 	}
 
+	return results
+}
+
+func (s *Scanner) setupCallbackListener(depth ProbeDepth) *CallbackListener {
+	if depth < DepthFull {
+		return nil
+	}
+	cl, err := startCallbackListener(s.CallbackPort)
+	if err != nil {
+		slog.Warn("callback listener could not bind, blind SSRF detection disabled", "err", err)
+	}
+	return cl
+}
+
+func (s *Scanner) runProbes(
+	ctx context.Context,
+	httpServers, mcpServers []config.ServerEntry,
+	targets []string,
+	depth ProbeDepth,
+	concurrency, timeoutSecs int,
+	cl *CallbackListener,
+) []Result {
+	auth := s.authConfig()
+	allTools := make(map[string][]mcp.Tool)
+	driftCfg := driftConfig{
+		snapshotDir:       s.SnapshotDir,
+		noSnapshot:        s.NoSnapshot,
+		noTrustOnFirstUse: s.NoTrustOnFirstUse,
+		trustConfig:       s.TrustConfig,
+	}
+	maxResp := int64(s.MaxResponseSize)
+
+	var directResults, mcpResults []Result
+	var directTimings []probeTiming
+	var dirErr, mcpErr error
+
+	g, gctx := errgroup.WithContext(ctx)
+	g.Go(func() error {
+		directResults, directTimings, dirErr = runDirectProbes(httpServers, targets, depth, maxResp, concurrency)
+		return dirErr
+	})
+	g.Go(func() error {
+		mcpResults, mcpErr = runMCPProbes(
+			gctx, mcpServers, targets, s.Transport, auth, s.ToolAnalysis, allTools, driftCfg, depth, cl,
+			maxResp, concurrency, timeoutSecs,
+		)
+		return mcpErr
+	})
+	if err := g.Wait(); err != nil {
+		slog.Warn("probe group error (timeout or cancellation)", "err", err)
+	}
+
+	var results []Result
+	results = append(results, directResults...)
+	results = append(results, mcpResults...)
+	results = append(results, analyzeTiming(directTimings)...)
 	results = s.analyzeCollectedTools(allTools, results)
 
 	return results
@@ -461,20 +489,6 @@ func (s *Scanner) analyzeCollectedTools(allTools map[string][]mcp.Tool, results 
 	if s.CrossServerAnalysis && len(allTools) > 1 {
 		crossResults := runCrossServerAnalysis(allTools)
 		results = append(results, crossResults...)
-	}
-	return results
-}
-
-func runCrossServerAnalysis(allTools map[string][]mcp.Tool) []Result {
-	findings := analysis.Run(allTools)
-	results := make([]Result, len(findings))
-	for i, f := range findings {
-		results[i] = Result{
-			Severity: ParseSeverity(f.Severity),
-			Server:   f.Server,
-			Type:     f.Type,
-			Finding:  f.Description,
-		}
 	}
 	return results
 }

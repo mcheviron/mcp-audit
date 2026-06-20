@@ -9,6 +9,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -98,6 +99,11 @@ func (t *sseTransport) connect(ctx context.Context) error {
 }
 
 func readSSEEndpoint(reader *bufio.Reader, serverURL string) (string, bool) {
+	parsedServer, err := parseServerURL(serverURL)
+	if err != nil {
+		return "", false
+	}
+
 	var eventType string
 	var dataLines []string
 
@@ -116,7 +122,18 @@ func readSSEEndpoint(reader *bufio.Reader, serverURL string) (string, bool) {
 					if !strings.HasPrefix(data, "/") {
 						data = "/" + data
 					}
-					return serverURL + data, true
+					fullURL := serverURL + data
+					parsed, err := parseServerURL(fullURL)
+					if err != nil {
+						return "", false
+					}
+					if parsed.Host != parsedServer.Host {
+						return "", false
+					}
+					if strings.Contains(parsed.Path, "/../") || strings.HasSuffix(parsed.Path, "/..") || parsed.Path == ".." {
+						return "", false
+					}
+					return fullURL, true
 				}
 				eventType = ""
 				dataLines = dataLines[:0]
@@ -131,6 +148,14 @@ func readSSEEndpoint(reader *bufio.Reader, serverURL string) (string, bool) {
 			dataLines = append(dataLines, dataText)
 		}
 	}
+}
+
+func parseServerURL(raw string) (*url.URL, error) {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return nil, fmt.Errorf("parse URL: %w", err)
+	}
+	return u, nil
 }
 
 func (t *sseTransport) readEvents(ctx context.Context, body io.ReadCloser) {
@@ -294,7 +319,9 @@ func (t *sseTransport) SetAuthHeaders(headers map[string]string) {
 func (t *sseTransport) SetCallbacks(hooks *CallbackHooks) {}
 
 func (t *sseTransport) SetTLS(certFile, keyFile string) error {
-	return nil
+	return fmt.Errorf(
+		"sse: TLS client certificates are not supported for SSE transport; use --transport http to force Streamable HTTP",
+	)
 }
 
 func (t *sseTransport) Close() error {

@@ -13,7 +13,10 @@ import (
 )
 
 func TestCallbackListenerStartStop(t *testing.T) {
-	cl := startCallbackListener(0)
+	cl, err := startCallbackListener(0)
+	if err != nil {
+		t.Fatalf("startCallbackListener: %v", err)
+	}
 	if cl == nil {
 		t.Fatal("startCallbackListener returned nil")
 	}
@@ -41,7 +44,10 @@ func TestCallbackListenerStartStop(t *testing.T) {
 }
 
 func TestCallbackListenerCollectResults(t *testing.T) {
-	cl := startCallbackListener(0)
+	cl, err := startCallbackListener(0)
+	if err != nil {
+		t.Fatalf("startCallbackListener: %v", err)
+	}
 	if cl == nil {
 		t.Fatal("startCallbackListener returned nil")
 	}
@@ -346,11 +352,11 @@ func TestIsInternalHostForDNSRebinding(t *testing.T) {
 }
 
 func TestRunDirectProbesDepthGating(t *testing.T) {
-	probeResults, _ := runDirectProbes(nil, []string{"http://127.0.0.1/", "http://example.com/"}, DepthBasic, 4096, 10)
+	probeResults, _, _ := runDirectProbes(nil, []string{"http://127.0.0.1/", "http://example.com/"}, DepthBasic, 4096, 10)
 	if len(probeResults) > 0 {
 	}
 
-	_, _ = runDirectProbes(nil, nil, DepthExtended, 4096, 10)
+	_, _, _ = runDirectProbes(nil, nil, DepthExtended, 4096, 10)
 
-	_, _ = runDirectProbes(nil, nil, DepthFull, 4096, 10)
+	_, _, _ = runDirectProbes(nil, nil, DepthFull, 4096, 10)
 }

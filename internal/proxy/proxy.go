@@ -2,6 +2,9 @@ package proxy
 
 import (
 	"bytes"
+	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,6 +12,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -20,12 +24,53 @@ type Config struct {
 	TargetURL       string
 	BlockCritical   bool
 	MaxResponseSize int64
+	UpstreamCACert  string
+	UpstreamCert    string
+	UpstreamKey     string
 }
 
 type Proxy struct {
 	config    Config
 	targetURL *url.URL
 	inspector *Inspector
+}
+
+func (p *Proxy) buildTransport() *http.Transport {
+	cfg := p.config
+	if cfg.UpstreamCACert == "" && cfg.UpstreamCert == "" && cfg.UpstreamKey == "" {
+		return nil
+	}
+
+	tlsCfg := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+	}
+
+	if cfg.UpstreamCACert != "" {
+		caCert, err := os.ReadFile(cfg.UpstreamCACert)
+		if err != nil {
+			slog.Error("failed to read upstream CA cert", "path", cfg.UpstreamCACert, "err", err)
+			return nil
+		}
+		caCertPool := x509.NewCertPool()
+		if !caCertPool.AppendCertsFromPEM(caCert) {
+			slog.Error("failed to parse upstream CA cert")
+			return nil
+		}
+		tlsCfg.RootCAs = caCertPool
+	}
+
+	if cfg.UpstreamCert != "" && cfg.UpstreamKey != "" {
+		cert, err := tls.LoadX509KeyPair(cfg.UpstreamCert, cfg.UpstreamKey)
+		if err != nil {
+			slog.Error("failed to load upstream client cert", "err", err)
+			return nil
+		}
+		tlsCfg.Certificates = []tls.Certificate{cert}
+	}
+
+	return &http.Transport{
+		TLSClientConfig: tlsCfg,
+	}
 }
 
 func (p *Proxy) Handler() http.Handler {
@@ -70,12 +115,18 @@ func (p *Proxy) Handler() http.Handler {
 		}
 	}
 
-	return &httputil.ReverseProxy{
+	rp := &httputil.ReverseProxy{
 		Director: director,
 		ModifyResponse: func(resp *http.Response) error {
 			return p.inspectAndModify(resp, requestMethod)
 		},
 	}
+
+	if tr := p.buildTransport(); tr != nil {
+		rp.Transport = tr
+	}
+
+	return rp
 }
 
 func (p *Proxy) Inspector() *Inspector {
@@ -107,7 +158,7 @@ func New(cfg Config) *Proxy {
 	}
 }
 
-func (p *Proxy) Start() error {
+func (p *Proxy) Start(ctx context.Context) error {
 	target, err := url.Parse(p.config.TargetURL)
 	if err != nil {
 		return fmt.Errorf("parse target URL: %w", err)
@@ -127,7 +178,21 @@ func (p *Proxy) Start() error {
 		IdleTimeout:       120 * time.Second,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
-	return srv.ListenAndServe()
+
+	go func() {
+		<-ctx.Done()
+		slog.Info("proxy shutting down")
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := srv.Shutdown(shutdownCtx); err != nil {
+			slog.Error("proxy shutdown error", "err", err)
+		}
+	}()
+
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		return err
+	}
+	return nil
 }
 
 func (p *Proxy) inspectAndModify(resp *http.Response, method string) error {

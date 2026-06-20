@@ -100,6 +100,14 @@ func TestLooksLikeHost(t *testing.T) {
 		{"example.com", true},
 		{"metadata.google.internal", true},
 		{"compute.internal", true},
+		{"myservice.svc", true},
+		{"pod.ns.svc", true},
+		{"myapp.cluster.local", true},
+		{"internal-api.corp", true},
+		{"dev-box.lan", true},
+		{"staging.lab", true},
+		{"unit.test", true},
+		{"machine.localhost", true},
 		{"hello", false},
 		{"", false},
 		{"localhost", false},
@@ -168,6 +176,83 @@ func TestAnonymizeFindingsDeduplication(t *testing.T) {
 
 	if len(anon.Findings) != 1 {
 		t.Errorf("expected 1 finding after dedup, got %d", len(anon.Findings))
+	}
+}
+
+func TestAnonymizeFindingsRedactsIPsInFinding(t *testing.T) {
+	results := []scanner.Result{
+		{
+			Severity: scanner.SevHigh,
+			Server:   "test-server",
+			Type:     "dynamic",
+			Finding:  "tool \"fetch\" leaked metadata via probe to 192.168.1.1:8080",
+			Detail:   "connection established to 192.168.1.1",
+		},
+	}
+
+	anon := anonymizeFindings(results)
+
+	if len(anon.Findings) != 1 {
+		t.Fatalf("expected 1 finding, got %d", len(anon.Findings))
+	}
+	f := anon.Findings[0]
+	if strings.Contains(f.Finding, "192.168.1.1") {
+		t.Errorf("IP should be redacted in Finding: %q", f.Finding)
+	}
+	if !strings.Contains(f.Finding, "REDACTED") {
+		t.Error("expected REDACTED marker in Finding")
+	}
+	if strings.Contains(f.Detail, "192.168.1.1") {
+		t.Errorf("IP should be redacted in Detail: %q", f.Detail)
+	}
+}
+
+func TestAnonymizeFindingsRedactsHostnamesInFinding(t *testing.T) {
+	results := []scanner.Result{
+		{
+			Severity: scanner.SevHigh,
+			Server:   "test-server",
+			Type:     "dynamic",
+			Finding:  "redirect to metadata.internal detected",
+		},
+	}
+
+	anon := anonymizeFindings(results)
+
+	if len(anon.Findings) != 1 {
+		t.Fatalf("expected 1 finding, got %d", len(anon.Findings))
+	}
+	f := anon.Findings[0]
+	if strings.Contains(f.Finding, "metadata.internal") {
+		t.Errorf("hostname should be redacted in Finding: %q", f.Finding)
+	}
+	if !strings.Contains(f.Finding, "REDACTED") {
+		t.Error("expected REDACTED marker in Finding")
+	}
+}
+
+func TestAnonymizeFindingsRedactsNewTLDs(t *testing.T) {
+	results := []scanner.Result{
+		{
+			Severity: scanner.SevLow,
+			Server:   "srv",
+			Type:     "dynamic",
+			Finding:  "target svc-name.ns.svc responded",
+			Detail:   "host pod.cluster.local:8080 accessed",
+		},
+	}
+
+	anon := anonymizeFindings(results)
+
+	if len(anon.Findings) != 1 {
+		t.Fatalf("expected 1 finding, got %d", len(anon.Findings))
+	}
+	f := anon.Findings[0]
+	if strings.Contains(f.Finding, ".svc") {
+		t.Errorf(".svc TLD should be redacted in Finding: %q", f.Finding)
+	}
+	if strings.Contains(f.Detail, ".cluster.local") {
+		t.Errorf(".cluster.local TLD should be redacted in Detail: %q", f.Detail)
 	}
 }
 

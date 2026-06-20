@@ -16,7 +16,10 @@ import (
 
 var communityUploadURL = "https://mcp-audit-db.vercel.app/api/report"
 
-var hostTLDs = []string{".com", ".org", ".net", ".io", ".dev", ".local", ".internal", ".app"}
+var hostTLDs = []string{
+	".com", ".org", ".net", ".io", ".dev", ".local", ".internal", ".app",
+	".svc", ".cluster.local", ".corp", ".lan", ".lab", ".test", ".localhost",
+}
 
 type anonFinding struct {
 	Type     string `json:"type"`
@@ -93,7 +96,8 @@ func anonymizeFindings(results []scanner.Result) uploadPayload {
 			continue
 		}
 
-		key := r.Type + "|" + r.Severity.String() + "|" + r.Finding
+		sanitizedFinding := sanitizeDetail(r.Finding)
+		key := r.Type + "|" + r.Severity.String() + "|" + sanitizedFinding
 		if seen[key] {
 			continue
 		}
@@ -104,7 +108,7 @@ func anonymizeFindings(results []scanner.Result) uploadPayload {
 		payload.Findings = append(payload.Findings, anonFinding{
 			Type:     r.Type,
 			Severity: r.Severity.String(),
-			Finding:  r.Finding,
+			Finding:  sanitizedFinding,
 			Detail:   detail,
 		})
 	}
@@ -135,13 +139,23 @@ func looksLikeHost(s string) bool {
 		return false
 	}
 	cleaned := strings.TrimRight(s, ".:;,'\"")
+	cleaned = stripPort(cleaned)
 	lower := strings.ToLower(cleaned)
 	for _, tld := range hostTLDs {
 		if strings.HasSuffix(lower, tld) {
 			return true
 		}
 	}
-	return strings.Contains(lower, ".compute.internal")
+	return strings.HasSuffix(lower, ".internal")
+}
+
+func stripPort(s string) string {
+	if colon := strings.LastIndex(s, ":"); colon > 0 {
+		if port := s[colon+1:]; isAllDigits(port) {
+			return s[:colon]
+		}
+	}
+	return s
 }
 
 func looksLikeIP(s string) bool {

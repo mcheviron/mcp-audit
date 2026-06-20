@@ -171,23 +171,39 @@ func TestStdioTransport(t *testing.T) {
 		t.Skip("python3 not found")
 	}
 
-	pyScript := `import sys,json;line=sys.stdin.readline()` +
-		`;print(json.dumps({"jsonrpc":"2.0","id":1,` +
+	pyScript := `import sys,json;` +
+		`line=sys.stdin.readline();` +
+		`print(json.dumps({"jsonrpc":"2.0","id":1,` +
 		`"result":{"serverInfo":{"name":"echo","version":"1.0"},` +
-		`"protocolVersion":"2024-11-05","capabilities":{}}}))`
+		`"protocolVersion":"2024-11-05","capabilities":{}}}));` +
+		`sys.stdout.flush();` +
+		`line2=sys.stdin.readline();` +
+		`print(json.dumps({"jsonrpc":"2.0","id":json.loads(line2)["id"],` +
+		`"result":{"tools":[]}}))`
 	tr := NewStdioTransport("python3", []string{"-c", pyScript}, 5*time.Second)
 	defer tr.Close()
 
-	result, err := tr.Send(context.Background(), "initialize", map[string]any{
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	result, err := tr.Send(ctx, "initialize", map[string]any{
 		"protocolVersion": "2024-11-05",
 		"capabilities":    map[string]any{},
 		"clientInfo":      map[string]string{"name": "test", "version": "1.0"},
 	})
 	if err != nil {
-		t.Fatalf("stdio send: %v", err)
+		t.Fatalf("stdio send initialize: %v", err)
 	}
 	if result == nil {
 		t.Fatal("expected non-nil result")
+	}
+
+	result2, err := tr.Send(ctx, "tools/list", nil)
+	if err != nil {
+		t.Fatalf("stdio send tools/list: %v", err)
+	}
+	if result2 == nil {
+		t.Fatal("expected non-nil second result")
 	}
 }
 
@@ -196,22 +212,43 @@ func TestStdioTransportRestart(t *testing.T) {
 		t.Skip("skipping stdio test")
 	}
 
-	if _, err := exec.LookPath("sleep"); err != nil {
-		t.Skip("sleep not found")
+	if _, err := exec.LookPath("python3"); err != nil {
+		t.Skip("python3 not found")
 	}
 
-	tr := NewStdioTransport("sleep", []string{"10"}, 5*time.Second)
+	pyScript := `import sys,json,time;` +
+		`time.sleep(0.2);` +
+		`line=sys.stdin.readline();` +
+		`resp={"jsonrpc":"2.0","id":1,"result":{"serverInfo":{"name":"slow","version":"1.0"},"protocolVersion":"2024-11-05","capabilities":{}}};` +
+		`print(json.dumps(resp));` +
+		`sys.stdout.flush();` +
+		`line2=sys.stdin.readline();` +
+		`resp2={"jsonrpc":"2.0","id":json.loads(line2)["id"],"result":{"tools":[]}};` +
+		`print(json.dumps(resp2))`
+	tr := NewStdioTransport("python3", []string{"-c", pyScript}, 5*time.Second)
 	defer tr.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	_, err := tr.Send(ctx, "initialize", nil)
-	if err == nil {
-		t.Fatal("expected timeout/cancellation error")
+	result, err := tr.Send(ctx, "initialize", nil)
+	if err != nil {
+		t.Fatalf("first send: %v", err)
 	}
-	if tr.running {
-		t.Error("expected process to be killed after timeout")
+	if result == nil {
+		t.Fatal("expected non-nil result")
+	}
+
+	result2, err := tr.Send(ctx, "tools/list", nil)
+	if err != nil {
+		t.Fatalf("second send: %v", err)
+	}
+	if result2 == nil {
+		t.Fatal("expected non-nil second result")
+	}
+
+	if !tr.running {
+		t.Error("expected process still running after multi-step interaction")
 	}
 }
 

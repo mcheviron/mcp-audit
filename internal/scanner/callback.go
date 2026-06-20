@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func startCallbackListener(port int) *CallbackListener {
+func startCallbackListener(port int) (*CallbackListener, error) {
 	cl := &CallbackListener{
 		Callback: make(chan string, 50),
 		done:     make(chan struct{}),
@@ -18,7 +18,7 @@ func startCallbackListener(port int) *CallbackListener {
 	lc := net.ListenConfig{}
 	lis, err := lc.Listen(context.Background(), "tcp", fmt.Sprintf("127.0.0.1:%d", port))
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("callback listener bind failed on port %d: %w", port, err)
 	}
 
 	cl.Port = lis.Addr().(*net.TCPAddr).Port
@@ -51,7 +51,7 @@ func startCallbackListener(port int) *CallbackListener {
 		}
 	}()
 
-	return cl
+	return cl, nil
 }
 
 func (cl *CallbackListener) stopCallbackListener() {

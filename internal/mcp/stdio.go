@@ -17,24 +17,21 @@ import (
 type stdioTransport struct {
 	command string
 	args    []string
-	timeout time.Duration
 
-	mu       sync.Mutex
-	cmd      *exec.Cmd
-	stdin    io.WriteCloser
-	stdout   *bufio.Scanner
-	idSeq    int
-	running  bool
-	cancelFn context.CancelFunc
+	mu      sync.Mutex
+	cmd     *exec.Cmd
+	stdin   io.WriteCloser
+	stdout  *bufio.Scanner
+	idSeq   int
+	running bool
 }
 
 var _ Transport = (*stdioTransport)(nil)
 
-func NewStdioTransport(command string, args []string, timeout time.Duration) *stdioTransport {
+func NewStdioTransport(command string, args []string, _ time.Duration) *stdioTransport {
 	return &stdioTransport{
 		command: command,
 		args:    args,
-		timeout: timeout,
 	}
 }
 
@@ -64,16 +61,14 @@ func (t *stdioTransport) start(ctx context.Context) error {
 		return fmt.Errorf("stdio: shell interpreters are not allowed for security reasons (got %q)", t.command)
 	}
 
-	execCtx, cancel := context.WithTimeout(ctx, t.timeout)
-	t.cancelFn = cancel
-
-	t.cmd = exec.CommandContext(execCtx, t.command, t.args...) //nolint:gosec
+	t.cmd = exec.CommandContext(context.Background(), t.command, t.args...) //nolint:gosec
 	t.cmd.Cancel = func() error {
 		if t.cmd.Process != nil {
 			return t.cmd.Process.Signal(syscall.SIGKILL)
 		}
 		return nil
 	}
+	t.cmd.WaitDelay = 2 * time.Second
 
 	var err error
 	t.stdin, err = t.cmd.StdinPipe()
@@ -106,10 +101,6 @@ func (t *stdioTransport) start(ctx context.Context) error {
 }
 
 func (t *stdioTransport) kill() {
-	if t.cancelFn != nil {
-		t.cancelFn()
-		t.cancelFn = nil
-	}
 	if t.cmd != nil && t.cmd.Process != nil {
 		_ = t.cmd.Process.Kill()
 		if err := t.cmd.Wait(); err != nil {

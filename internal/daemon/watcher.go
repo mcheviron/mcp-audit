@@ -32,7 +32,7 @@ func NewWatcher(interval time.Duration, onFinding string) *Watcher {
 	}
 }
 
-func (w *Watcher) Watch() error {
+func (w *Watcher) Watch(ctx context.Context) error {
 	slog.Info("daemon watching config files for changes",
 		"interval", w.Interval)
 
@@ -56,6 +56,9 @@ func (w *Watcher) Watch() error {
 
 	for {
 		select {
+		case <-ctx.Done():
+			slog.Info("watcher shutting down")
+			return nil
 		case <-intervalTicker.C:
 			slog.Debug("periodic re-scan triggered")
 			w.runScan()

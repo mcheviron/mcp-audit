@@ -50,14 +50,16 @@ func Write(w io.Writer, results []scanner.Result, format Format) error {
 func writeTable(w io.Writer, results []scanner.Result) error {
 	counts := countBySeverity(results)
 
-	_, _ = fmt.Fprintf(w, "Summary: %d CRITICAL  %d HIGH  %d MEDIUM  %d LOW  %d INFO  %d PASS\n\n",
+	if _, err := fmt.Fprintf(w, "Summary: %d CRITICAL  %d HIGH  %d MEDIUM  %d LOW  %d INFO  %d PASS\n\n",
 		counts[scanner.SevCritical],
 		counts[scanner.SevHigh],
 		counts[scanner.SevMedium],
 		counts[scanner.SevLow],
 		counts[scanner.SevInfo],
 		counts[scanner.SevPass],
-	)
+	); err != nil {
+		return err
+	}
 
 	groups := groupBySeverity(results)
 	order := []scanner.Severity{
@@ -70,7 +72,9 @@ func writeTable(w io.Writer, results []scanner.Result) error {
 		if !ok || len(g) == 0 {
 			continue
 		}
-		_, _ = fmt.Fprintf(w, "── %s ──\n", sev)
+		if _, err := fmt.Fprintf(w, "── %s ──\n", sev); err != nil {
+			return err
+		}
 
 		tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
 		for _, r := range g {
@@ -78,12 +82,18 @@ func writeTable(w io.Writer, results []scanner.Result) error {
 			if r.ConfigPath != "" {
 				server += " (" + r.ConfigPath + ")"
 			}
-			_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\n", colorize(r.Severity.String()), server, r.Finding)
+			if _, err := fmt.Fprintf(tw, "%s\t%s\t%s\n", colorize(r.Severity.String()), server, r.Finding); err != nil {
+				return err
+			}
 			if r.Detail != "" {
-				_, _ = fmt.Fprintf(tw, "\t\t%s\n", r.Detail)
+				if _, err := fmt.Fprintf(tw, "\t\t%s\n", r.Detail); err != nil {
+					return err
+				}
 			}
 			if r.Remediation != "" {
-				_, _ = fmt.Fprintf(tw, "\t\tRemediation: %s\n", r.Remediation)
+				if _, err := fmt.Fprintf(tw, "\t\tRemediation: %s\n", r.Remediation); err != nil {
+					return err
+				}
 			}
 		}
 		if err := tw.Flush(); err != nil {
@@ -91,7 +101,9 @@ func writeTable(w io.Writer, results []scanner.Result) error {
 		}
 		if i < len(order)-1 {
 			if next, ok := groups[order[i+1]]; ok && len(next) > 0 {
-				_, _ = fmt.Fprintln(w, "")
+				if _, err := fmt.Fprintln(w, ""); err != nil {
+					return err
+				}
 			}
 		}
 	}

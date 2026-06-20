@@ -4,7 +4,7 @@
 Table (colorized TTY), JUnit XML, JSON, and SARIF v2.1.0 output with severity-anchored exit codes for CI gating, including CWE taxonomy metadata.
 ## Requirements
 ### Requirement: Terminal table output (default)
-The system SHALL output scan results as a formatted terminal table by default, with columns for severity, server name, and finding description.
+The system SHALL output scan results as a formatted terminal table by default, with columns for severity, server name, and finding description. The system SHALL propagate I/O errors from all write operations. If any `Fprintf` call to the output writer fails, the table writer SHALL return the error immediately.
 
 #### Scenario: Default output format
 - **WHEN** user runs `mcp-audit scan` with no format flag
@@ -13,6 +13,10 @@ The system SHALL output scan results as a formatted terminal table by default, w
 #### Scenario: Color-coded severity
 - **WHEN** output is to a TTY
 - **THEN** CRITICAL findings are red, HIGH are yellow, MEDIUM are cyan, LOW are blue, INFO are dim, PASS are green
+
+#### Scenario: Write error propagated
+- **WHEN** the output writer returns an error during table formatting (e.g., broken pipe)
+- **THEN** the table writer returns the error instead of silently discarding it
 
 ### Requirement: JSON output
 The system SHALL support `--format json` producing structured output with an array of findings, each containing severity, server name, finding type, description, and raw probe data.

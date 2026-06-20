@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -15,6 +16,9 @@ func runProxy(args []string) {
 	blockCritical := fs.Bool("block-critical", false, "block responses containing CRITICAL findings")
 	maxResponse := fs.Int("max-response", 65536, "max response body size in bytes")
 	verbose := fs.Bool("verbose", false, "enable debug logging")
+	upstreamCACert := fs.String("upstream-ca-cert", "", "CA certificate for upstream TLS verification")
+	upstreamCert := fs.String("upstream-cert", "", "client certificate for upstream mTLS")
+	upstreamKey := fs.String("upstream-key", "", "client key for upstream mTLS")
 	fs.SetOutput(os.Stderr)
 	if err := fs.Parse(args); err != nil {
 		os.Exit(2)
@@ -30,10 +34,13 @@ func runProxy(args []string) {
 		TargetURL:       *target,
 		BlockCritical:   *blockCritical,
 		MaxResponseSize: int64(*maxResponse),
+		UpstreamCACert:  *upstreamCACert,
+		UpstreamCert:    *upstreamCert,
+		UpstreamKey:     *upstreamKey,
 	}
 	p := proxy.New(cfg)
-	if err := p.Start(); err != nil {
-		fmt.Fprintf(os.Stderr, "proxy error: %v\n", err)
-		os.Exit(1)
-	}
+
+	withSignalContext(func(ctx context.Context) error {
+		return p.Start(ctx)
+	})
 }

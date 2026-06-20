@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -24,8 +25,8 @@ func runWatch(args []string) {
 
 	_ = newLogger(false, false, false)
 	w := daemon.NewWatcher(time.Duration(*watchInterval)*time.Second, *onFinding)
-	if err := w.Watch(); err != nil {
-		fmt.Fprintf(os.Stderr, "watch error: %v\n", err)
-		os.Exit(1)
-	}
+
+	withSignalContext(func(ctx context.Context) error {
+		return w.Watch(ctx)
+	})
 }

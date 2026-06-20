@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -190,5 +192,38 @@ func TestTrustImportMerge(t *testing.T) {
 	}
 	if len(merged.Blocked) != 1 || merged.Blocked[0] != "bad-pkg" {
 		t.Errorf("expected blocked to contain bad-pkg, got %v", merged.Blocked)
+	}
+}
+
+func TestVerifyChecksumMatch(t *testing.T) {
+	data := []byte(`{"version":"1.0.0","trusted":["@anthropic/"]}`)
+	hash := sha256Hex(data)
+	checksumFile := []byte(hash + "  trust.json\n")
+
+	if err := verifyChecksum(data, checksumFile); err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+}
+
+func sha256Hex(data []byte) string {
+	h := sha256.Sum256(data)
+	return hex.EncodeToString(h[:])
+}
+
+func TestVerifyChecksumMismatch(t *testing.T) {
+	data := []byte(`{"version":"1.0.0","trusted":["@anthropic/"]}`)
+	checksumFile := []byte("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef  trust.json\n")
+
+	if err := verifyChecksum(data, checksumFile); err == nil {
+		t.Fatal("expected error for checksum mismatch")
+	}
+}
+
+func TestVerifyChecksumEmptyFile(t *testing.T) {
+	data := []byte(`{"version":"1.0.0"}`)
+	checksumFile := []byte("")
+
+	if err := verifyChecksum(data, checksumFile); err != nil {
+		t.Fatalf("expected no error for empty checksum file, got: %v", err)
 	}
 }

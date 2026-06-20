@@ -3,6 +3,8 @@ package main
 import (
 	"bufio"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -17,6 +19,7 @@ import (
 )
 
 var trustUpdateURL = "https://github.com/mcp-audit-db/releases/latest/download/trust.json"
+var trustChecksumURL = "https://github.com/mcp-audit-db/releases/latest/download/trust.json.sha256"
 
 func runTrustCmd(args []string) {
 	if len(args) < 1 {
@@ -66,6 +69,16 @@ func runTrustUpdate() {
 		os.Exit(4)
 	}
 
+	checksumData, checksumErr := fetchURL(trustChecksumURL)
+	if checksumErr != nil {
+		fmt.Fprintf(os.Stderr, "trust update: warning: checksum file unavailable, proceeding without verification\n")
+	} else {
+		if err := verifyChecksum(remoteData, checksumData); err != nil {
+			fmt.Fprintf(os.Stderr, "trust update: checksum verification failed: %v\n", err)
+			os.Exit(4)
+		}
+	}
+
 	var remoteFile intel.TrustFile
 	if err := json.Unmarshal(remoteData, &remoteFile); err != nil {
 		fmt.Fprintf(os.Stderr, "trust update: invalid remote trust config: %v\n", err)
@@ -86,6 +99,27 @@ func runTrustUpdate() {
 	writeTrustFile(localPath, &remoteFile)
 	_, _ = fmt.Fprintf(os.Stdout, "Trust config updated to version %s (generated %s)\n",
 		remoteFile.Version, remoteFile.GeneratedAt)
+}
+
+func verifyChecksum(data []byte, checksumFile []byte) error {
+	expected := sha256.Sum256(data)
+	expectedHex := hex.EncodeToString(expected[:])
+
+	entry := strings.TrimSpace(string(checksumFile))
+	if entry == "" {
+		return nil
+	}
+
+	parts := strings.Fields(entry)
+	if len(parts) < 1 {
+		return fmt.Errorf("invalid checksum file format")
+	}
+	checksumHex := strings.TrimSpace(parts[0])
+
+	if !strings.EqualFold(expectedHex, checksumHex) {
+		return fmt.Errorf("checksum mismatch: expected %s, got %s", expectedHex, checksumHex)
+	}
+	return nil
 }
 
 func runTrustExport() {
