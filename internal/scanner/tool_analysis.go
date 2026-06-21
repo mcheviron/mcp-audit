@@ -258,7 +258,7 @@ var PromptInjectionPatterns = []*regexp.Regexp{
 
 var urlEmbedPattern = regexp.MustCompile(`(https?://[^\s)]+)`)
 
-func analyzeToolDescription(tool mcp.Tool, serverName, configPath string) []Result {
+func analyzeToolDescription(tool mcp.Tool, serverName, configPath, scope string) []Result {
 	desc := strings.TrimSpace(tool.Description)
 	if desc == "" {
 		return []Result{{
@@ -267,6 +267,7 @@ func analyzeToolDescription(tool mcp.Tool, serverName, configPath string) []Resu
 			Type:       "static",
 			Finding:    fmt.Sprintf("tool %q has no description (information hiding)", tool.Name),
 			ConfigPath: configPath,
+			Scope:      scope,
 		}}
 	}
 
@@ -280,6 +281,7 @@ func analyzeToolDescription(tool mcp.Tool, serverName, configPath string) []Resu
 				Finding:    fmt.Sprintf("tool %q description matches injection pattern %q", tool.Name, m),
 				Detail:     redactDetail(desc),
 				ConfigPath: configPath,
+				Scope:      scope,
 			})
 			break
 		}
@@ -293,6 +295,7 @@ func analyzeToolDescription(tool mcp.Tool, serverName, configPath string) []Resu
 				Type:       "static",
 				Finding:    fmt.Sprintf("tool %q description contains embedded URL: %s", tool.Name, u),
 				ConfigPath: configPath,
+				Scope:      scope,
 			})
 		}
 	}
@@ -304,6 +307,7 @@ func analyzeToolDescription(tool mcp.Tool, serverName, configPath string) []Resu
 			Type:       "static",
 			Finding:    fmt.Sprintf("tool %q description clean — no injection patterns detected", tool.Name),
 			ConfigPath: configPath,
+			Scope:      scope,
 		})
 	}
 

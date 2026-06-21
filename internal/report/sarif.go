@@ -16,8 +16,15 @@ type sarifLog struct {
 }
 
 type run struct {
-	Tool    tool     `json:"tool"`
-	Results []result `json:"results"`
+	Tool                     tool                 `json:"tool"`
+	Results                  []result             `json:"results"`
+	VersionControlProvenance []versionControlProv `json:"versionControlProvenance,omitempty"`
+}
+
+type versionControlProv struct {
+	RepositoryURI string `json:"repositoryUri"`
+	Branch        string `json:"branch,omitempty"`
+	RevisionID    string `json:"revisionId,omitempty"`
 }
 
 type tool struct {
@@ -141,6 +148,18 @@ func sarifReportingRules() []reportingDescriptor {
 		{ID: "mcp-audit/static-critical", Name: "Malicious Code",
 			HelpURI:       "https://owasp.org/www-project-mcp-top-10/",
 			Relationships: cweRel("CWE-506")},
+		{ID: "mcp-audit/cve-critical", Name: "CVE Critical",
+			HelpURI:       "https://owasp.org/www-project-mcp-top-10/",
+			Relationships: cweRel("CWE-937")},
+		{ID: "mcp-audit/cve-high", Name: "CVE High Severity",
+			HelpURI:       "https://owasp.org/www-project-mcp-top-10/",
+			Relationships: cweRel("CWE-937")},
+		{ID: "mcp-audit/cve-medium", Name: "CVE Medium Severity",
+			HelpURI:       "https://owasp.org/www-project-mcp-top-10/",
+			Relationships: cweRel("CWE-937")},
+		{ID: "mcp-audit/cve-low", Name: "CVE Low Severity",
+			HelpURI:       "https://owasp.org/www-project-mcp-top-10/",
+			Relationships: cweRel("CWE-937")},
 	}
 }
 
@@ -151,24 +170,38 @@ func sarifTaxa() []taxa {
 		{ID: "CWE-200", Name: "CWE-200", ShortDescription: desc("Exposure of Sensitive Information")},
 		{ID: "CWE-350", Name: "CWE-350", ShortDescription: desc("Reliance on Reverse DNS Resolution")},
 		{ID: "CWE-506", Name: "CWE-506", ShortDescription: desc("Embedded Malicious Code")},
+		{ID: "CWE-937", Name: "CWE-937", ShortDescription: desc("Using Components with Known Vulnerabilities")},
 	}
 }
 
-func writeSARIF(w io.Writer, results []scanner.Result) error {
+func writeSARIF(w io.Writer, results []scanner.Result, ci *CIInfo) error {
+	r := run{
+		Tool: tool{
+			Driver: driver{
+				Name:    "mcp-audit",
+				Version: "0.1.0",
+				Rules:   sarifReportingRules(),
+				Taxa:    sarifTaxa(),
+			},
+		},
+		Results: sarifResultsFromFindings(results),
+	}
+	if ci != nil && ci.Enabled && ci.Repo != "" {
+		prov := versionControlProv{
+			RepositoryURI: ci.Repo,
+		}
+		if ci.Branch != "" {
+			prov.Branch = ci.Branch
+		}
+		if ci.CommitSHA != "" {
+			prov.RevisionID = ci.CommitSHA
+		}
+		r.VersionControlProvenance = []versionControlProv{prov}
+	}
 	log := sarifLog{
 		Version: "2.1.0",
 		Schema:  "https://json.schemastore.org/sarif-2.1.0.json",
-		Runs: []run{{
-			Tool: tool{
-				Driver: driver{
-					Name:    "mcp-audit",
-					Version: "0.1.0",
-					Rules:   sarifReportingRules(),
-					Taxa:    sarifTaxa(),
-				},
-			},
-			Results: sarifResultsFromFindings(results),
-		}},
+		Runs:    []run{r},
 	}
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")

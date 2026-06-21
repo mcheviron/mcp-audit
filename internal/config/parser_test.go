@@ -226,6 +226,214 @@ func TestParseClaudeLegacyNoEnvHeaders(t *testing.T) {
 	}
 }
 
+func TestParseCopilotCli(t *testing.T) {
+	servers, err := parseMcpServers(mustRead(t, "copilot_valid.json"), "copilot-cli")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(servers) != 2 {
+		t.Fatalf("expected 2 servers, got %d", len(servers))
+	}
+
+	gh := findServer(t, servers, "github")
+	if gh.Transport != "stdio" {
+		t.Errorf("github: expected stdio, got %s", gh.Transport)
+	}
+	if gh.Package != "@copilot/mcp-server" {
+		t.Errorf("github: expected @copilot/mcp-server, got %s", gh.Package)
+	}
+	if gh.Tool != "copilot-cli" {
+		t.Errorf("github: expected tool=copilot-cli, got %s", gh.Tool)
+	}
+
+	api := findServer(t, servers, "api")
+	if api.Transport != "http" {
+		t.Errorf("api: expected http, got %s", api.Transport)
+	}
+	if api.URL != "https://api.copilot.github.com/mcp" {
+		t.Errorf("api: expected url, got %s", api.URL)
+	}
+}
+
+func TestParseClaudeCodeCli(t *testing.T) {
+	servers, err := parseMcpServers(mustRead(t, "claude_code_valid.json"), "claude-code")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(servers) != 2 {
+		t.Fatalf("expected 2 servers, got %d", len(servers))
+	}
+
+	prospector := findServer(t, servers, "prospector")
+	if prospector.Transport != "stdio" {
+		t.Errorf("prospector: expected stdio, got %s", prospector.Transport)
+	}
+	if prospector.Package != "prospector" {
+		t.Errorf("prospector: expected prospector, got %s", prospector.Package)
+	}
+	if prospector.Tool != "claude-code" {
+		t.Errorf("prospector: expected tool=claude-code, got %s", prospector.Tool)
+	}
+
+	fs := findServer(t, servers, "filesystem")
+	if fs.Package != "@anthropic/mcp-server-filesystem" {
+		t.Errorf("filesystem: expected @anthropic/mcp-server-filesystem, got %s", fs.Package)
+	}
+}
+
+func TestParseGeminiTopLevel(t *testing.T) {
+	servers, err := parseGeminiSettings(mustRead(t, "gemini_top_level.json"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(servers) != 1 {
+		t.Fatalf("expected 1 server, got %d", len(servers))
+	}
+
+	s := findServer(t, servers, "search")
+	if s.Transport != "stdio" {
+		t.Errorf("search: expected stdio, got %s", s.Transport)
+	}
+	if s.Package != "@google/mcp-server-search" {
+		t.Errorf("search: expected @google/mcp-server-search, got %s", s.Package)
+	}
+	if s.Tool != "gemini" {
+		t.Errorf("search: expected tool=gemini, got %s", s.Tool)
+	}
+}
+
+func TestParseGeminiNested(t *testing.T) {
+	servers, err := parseGeminiSettings(mustRead(t, "gemini_nested.json"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(servers) != 1 {
+		t.Fatalf("expected 1 server, got %d", len(servers))
+	}
+
+	s := findServer(t, servers, "code-assist")
+	if s.Transport != "stdio" {
+		t.Errorf("code-assist: expected stdio, got %s", s.Transport)
+	}
+	if s.Package != "github.com/google/mcp-server@latest" {
+		t.Errorf("code-assist: expected github.com/google/mcp-server@latest, got %s", s.Package)
+	}
+	if s.Tool != "gemini" {
+		t.Errorf("code-assist: expected tool=gemini, got %s", s.Tool)
+	}
+}
+
+func TestParseGeminiEmpty(t *testing.T) {
+	servers, err := parseGeminiSettings(mustRead(t, "gemini_empty.json"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(servers) != 0 {
+		t.Errorf("expected 0 servers, got %d", len(servers))
+	}
+}
+
+func TestParseClineRoo(t *testing.T) {
+	servers, err := parseMcpServers(mustRead(t, "cline_roo_valid.json"), "cline-roo")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(servers) != 2 {
+		t.Fatalf("expected 2 servers, got %d", len(servers))
+	}
+
+	mem := findServer(t, servers, "memory")
+	if mem.Transport != "stdio" {
+		t.Errorf("memory: expected stdio, got %s", mem.Transport)
+	}
+	if mem.Package != "@cline/mcp-server-memory" {
+		t.Errorf("memory: expected @cline/mcp-server-memory, got %s", mem.Package)
+	}
+	if mem.Tool != "cline-roo" {
+		t.Errorf("memory: expected tool=cline-roo, got %s", mem.Tool)
+	}
+
+	browser := findServer(t, servers, "browser")
+	if browser.Transport != "http" {
+		t.Errorf("browser: expected http, got %s", browser.Transport)
+	}
+}
+
+func TestParseZedCamelCase(t *testing.T) {
+	servers, err := parseZedSettings(mustRead(t, "zed_camel.json"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(servers) != 1 {
+		t.Fatalf("expected 1 server, got %d", len(servers))
+	}
+
+	s := findServer(t, servers, "linter")
+	if s.Transport != "stdio" {
+		t.Errorf("linter: expected stdio, got %s", s.Transport)
+	}
+	if s.Package != "@zed/mcp-server-linter" {
+		t.Errorf("linter: expected @zed/mcp-server-linter, got %s", s.Package)
+	}
+	if s.Tool != "zed" {
+		t.Errorf("linter: expected tool=zed, got %s", s.Tool)
+	}
+}
+
+func TestParseZedUnderscore(t *testing.T) {
+	servers, err := parseZedSettings(mustRead(t, "zed_underscore.json"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(servers) != 1 {
+		t.Fatalf("expected 1 server, got %d", len(servers))
+	}
+
+	s := findServer(t, servers, "formatter")
+	if s.Transport != "stdio" {
+		t.Errorf("formatter: expected stdio, got %s", s.Transport)
+	}
+	if s.Package != "mcp-formatter" {
+		t.Errorf("formatter: expected mcp-formatter, got %s", s.Package)
+	}
+	if s.Tool != "zed" {
+		t.Errorf("formatter: expected tool=zed, got %s", s.Tool)
+	}
+}
+
+func TestParseZedEmpty(t *testing.T) {
+	servers, err := parseZedSettings(mustRead(t, "zed_empty.json"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(servers) != 0 {
+		t.Errorf("expected 0 servers, got %d", len(servers))
+	}
+}
+
+func TestRegistryIncludesAllTools(t *testing.T) {
+	initRegistry()
+	tools := GetRegistry()
+
+	names := make(map[string]bool)
+	for _, tp := range tools {
+		names[tp.Name] = true
+	}
+
+	expected := []string{
+		"claude", "cursor", "windsurf", "vscode", "continue", "opencode",
+		"copilot-cli", "claude-code", "codex", "gemini", "cline-roo", "zed",
+	}
+	for _, name := range expected {
+		if !names[name] {
+			t.Errorf("expected tool %q in registry, but not found", name)
+		}
+	}
+	if len(tools) != len(expected) {
+		t.Errorf("expected %d tools in registry, got %d", len(expected), len(tools))
+	}
+}
+
 func TestExtractPackage(t *testing.T) {
 	tests := []struct {
 		command  string

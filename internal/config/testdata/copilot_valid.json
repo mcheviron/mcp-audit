@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@copilot/mcp-server"]
+    },
+    "api": {
+      "url": "https://api.copilot.github.com/mcp"
+    }
+  }
+}

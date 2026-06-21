@@ -1,0 +1,8 @@
+{
+  "mcp_servers": {
+    "formatter": {
+      "command": "uvx",
+      "args": ["mcp-formatter"]
+    }
+  }
+}

@@ -15,6 +15,7 @@ type ServerEntry struct {
 	TLSKeyFile  string
 	Env         map[string]string
 	Headers     map[string]string
+	Scope       string
 }
 
 type TransportKind int
@@ -44,12 +45,29 @@ type Config struct {
 	Servers []ServerEntry
 	Error   error
 	Raw     []byte
+	Scope   string
 }
 
+type ToolParserFormat string
+
+const (
+	FormatJSON ToolParserFormat = "json"
+	FormatTOML ToolParserFormat = "toml"
+)
+
 type ToolParser struct {
-	Name  string
-	Paths func(home string) []string
-	Parse func(data []byte) ([]ServerEntry, error)
+	Name   string
+	Format ToolParserFormat
+	Paths  func(home string) []string
+	Parse  func(data []byte) ([]ServerEntry, error)
 }
 
 var registry []ToolParser
+
+func RegisterTool(tp ToolParser) {
+	registry = append(registry, tp)
+}
+
+func GetRegistry() []ToolParser {
+	return registry
+}

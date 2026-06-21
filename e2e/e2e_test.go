@@ -53,6 +53,7 @@ func writeTrustConfig(t *testing.T, dir, content string) string {
 func runMCPAudit(t *testing.T, bin, home string, args ...string) (string, string, int) {
 	t.Helper()
 	cmd := exec.Command(bin, args...)
+	cmd.Dir = home
 	cmd.Env = append(os.Environ(), "HOME="+home)
 
 	var stdout, stderr bytes.Buffer

@@ -3,6 +3,7 @@ module github.com/mostafaelataby-cheviron/mcp-audit
 go 1.26.0
 
 require (
+	github.com/BurntSushi/toml v1.6.0
 	golang.org/x/sync v0.21.0
 	golang.org/x/term v0.44.0
 )

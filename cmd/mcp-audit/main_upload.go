@@ -45,6 +45,9 @@ func runUpload(args []string) {
 	logger.Debug("starting upload")
 
 	s := scanner.NewScanner()
+	if !f.noProject {
+		s.ProjectDir = f.projectDir
+	}
 	s.NoSecretScan = f.noSecretScan
 	if err := s.SetTrustConfig(f.trustConfig); err != nil {
 		if f.trustConfig != "" {

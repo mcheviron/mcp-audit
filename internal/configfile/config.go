@@ -19,6 +19,9 @@ type Config struct {
 	MaxResponse int    `json:"max_response"`
 	NoColor     bool   `json:"no_color"`
 	SnapshotDir string `json:"snapshot_dir"`
+	NoCVEScan   bool   `json:"no_cve_scan"`
+	CVECacheDir string `json:"cve_cache_dir"`
+	CVECacheTTL int    `json:"cve_cache_ttl"`
 }
 
 func LoadPath(path string) *Config {

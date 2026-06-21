@@ -16,6 +16,7 @@ import (
 type Watcher struct {
 	Interval      time.Duration
 	OnFinding     string
+	ProjectDir    string
 	lastModTimes  map[string]time.Time
 	lastFindings  []scanner.Result
 	cachedPaths   []string
@@ -39,7 +40,7 @@ func (w *Watcher) Watch(ctx context.Context) error {
 	results := w.scan()
 	w.recordFindings(results)
 
-	configs := config.Discover()
+	configs := config.Discover(w.ProjectDir)
 	w.cachedPaths = make([]string, len(configs))
 	for i, cfg := range configs {
 		w.cachedPaths[i] = cfg.Path
@@ -116,6 +117,7 @@ func (w *Watcher) debounce() {
 
 func (w *Watcher) scan() []scanner.Result {
 	s := scanner.NewScanner()
+	s.ProjectDir = w.ProjectDir
 	results, err := s.Static()
 	if err != nil {
 		slog.Error("scan failed", "error", err)

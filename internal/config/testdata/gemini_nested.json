@@ -1,0 +1,10 @@
+{
+  "mcp": {
+    "mcpServers": {
+      "code-assist": {
+        "command": "go",
+        "args": ["run", "github.com/google/mcp-server@latest"]
+      }
+    }
+  }
+}

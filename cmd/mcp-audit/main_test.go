@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/mostafaelataby-cheviron/mcp-audit/internal/report"
 	"github.com/mostafaelataby-cheviron/mcp-audit/internal/scanner"
 )
 
@@ -136,5 +137,154 @@ func TestSplitKeyValue(t *testing.T) {
 func TestSplitKeyValueEmpty(t *testing.T) {
 	if splitKeyValue("") != nil {
 		t.Error("empty input should return nil")
+	}
+}
+
+func TestCIFlagForcesSARIF(t *testing.T) {
+	tmpfile, err := os.CreateTemp("", "mcp-audit-ci-test-*.sarif")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmpfile.Close()
+	defer os.Remove(tmpfile.Name())
+
+	f := flags{
+		format:     "table",
+		outputFile: tmpfile.Name(),
+		ci:         true,
+		ciInfo:     report.CIInfo{Repo: "test/repo", Branch: "main", CommitSHA: "abc123", Enabled: true},
+	}
+	results := []scanner.Result{
+		{Severity: scanner.SevCritical, Server: "test.example.com", Type: "dynamic", Finding: "SSRF found"},
+	}
+	writeResults(results, f)
+
+	data, err := os.ReadFile(tmpfile.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := string(data)
+	if !strings.Contains(content, `"$schema"`) {
+		t.Error("CI mode should produce SARIF output regardless of --format")
+	}
+	if !strings.Contains(content, `"versionControlProvenance"`) {
+		t.Error("CI mode SARIF should include versionControlProvenance")
+	}
+	if !strings.Contains(content, "test/repo") {
+		t.Error("CI mode SARIF should include repository URI")
+	}
+	if !strings.Contains(content, "abc123") {
+		t.Error("CI mode SARIF should include commit SHA")
+	}
+}
+
+func TestCIFlagSummaryOutput(t *testing.T) {
+	oldStdout := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stdout = w
+
+	f := flags{
+		format: "table",
+		ci:     true,
+	}
+	results := []scanner.Result{
+		{Severity: scanner.SevCritical, Server: "s1", Type: "static", Finding: "f1"},
+		{Severity: scanner.SevHigh, Server: "s2", Type: "static", Finding: "f2"},
+		{Severity: scanner.SevMedium, Server: "s1", Type: "dynamic", Finding: "f3"},
+		{Severity: scanner.SevPass, Server: "s3", Type: "static", Finding: "f4"},
+	}
+	writeResults(results, f)
+
+	w.Close()
+	var buf bytes.Buffer
+	if _, err := buf.ReadFrom(r); err != nil {
+		t.Fatal(err)
+	}
+	os.Stdout = oldStdout
+
+	output := buf.String()
+	if !strings.Contains(output, `"critical":1`) {
+		t.Error("CI summary should contain critical count")
+	}
+	if !strings.Contains(output, `"high":1`) {
+		t.Error("CI summary should contain high count")
+	}
+	if !strings.Contains(output, `"medium":1`) {
+		t.Error("CI summary should contain medium count")
+	}
+	if !strings.Contains(output, `"pass":1`) {
+		t.Error("CI summary should contain pass count")
+	}
+	if !strings.Contains(output, `"servers_scanned":3`) {
+		t.Error("CI summary should contain unique server count")
+	}
+}
+
+func TestCIFlagNoProvenanceWithoutEnvVars(t *testing.T) {
+	tmpfile, err := os.CreateTemp("", "mcp-audit-ci-test-*.sarif")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmpfile.Close()
+	defer os.Remove(tmpfile.Name())
+
+	f := flags{
+		format:     "sarif",
+		outputFile: tmpfile.Name(),
+		ci:         true,
+	}
+	results := []scanner.Result{
+		{Severity: scanner.SevInfo, Server: "test.example.com", Type: "static", Finding: "info"},
+	}
+	writeResults(results, f)
+
+	data, err := os.ReadFile(tmpfile.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := string(data)
+	if strings.Contains(content, `"versionControlProvenance"`) {
+		t.Error("SARIF should NOT include versionControlProvenance when repo is absent")
+	}
+}
+
+func TestCIInfoEnvVars(t *testing.T) {
+	os.Setenv("GITHUB_REPOSITORY", "org/repo")
+	os.Setenv("GITHUB_REF", "refs/heads/feature-branch")
+	os.Setenv("GITHUB_SHA", "def4567890abcdef")
+	defer func() {
+		os.Unsetenv("GITHUB_REPOSITORY")
+		os.Unsetenv("GITHUB_REF")
+		os.Unsetenv("GITHUB_SHA")
+	}()
+
+	f, err := parseFlags([]string{"--ci"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !f.ci {
+		t.Error("--ci flag should set ci to true")
+	}
+	if f.ciInfo.Repo != "org/repo" {
+		t.Errorf("expected 'org/repo', got %q", f.ciInfo.Repo)
+	}
+	if f.ciInfo.Branch != "feature-branch" {
+		t.Errorf("expected 'feature-branch', got %q", f.ciInfo.Branch)
+	}
+	if f.ciInfo.CommitSHA != "def4567890abcdef" {
+		t.Errorf("expected 'def4567890abcdef', got %q", f.ciInfo.CommitSHA)
+	}
+}
+
+func TestParseFlagsWithCI(t *testing.T) {
+	f, err := parseFlags([]string{"--ci", "--format", "table"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !f.ci {
+		t.Error("--ci flag should set ci to true")
 	}
 }

@@ -65,6 +65,43 @@ source <(mcp-audit completion zsh)
 mcp-audit completion fish > ~/.config/fish/completions/mcp-audit.fish
 ```
 
+## GitHub Action
+
+Add mcp-audit to your CI pipeline with a single step:
+
+```yaml
+- uses: mostafaelataby-cheviron/mcp-audit/action@v1
+  with:
+    severity-min: HIGH
+```
+
+Inputs:
+- `format` — Output format: sarif (default), json, table, junit
+- `severity-min` — Minimum severity: PASS, INFO, LOW (default), MEDIUM, HIGH, CRITICAL
+- `trust-config` — Path to trust config JSON
+- `targets` — Comma-separated probe target URLs
+- `probe-depth` — Probe depth: basic (default), extended, full
+- `no-cve-scan` — Disable CVE scanning (default: false)
+
+Outputs: `critical-count`, `high-count`, `medium-count`, `low-count`, `sarif-file`
+
+## Pre-commit hook
+
+Run `mcp-audit static` before every commit with the [pre-commit](https://pre-commit.com) framework:
+
+```yaml
+# .pre-commit-config.yaml
+repos:
+  - repo: https://github.com/mostafaelataby-cheviron/mcp-audit
+    rev: v1.0.0
+    hooks:
+      - id: mcp-audit
+```
+
+The hook runs a fast static scan (typosquat detection + CVE checks) on MCP config files whenever an `.mcp.json`, `mcp*.json`, `config.toml`, `.codex.toml`, or `.continue.json` file is staged.
+
+Requirements: `mcp-audit` must be installed on your system. Install via `brew install mcp-audit` or `go install github.com/mostafaelataby-cheviron/mcp-audit@latest`.
+
 ## Usage
 
 ```bash
@@ -73,6 +110,7 @@ mcp-audit probe --dry-run     # Preview SSRF probes
 mcp-audit probe               # Run SSRF probes
 mcp-audit scan --format json  # Full audit, JSON output
 mcp-audit scan --format sarif # SARIF for CI integration
+mcp-audit scan --ci           # CI mode: SARIF + JSON summary + provenance
 ```
 
 ## Example

@@ -1,0 +1,107 @@
+name: MCP Audit
+description: Scan MCP configurations for typosquatting, CVE vulnerabilities, and SSRF risks
+author: mcp-audit
+
+inputs:
+  format:
+    description: Output format (sarif, json, table, junit)
+    required: false
+    default: sarif
+  severity-min:
+    description: Minimum severity to report (PASS, INFO, LOW, MEDIUM, HIGH, CRITICAL)
+    required: false
+    default: LOW
+  trust-config:
+    description: Path to trust config JSON
+    required: false
+  targets:
+    description: Comma-separated probe target URLs (overrides defaults)
+    required: false
+  probe-depth:
+    description: Probe depth (basic, extended, full)
+    required: false
+    default: basic
+  no-cve-scan:
+    description: Disable CVE vulnerability scanning
+    required: false
+    default: 'false'
+
+outputs:
+  critical-count:
+    description: Number of CRITICAL findings
+    value: ${{ steps.parse.outputs.critical }}
+  high-count:
+    description: Number of HIGH findings
+    value: ${{ steps.parse.outputs.high }}
+  medium-count:
+    description: Number of MEDIUM findings
+    value: ${{ steps.parse.outputs.medium }}
+  low-count:
+    description: Number of LOW findings
+    value: ${{ steps.parse.outputs.low }}
+  sarif-file:
+    description: Path to the SARIF output file
+    value: ${{ steps.scan.outputs.sarif-file }}
+
+runs:
+  using: composite
+  steps:
+    - name: Setup mcp-audit
+      uses: robinraju/release-downloader@v1.12
+      with:
+        repository: mostafaelataby-cheviron/mcp-audit
+        latest: true
+        fileName: mcp-audit_*_${{ runner.os }}_${{ runner.arch }}.tar.gz
+        out-file-path: mcp-audit.tar.gz
+      continue-on-error: true
+
+    - name: Extract mcp-audit
+      shell: bash
+      run: |
+        if [ -f mcp-audit.tar.gz ]; then
+          tar -xzf mcp-audit.tar.gz -C ${{ runner.temp }}
+          echo "${{ runner.temp }}" >> "$GITHUB_PATH"
+        fi
+
+    - name: Run mcp-audit
+      id: scan
+      shell: bash
+      run: |
+        ARGS="scan --ci --format ${{ inputs.format }}"
+        [ -n "${{ inputs.severity-min }}" ] && ARGS="$ARGS --severity-min ${{ inputs.severity-min }}"
+        [ -n "${{ inputs.trust-config }}" ] && ARGS="$ARGS --trust-config ${{ inputs.trust-config }}"
+        [ -n "${{ inputs.targets }}" ] && ARGS="$ARGS --targets ${{ inputs.targets }}"
+        [ -n "${{ inputs.probe-depth }}" ] && ARGS="$ARGS --probe-depth ${{ inputs.probe-depth }}"
+        [ "${{ inputs.no-cve-scan }}" = "true" ] && ARGS="$ARGS --no-cve-scan"
+
+        SARIF_FILE="mcp-audit-results.sarif"
+        SUMMARY_FILE="mcp-audit-summary.json"
+        echo "sarif-file=$SARIF_FILE" >> "$GITHUB_OUTPUT"
+        mcp-audit $ARGS --output-file "$SARIF_FILE" --ci-summary-file "$SUMMARY_FILE" || true
+
+    - name: Parse summary
+      id: parse
+      shell: bash
+      run: |
+        SUMMARY=$(cat mcp-audit-summary.json)
+        CRITICAL=$(echo "$SUMMARY" | jq -r '.critical // 0')
+        HIGH=$(echo "$SUMMARY" | jq -r '.high // 0')
+        MEDIUM=$(echo "$SUMMARY" | jq -r '.medium // 0')
+        LOW=$(echo "$SUMMARY" | jq -r '.low // 0')
+        echo "critical=$CRITICAL" >> "$GITHUB_OUTPUT"
+        echo "high=$HIGH" >> "$GITHUB_OUTPUT"
+        echo "medium=$MEDIUM" >> "$GITHUB_OUTPUT"
+        echo "low=$LOW" >> "$GITHUB_OUTPUT"
+
+        SEV_MIN="${{ inputs.severity-min }}"
+        if [ "$SEV_MIN" = "CRITICAL" ] && [ "$CRITICAL" -gt 0 ]; then exit 1; fi
+        if [ "$SEV_MIN" = "HIGH" ] && { [ "$HIGH" -gt 0 ] || [ "$CRITICAL" -gt 0 ]; }; then exit 1; fi
+        if [ "$SEV_MIN" = "MEDIUM" ] && { [ "$MEDIUM" -gt 0 ] || [ "$HIGH" -gt 0 ] || [ "$CRITICAL" -gt 0 ]; }; then exit 1; fi
+        if [ "$SEV_MIN" = "LOW" ] && { [ "$LOW" -gt 0 ] || [ "$MEDIUM" -gt 0 ] || [ "$HIGH" -gt 0 ] || [ "$CRITICAL" -gt 0 ]; }; then exit 1; fi
+
+    - name: Upload SARIF
+      if: always() && steps.scan.outputs.sarif-file != ''
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: ${{ steps.scan.outputs.sarif-file }}
+        category: mcp-audit

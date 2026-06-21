@@ -6,10 +6,11 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/mostafaelataby-cheviron/mcp-audit/internal/completion"
+	"github.com/mostafaelataby-cheviron/mcp-audit/internal/config"
 	"github.com/mostafaelataby-cheviron/mcp-audit/internal/configfile"
 	"github.com/mostafaelataby-cheviron/mcp-audit/internal/report"
 	"github.com/mostafaelataby-cheviron/mcp-audit/internal/scanner"
@@ -87,6 +88,22 @@ func firstNonEmpty(a, b string) string {
 	return b
 }
 
+func stripGitRef(ref string) string {
+	for _, prefix := range []string{"refs/heads/", "refs/tags/", "refs/pull/"} {
+		if after, ok := strings.CutPrefix(ref, prefix); ok {
+			return after
+		}
+	}
+	return ref
+}
+
+func effectiveFormat(f flags) report.Format {
+	if f.ci {
+		return report.FormatSARIF
+	}
+	return f.format
+}
+
 func splitCSV(s string) []string {
 	if s == "" {
 		return nil
@@ -132,6 +149,15 @@ type flags struct {
 	concurrency           int
 	noColor               bool
 	noCrossServerAnalysis bool
+	toolsConfig           string
+	projectDir            string
+	noProject             bool
+	noCVEScan             bool
+	cveCacheDir           string
+	cveCacheTTL           int
+	ci                    bool
+	ciSummaryFile         string
+	ciInfo                report.CIInfo
 }
 
 var validSeverities = map[string]bool{
@@ -142,7 +168,7 @@ var validFormats = map[string]bool{"table": true, "json": true, "sarif": true, "
 
 var validProbeDepths = map[string]bool{"basic": true, "extended": true, "full": true}
 
-func parseFlags(args []string) (flags, error) {
+func parseFlags(args []string) (flags, error) { //nolint:funlen
 	var f flags
 	var severityMinRaw, probeDepthRaw, formatRaw string
 
@@ -159,10 +185,10 @@ func parseFlags(args []string) (flags, error) {
 	fs.StringVar(&f.authHeaders, "auth-headers", "", "comma-separated key=value auth headers")
 	fs.StringVar(&f.tlsCert, "tls-cert", "", "TLS client certificate file for mTLS")
 	fs.StringVar(&f.tlsKey, "tls-key", "", "TLS client key file for mTLS")
-	fs.BoolVar(&f.noToolAnalysis, "no-tool-analysis", false, "disable tool description and schema security analysis")
+	fs.BoolVar(&f.noToolAnalysis, "no-tool-analysis", false, "disable tool schema security analysis")
 	fs.StringVar(&f.snapshotDir, "snapshot-dir", "", "override snapshot directory (default ~/.config/mcp-audit/snapshots)")
 	fs.BoolVar(&f.noSnapshot, "no-snapshot", false, "disable snapshot persistence and drift detection")
-	fs.BoolVar(&f.noTrustOnFirstUse, "no-trust-on-first-use", false, "require pre-populated pinned hashes for first scan")
+	fs.BoolVar(&f.noTrustOnFirstUse, "no-trust-on-first-use", false, "require pinned hashes for first scan")
 	fs.BoolVar(&f.noSecretScan, "no-secret-scan", false, "disable credential and secret scanning of config files")
 	fs.StringVar(&probeDepthRaw, "probe-depth", "basic", "probe depth: basic, extended, full")
 	fs.IntVar(&f.callbackPort, "callback-port", 0, "callback listener port (0=random)")
@@ -177,12 +203,24 @@ func parseFlags(args []string) (flags, error) {
 	fs.IntVar(&f.timeout, "timeout", 30, "timeout in seconds for MCP handshake")
 	fs.IntVar(&f.concurrency, "concurrency", 10, "maximum concurrent probes")
 	fs.BoolVar(&f.noColor, "no-color", false, "disable terminal color codes")
-	fs.BoolVar(&f.noCrossServerAnalysis, "no-cross-server-analysis", false, "disable cross-server analysis")
+	fs.BoolVar(&f.noCrossServerAnalysis, "no-cross-server-analysis", false, "disable cross-server relationship analysis")
+	fs.StringVar(&f.toolsConfig, "tools-config", "", "path to custom tools registry JSON")
+	fs.StringVar(&f.projectDir, "project-dir", "", "directory for project-scoped discovery (default: cwd)")
+	fs.BoolVar(&f.noProject, "no-project-config", false, "disable project-scoped config discovery")
+	fs.BoolVar(&f.noCVEScan, "no-cve-scan", false, "disable CVE vulnerability scanning")
+	fs.StringVar(&f.cveCacheDir, "cve-cache-dir", "", "CVE cache directory (default ~/.config/mcp-audit/cve-cache)")
+	fs.IntVar(&f.cveCacheTTL, "cve-cache-ttl", 24, "CVE cache TTL in hours")
+	fs.BoolVar(&f.ci, "ci", false, "CI mode: force SARIF, print JSON summary, add provenance")
+	fs.StringVar(&f.ciSummaryFile, "ci-summary-file", "", "write CI summary JSON to file (CI mode)")
 	fs.SetOutput(os.Stderr)
 	if err := fs.Parse(args); err != nil {
 		return f, err
 	}
-
+	if f.noProject {
+		f.projectDir = ""
+	} else if f.projectDir == "" {
+		f.projectDir, _ = os.Getwd()
+	}
 	if !validFormats[formatRaw] {
 		fmt.Fprintf(os.Stderr, "invalid --format %q: must be table, json, sarif, or junit\n", formatRaw)
 		os.Exit(2)
@@ -205,6 +243,15 @@ func parseFlags(args []string) (flags, error) {
 		f.severityMin = scanner.ParseSeverity(severityMinRaw)
 	}
 
+	if f.ci {
+		f.ciInfo = report.CIInfo{
+			Repo:      os.Getenv("GITHUB_REPOSITORY"),
+			Branch:    stripGitRef(os.Getenv("GITHUB_REF")),
+			CommitSHA: os.Getenv("GITHUB_SHA"),
+			Enabled:   true,
+		}
+	}
+
 	return f, nil
 }
 
@@ -225,36 +272,22 @@ func newLogger(verbose, quiet, debug bool) *slog.Logger {
 	return logger
 }
 
-type spinner struct {
-	stop   chan struct{}
-	frames []string
-}
-
-func startSpinner(msg string) *spinner {
-	s := &spinner{
-		stop:   make(chan struct{}),
-		frames: []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"},
+func defaultCVECacheDir() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
 	}
-	go func() {
-		ticker := time.NewTicker(100 * time.Millisecond)
-		defer ticker.Stop()
-		i := 0
-		for {
-			select {
-			case <-s.stop:
-				fmt.Fprintf(os.Stderr, "\r\033[K")
-				return
-			case <-ticker.C:
-				fmt.Fprintf(os.Stderr, "\r%s %s", s.frames[i%len(s.frames)], msg)
-				i++
-			}
-		}
-	}()
-	return s
+	return filepath.Join(home, ".config", "mcp-audit", "cve-cache")
 }
 
-func (s *spinner) clear() {
-	close(s.stop)
+func applyCVECacheDefaults(s *scanner.Scanner, cacheDir string, cacheTTL int) {
+	s.CVECacheDir = cacheDir
+	s.CVECacheTTLHours = cacheTTL
+	if s.CVECacheDir == "" {
+		if dir := defaultCVECacheDir(); dir != "" {
+			s.CVECacheDir = dir
+		}
+	}
 }
 
 func applyConfigDefaults(f *flags) {
@@ -292,6 +325,15 @@ func applyConfigDefaults(f *flags) {
 	if cfg.SnapshotDir != "" && f.snapshotDir == "" {
 		f.snapshotDir = cfg.SnapshotDir
 	}
+	if cfg.NoCVEScan && !f.noCVEScan {
+		f.noCVEScan = cfg.NoCVEScan
+	}
+	if cfg.CVECacheDir != "" && f.cveCacheDir == "" {
+		f.cveCacheDir = cfg.CVECacheDir
+	}
+	if cfg.CVECacheTTL != 0 && f.cveCacheTTL == 24 {
+		f.cveCacheTTL = cfg.CVECacheTTL
+	}
 }
 
 func runStaticAction(action string, args []string) {
@@ -301,11 +343,16 @@ func runStaticAction(action string, args []string) {
 	}
 	applyConfigDefaults(&f)
 
+	config.InitRegistry(f.toolsConfig)
+
 	logger := newLogger(f.verbose, f.quiet, f.debug)
 	logger.Debug("starting", "action", action)
 
 	s := scanner.NewScanner()
 	s.NoSecretScan = f.noSecretScan
+	s.ProjectDir = f.projectDir
+	s.NoCVEScan = f.noCVEScan
+	applyCVECacheDefaults(s, f.cveCacheDir, f.cveCacheTTL)
 	if err := s.SetTrustConfig(f.trustConfig); err != nil {
 		if f.trustConfig != "" {
 			logger.Error("trust config error", "error", err)
@@ -343,10 +390,15 @@ func runProbe(args []string) {
 	}
 	applyConfigDefaults(&f)
 
+	config.InitRegistry(f.toolsConfig)
+
 	logger := newLogger(f.verbose, f.quiet, f.debug)
 	logger.Debug("starting probe")
 
 	s := scanner.NewScanner()
+	s.ProjectDir = f.projectDir
+	s.NoCVEScan = f.noCVEScan
+	applyCVECacheDefaults(s, f.cveCacheDir, f.cveCacheTTL)
 	s.AllowHosts = splitCSV(f.allowHosts)
 	s.BlockHosts = splitCSV(f.blockHosts)
 	s.Probes = splitCSV(f.targets)
@@ -385,16 +437,7 @@ func runProbe(args []string) {
 
 	writeResults(dynResults, f)
 
-	var serverCount int
-	seen := map[string]bool{}
-	for _, r := range dynResults {
-		if !seen[r.Server] {
-			seen[r.Server] = true
-			serverCount++
-		}
-	}
-
-	report.PrintSummary(dynResults, serverCount)
+	report.PrintSummary(dynResults, report.UniqueServerCount(dynResults))
 	os.Exit(report.ExitCode(dynResults))
 }
 
@@ -424,9 +467,15 @@ func writeResults(results []scanner.Result, f flags) {
 		w = outFile
 	}
 
-	if err := report.Write(w, results, f.format); err != nil {
+	var ciPtr *report.CIInfo
+	if f.ci {
+		ciPtr = &f.ciInfo
+	}
+
+	if err := report.Write(w, results, effectiveFormat(f), ciPtr); err != nil {
 		if outFile != nil {
-			if cerr := outFile.Close(); cerr != nil {
+			cerr := outFile.Close()
+			if cerr != nil {
 				slog.Debug("close output file", "err", cerr)
 			}
 		}
@@ -436,6 +485,26 @@ func writeResults(results []scanner.Result, f flags) {
 	if outFile != nil {
 		if cerr := outFile.Close(); cerr != nil {
 			slog.Debug("close output file", "err", cerr)
+		}
+	}
+
+	if f.ci {
+		ciWriter := os.Stdout
+		if f.ciSummaryFile != "" {
+			sf, err := os.Create(f.ciSummaryFile)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "error opening CI summary file: %v\n", err)
+			} else {
+				ciWriter = sf
+				defer func() {
+					if cerr := sf.Close(); cerr != nil {
+						slog.Debug("close CI summary file", "err", cerr)
+					}
+				}()
+			}
+		}
+		if err := report.WriteCISummary(ciWriter, results, report.UniqueServerCount(results)); err != nil {
+			fmt.Fprintf(os.Stderr, "error writing CI summary: %v\n", err)
 		}
 	}
 }
@@ -452,49 +521,46 @@ func filterBySeverity(results []scanner.Result, min scanner.Severity) []scanner.
 
 func printUsage() {
 	fmt.Println(`mcp-audit — MCP ecosystem security auditor
-
 Usage:
-  mcp-audit scan        Full audit (static analysis + dynamic SSRF probing)
-  mcp-audit static      Config-only scan (no network requests)
+  mcp-audit scan        Full audit (static + SSRF probing)
+  mcp-audit static      Config-only scan
   mcp-audit probe       Dynamic SSRF probe only
   mcp-audit watch       Watch config files and re-scan on changes
-  mcp-audit proxy       Start a transparent auditing MCP proxy
+  mcp-audit proxy       Start a transparent MCP proxy
   mcp-audit trust       Manage trust config (update, export, import)
-  mcp-audit upload      Anonymize and upload findings to community DB
+  mcp-audit upload      Upload anonymized findings to community DB
   mcp-audit version     Print version
-  mcp-audit completion  Generate shell completion (bash|zsh|fish)
+  mcp-audit completion  Generate shell completion
   mcp-audit help        Show this help
 
 Scan/probe flags:
-  --format <fmt>         Output format: table (default), json, sarif, junit
-  --dry-run              Print what would be probed without making requests
-  --targets <urls>       Comma-separated probe target URLs (overrides built-in list)
-  --allow-hosts <ips>    Comma-separated hosts/IPs to allow for probing
-  --block-hosts <ips>    Comma-separated hosts/IPs to block from probing
-  --probe-depth <level>  Probe depth: basic, extended, full (default: basic)
-  --callback-port <n>    Callback listener port for blind SSRF (0=random)
+  --format <fmt>         Output: table (default), json, sarif, junit
+  --dry-run              Print what would be probed without requests
+  --targets <urls>       Comma-separated override probe target URLs
+  --allow-hosts <ips>    Comma-separated hosts/IPs to allow
+  --block-hosts <ips>    Comma-separated hosts/IPs to block
+  --probe-depth <level>  Probe depth: basic, extended, full (basic)
+  --callback-port <n>    Callback port for blind SSRF (0=random)
   --targets-file <path>  File with probe target URLs (one per line)
-  --max-response <n>     Max response body size in bytes (default 65536, max 1048576)
-  --trust-config <path>  Path to trust config JSON (default ~/.config/mcp-audit/trust.json)
-  --transport <type>     Force transport type: stdio, sse, http
-  --auth-token <token>   Bearer token for MCP server authentication
+  --max-response <n>     Max response bytes (default 65536)
+  --trust-config <path>  Path to trust config JSON
+  --transport <type>     Force transport: stdio, sse, http
+  --auth-token <token>   Bearer token for MCP authentication
   --auth-headers <k=v>   Comma-separated key=value auth headers
-  --tls-cert <path>      TLS client certificate file for mTLS
+  --tls-cert <path>      TLS client cert file for mTLS
   --tls-key <path>       TLS client key file for mTLS
-  --no-tool-analysis     Disable tool description and schema security analysis
-	  --snapshot-dir <path>  Override snapshot directory (default ~/.config/mcp-audit/snapshots)
-	  --no-snapshot           Disable snapshot persistence and drift detection
-	  --no-trust-on-first-use Require pre-populated pinned hashes for first scan
-	  --no-secret-scan       Disable credential and secret scanning of config files
+  --no-tool-analysis     Disable tool schema analysis
+  --no-snapshot          Disable snapshot persistence and drift detection
+  --no-trust-on-first-use Require pinned hashes for first scan
+  --no-secret-scan       Disable credential and secret scanning
   --no-cross-server-analysis Disable cross-server relationship analysis
-Watch flags:
-  --watch-interval <n>   Periodic re-scan seconds (default: 300)
-
-Proxy flags:
-  --listen <addr>        Listen address (default: 127.0.0.1:8080)
-  --block-critical       Block responses with CRITICAL findings
-
-Examples:
-  mcp-audit probe --targets http://127.0.0.1:8080/ --probe-depth full
-  mcp-audit proxy --target http://localhost:9000 --block-critical`)
+  --no-cve-scan          Disable CVE vulnerability scanning
+  --cve-cache-dir <path> CVE cache directory (default ~/.config/mcp-audit/cve-cache)
+  --cve-cache-ttl <n>    CVE cache TTL in hours (default: 24)
+  --tools-config <path>  Path to custom tools registry JSON
+  --ci                   CI mode: force SARIF, print JSON summary, add provenance
+Watch/Proxy flags:
+  --watch-interval <n>   Re-scan interval in seconds (default: 300)
+  --listen <addr>        Listen addr (default: 127.0.0.1:8080)
+  --block-critical       Block responses with CRITICAL findings`)
 }

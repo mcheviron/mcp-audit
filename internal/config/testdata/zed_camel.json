@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "linter": {
+      "command": "npx",
+      "args": ["-y", "@zed/mcp-server-linter"]
+    }
+  }
+}

@@ -12,3 +12,5 @@ scripts/.venv/
 .DS_Store
 Thumbs.db
 mcp-audit-new
+.prospector/
+build/

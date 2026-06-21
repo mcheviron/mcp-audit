@@ -163,6 +163,7 @@ func runDirectProbes( //nolint:funlen
 					}
 					r := analyzeProbeResult(result, srv)
 					r.ConfigPath = srv.ConfigPath
+					r.Scope = srv.Scope
 					if method != http.MethodGet {
 						r.Finding = fmt.Sprintf("[%s] %s", method, r.Finding)
 					}
@@ -253,6 +254,7 @@ func probeSingleServer(
 			Type:       "dynamic",
 			Finding:    fmt.Sprintf("tools/list failed: %v", err),
 			ConfigPath: srv.ConfigPath,
+			Scope:      srv.Scope,
 		})
 		mu.Unlock()
 		return
@@ -276,6 +278,7 @@ func probeSingleServer(
 		toolResults := probeMCPTool(ctx, mcpClient, srv, tool, targets[:limit], depth, cl)
 		for i := range toolResults {
 			toolResults[i].ConfigPath = srv.ConfigPath
+			toolResults[i].Scope = srv.Scope
 		}
 		mu.Lock()
 		*existingResults = append(*existingResults, toolResults...)
@@ -295,6 +298,7 @@ func addHandshakeError(err error, srv config.ServerEntry, auth AuthConfig, resul
 		Type:       "dynamic",
 		Finding:    finding,
 		ConfigPath: srv.ConfigPath,
+		Scope:      srv.Scope,
 	})
 	mu.Unlock()
 }
@@ -302,7 +306,7 @@ func addHandshakeError(err error, srv config.ServerEntry, auth AuthConfig, resul
 func runToolAnalysis(tools *mcp.ListToolsResult, srv config.ServerEntry, results *[]Result, mu *sync.Mutex) {
 	var descResults, capResults []Result
 	for _, tool := range tools.Tools {
-		descResults = append(descResults, analyzeToolDescription(tool, srv.Name, srv.ConfigPath)...)
+		descResults = append(descResults, analyzeToolDescription(tool, srv.Name, srv.ConfigPath, srv.Scope)...)
 		caps := classifyToolCapabilities(tool.InputSchema)
 		if len(caps) == 0 {
 			continue
@@ -319,6 +323,7 @@ func runToolAnalysis(tools *mcp.ListToolsResult, srv config.ServerEntry, results
 			Type:       "static",
 			Finding:    fmt.Sprintf("tool %q capabilities: %s", tool.Name, strings.Join(caps, ", ")),
 			ConfigPath: srv.ConfigPath,
+			Scope:      srv.Scope,
 		})
 		if len(caps) > 1 {
 			capResults = append(capResults, Result{
@@ -327,6 +332,7 @@ func runToolAnalysis(tools *mcp.ListToolsResult, srv config.ServerEntry, results
 				Type:       "static",
 				Finding:    fmt.Sprintf("tool %q has multiple capabilities: %s", tool.Name, strings.Join(caps, ", ")),
 				ConfigPath: srv.ConfigPath,
+				Scope:      srv.Scope,
 			})
 		}
 	}
@@ -377,6 +383,7 @@ func dryRunResults(mcpServers []config.ServerEntry, targets []string, depth Prob
 			Server:     srv.Name,
 			Type:       "dynamic",
 			ConfigPath: srv.ConfigPath,
+			Scope:      srv.Scope,
 			Finding: fmt.Sprintf(
 				"would probe %d targets on %s (transport: %s, depth: %s)", len(targets), desc, srv.Transport, depth,
 			),

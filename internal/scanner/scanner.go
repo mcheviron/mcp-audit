@@ -83,6 +83,12 @@ type Scanner struct {
 
 	CrossServerAnalysis bool
 
+	NoCVEScan        bool
+	CVECacheDir      string
+	CVECacheTTLHours int
+
+	ProjectDir string
+
 	TestConfigs []config.Config
 }
 
@@ -105,7 +111,7 @@ func (s *Scanner) discoverConfigs() []config.Config {
 	if s.TestConfigs != nil {
 		return s.TestConfigs
 	}
-	return config.Discover()
+	return config.Discover(s.ProjectDir)
 }
 
 func (s *Scanner) SetTrustConfig(path string) error {

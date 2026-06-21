@@ -16,6 +16,7 @@ type Result struct {
 	Detail      string
 	ConfigPath  string
 	Remediation string
+	Scope       string
 }
 
 type Severity int
@@ -77,13 +78,18 @@ func (s *Scanner) Static() (*StaticResults, error) {
 
 	var results []Result
 	for _, cfg := range configs {
-		results = append(results, s.checkCredentials(cfg)...)
+		creds := s.checkCredentials(cfg)
+		for i := range creds {
+			creds[i].Scope = cfg.Scope
+		}
+		results = append(results, creds...)
 		if cfg.Error != nil {
 			results = append(results, Result{
 				Severity:   SevInfo,
 				Server:     cfg.Tool,
 				Type:       "static",
 				ConfigPath: cfg.Path,
+				Scope:      cfg.Scope,
 				Finding:    fmt.Sprintf("config parse error: %v", cfg.Error),
 			})
 			continue
@@ -92,10 +98,14 @@ func (s *Scanner) Static() (*StaticResults, error) {
 			r := checkTyposquat(srv, s.TrustConfig)
 			for i := range r {
 				r[i].ConfigPath = srv.ConfigPath
+				r[i].Scope = srv.Scope
 			}
 			results = append(results, r...)
 		}
 	}
+
+	cveResults := s.scanCVEs(configs)
+	results = append(results, cveResults...)
 
 	return &StaticResults{
 		Configs: configs,
@@ -133,8 +143,8 @@ func checkTyposquat(srv config.ServerEntry, tc *config.TrustConfig) []Result {
 		}}
 	}
 
-	if r := matchBlocked(srv.Package, scope.Blocked, srv.Name); r != nil {
-		return []Result{*r}
+	if r, ok := matchBlocked(srv.Package, scope.Blocked, srv.Name); ok {
+		return []Result{r}
 	}
 
 	var findings []Result
@@ -171,16 +181,16 @@ func checkTyposquat(srv config.ServerEntry, tc *config.TrustConfig) []Result {
 	return findings
 }
 
-func matchBlocked(pkg string, blocked []string, server string) *Result {
+func matchBlocked(pkg string, blocked []string, server string) (Result, bool) {
 	for _, m := range blocked {
 		if strings.EqualFold(pkg, m) {
-			return &Result{
+			return Result{
 				Severity: SevCritical,
 				Server:   server,
 				Type:     "static",
 				Finding:  fmt.Sprintf("package %q matches blocked package %q", pkg, m),
-			}
+			}, true
 		}
 	}
-	return nil
+	return Result{}, false
 }

@@ -33,6 +33,15 @@ func PopulateRemediation(r *Result) {
 		} else {
 			r.Remediation = "Review the finding for awareness. No immediate action required."
 		}
+	case r.Type == "cve" && r.Severity >= SevHigh:
+		r.Remediation = "Update the affected package to a patched version immediately. " +
+			"See the CVE details for specific fix versions and workarounds."
+	case r.Type == "cve" && r.Severity >= SevMedium:
+		r.Remediation = "Review the CVE and schedule a package update. " +
+			"Evaluate whether the vulnerability is exploitable in your deployment context."
+	case r.Type == "cve":
+		r.Remediation = "Monitor for updates and apply patches when available. " +
+			"Evaluate impact based on your deployment scenario."
 	case r.Severity == SevPass:
 	default:
 		r.Remediation = "Review the finding and take appropriate action based on your security policies."

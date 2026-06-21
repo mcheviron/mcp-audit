@@ -21,6 +21,13 @@ const (
 	FormatJUNIT Format = "junit"
 )
 
+type CIInfo struct {
+	Repo      string
+	Branch    string
+	CommitSHA string
+	Enabled   bool
+}
+
 func ResolveFormat(f string) Format {
 	switch f {
 	case "json":
@@ -34,17 +41,36 @@ func ResolveFormat(f string) Format {
 	}
 }
 
-func Write(w io.Writer, results []scanner.Result, format Format) error {
+func Write(w io.Writer, results []scanner.Result, format Format, ci *CIInfo) error {
 	switch format {
 	case FormatJSON:
 		return writeJSON(w, results)
 	case FormatSARIF:
-		return writeSARIF(w, results)
+		return writeSARIF(w, results, ci)
 	case FormatJUNIT:
 		return writeJUNIT(w, results)
 	default:
 		return writeTable(w, results)
 	}
+}
+
+func WriteCISummary(w io.Writer, results []scanner.Result, serversScanned int) error {
+	counts := countBySeverity(results)
+	s := jsonSummary{
+		Critical:       counts[scanner.SevCritical],
+		High:           counts[scanner.SevHigh],
+		Medium:         counts[scanner.SevMedium],
+		Low:            counts[scanner.SevLow],
+		Info:           counts[scanner.SevInfo],
+		Pass:           counts[scanner.SevPass],
+		ServersScanned: serversScanned,
+	}
+	data, err := json.Marshal(s)
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintln(w, string(data))
+	return err
 }
 
 func writeTable(w io.Writer, results []scanner.Result) error {
@@ -80,7 +106,11 @@ func writeTable(w io.Writer, results []scanner.Result) error {
 		for _, r := range g {
 			server := r.Server
 			if r.ConfigPath != "" {
-				server += " (" + r.ConfigPath + ")"
+				label := r.ConfigPath
+				if r.Scope == "project" {
+					label += " (project)"
+				}
+				server += " (" + label + ")"
 			}
 			if _, err := fmt.Fprintf(tw, "%s\t%s\t%s\n", colorize(r.Severity.String()), server, r.Finding); err != nil {
 				return err
@@ -136,6 +166,7 @@ type jsonEntry struct {
 	Detail      string `json:"detail,omitempty"`
 	ConfigPath  string `json:"config_path,omitempty"`
 	Remediation string `json:"remediation,omitempty"`
+	Scope       string `json:"scope,omitempty"`
 }
 
 func writeJSON(w io.Writer, results []scanner.Result) error {
@@ -152,6 +183,7 @@ func writeJSON(w io.Writer, results []scanner.Result) error {
 			Detail:      r.Detail,
 			ConfigPath:  r.ConfigPath,
 			Remediation: r.Remediation,
+			Scope:       r.Scope,
 		}
 	}
 
@@ -177,21 +209,17 @@ func writeJSON(w io.Writer, results []scanner.Result) error {
 }
 
 func ExitCode(results []scanner.Result) int {
-	hasCritical := false
 	hasHigh := false
 	hasMedium := false
 	for _, r := range results {
 		switch r.Severity {
 		case scanner.SevCritical:
-			hasCritical = true
+			return 1
 		case scanner.SevHigh:
 			hasHigh = true
 		case scanner.SevMedium:
 			hasMedium = true
 		}
-	}
-	if hasCritical {
-		return 1
 	}
 	if hasHigh {
 		return 2
@@ -249,4 +277,8 @@ func uniqueServers(results []scanner.Result) []string {
 	}
 	sort.Strings(servers)
 	return servers
+}
+
+func UniqueServerCount(results []scanner.Result) int {
+	return len(uniqueServers(results))
 }

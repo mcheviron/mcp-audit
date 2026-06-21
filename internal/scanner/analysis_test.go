@@ -37,7 +37,7 @@ func TestAnalyzeToolDescriptionInjection(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tool := makeTool(tt.name, tt.desc)
-			results := analyzeToolDescription(tool, "test-srv", "")
+			results := analyzeToolDescription(tool, "test-srv", "", "")
 			if len(results) == 0 {
 				t.Fatal("no results returned")
 			}
@@ -50,7 +50,7 @@ func TestAnalyzeToolDescriptionInjection(t *testing.T) {
 
 func TestAnalyzeToolDescriptionEmpty(t *testing.T) {
 	tool := makeTool("no-desc", "")
-	results := analyzeToolDescription(tool, "test-srv", "")
+	results := analyzeToolDescription(tool, "test-srv", "", "")
 	if len(results) != 1 {
 		t.Fatalf("expected 1 result, got %d", len(results))
 	}
@@ -64,7 +64,7 @@ func TestAnalyzeToolDescriptionEmpty(t *testing.T) {
 
 func TestAnalyzeToolDescriptionWhitespaceOnly(t *testing.T) {
 	tool := makeTool("ws-only", "   ")
-	results := analyzeToolDescription(tool, "test-srv", "")
+	results := analyzeToolDescription(tool, "test-srv", "", "")
 	if len(results) != 1 {
 		t.Fatalf("expected 1 result, got %d", len(results))
 	}

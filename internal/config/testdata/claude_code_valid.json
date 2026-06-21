@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "prospector": {
+      "command": "prospector",
+      "args": []
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@anthropic/mcp-server-filesystem"]
+    }
+  }
+}
