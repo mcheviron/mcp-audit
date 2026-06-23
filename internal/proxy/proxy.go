@@ -27,12 +27,15 @@ type Config struct {
 	UpstreamCACert  string
 	UpstreamCert    string
 	UpstreamKey     string
+	PolicyPath      string
+	DefaultDeny     bool
 }
 
 type Proxy struct {
 	config    Config
 	targetURL *url.URL
 	inspector *Inspector
+	policy    *PolicyEngine
 }
 
 func (p *Proxy) buildTransport() *http.Transport {
@@ -126,7 +129,79 @@ func (p *Proxy) Handler() http.Handler {
 		rp.Transport = tr
 	}
 
-	return rp
+	if p.config.PolicyPath == "" || p.policy == nil {
+		return rp
+	}
+
+	return p.policyWrapper(rp)
+}
+
+func (p *Proxy) policyWrapper(rp *httputil.ReverseProxy) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/__audit/stats" {
+			p.serveStats(w, r)
+			return
+		}
+
+		if r.Body == nil || r.Body == http.NoBody {
+			rp.ServeHTTP(w, r)
+			return
+		}
+
+		body, err := io.ReadAll(r.Body)
+		_ = r.Body.Close()
+		if err != nil {
+			slog.Debug("read body for policy evaluation", "err", err)
+			r.Body = http.NoBody
+			rp.ServeHTTP(w, r)
+			return
+		}
+
+		if len(body) > 0 {
+			method, tool, params := extractRequestInfo(body)
+			action, desc := p.policy.Evaluate(method, tool, params)
+
+			switch action {
+			case "deny":
+				slog.Warn("policy denied request", "method", method, "tool", tool, "desc", desc)
+				denyResp := map[string]any{
+					"jsonrpc": "2.0",
+					"error": map[string]any{
+						"code":    -32001,
+						"message": fmt.Sprintf("Denied by policy: %s", desc),
+					},
+				}
+				denyBody, _ := json.Marshal(denyResp)
+				w.Header().Set("Content-Type", "application/json")
+				w.Header().Set("X-MCP-Audit-Blocked", "true")
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write(denyBody)
+				return
+			case "audit":
+				slog.Warn("audit: policy matched", "desc", desc, "method", method, "tool", tool)
+			}
+			r.Body = io.NopCloser(bytes.NewReader(body))
+			r.ContentLength = int64(len(body))
+		} else {
+			r.Body = http.NoBody
+		}
+		rp.ServeHTTP(w, r)
+	})
+}
+
+func (p *Proxy) serveStats(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	total, toolCounts := p.policy.Stats()
+	stats := map[string]any{
+		"total": total,
+		"tools": toolCounts,
+	}
+	resp, _ := json.Marshal(stats)
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write(resp)
 }
 
 func (p *Proxy) Inspector() *Inspector {
@@ -152,10 +227,20 @@ func New(cfg Config) *Proxy {
 	if cfg.MaxResponseSize <= 0 {
 		cfg.MaxResponseSize = 65536
 	}
-	return &Proxy{
+	pr := &Proxy{
 		config:    cfg,
 		inspector: NewInspector(),
 	}
+	if cfg.PolicyPath != "" {
+		pc, err := LoadPolicy(cfg.PolicyPath)
+		if err != nil {
+			slog.Error("failed to load policy", "path", cfg.PolicyPath, "err", err)
+			return pr
+		}
+		pr.policy = NewPolicyEngine(pc, cfg.DefaultDeny)
+		slog.Info("policy engine loaded", "path", cfg.PolicyPath, "rules", len(pc.Rules), "defaultDeny", cfg.DefaultDeny)
+	}
+	return pr
 }
 
 func (p *Proxy) Start(ctx context.Context) error {
@@ -168,6 +253,9 @@ func (p *Proxy) Start(ctx context.Context) error {
 	slog.Info("proxy listening", "addr", p.config.ListenAddr, "target", p.config.TargetURL)
 	if p.config.BlockCritical {
 		slog.Info("block-critical mode enabled")
+	}
+	if p.policy != nil {
+		slog.Info("policy engine enabled")
 	}
 
 	srv := &http.Server{
@@ -277,6 +365,24 @@ func (p *Proxy) latestCritical() *Finding {
 		}
 	}
 	return nil
+}
+
+func extractRequestInfo(body []byte) (method, tool string, params map[string]any) {
+	var req struct {
+		Method string         `json:"method"`
+		Params map[string]any `json:"params"`
+	}
+	if err := json.Unmarshal(body, &req); err != nil {
+		return "unknown", "", nil
+	}
+	method = req.Method
+	if method == "" {
+		method = "unknown"
+	}
+	if name, ok := req.Params["name"].(string); ok {
+		tool = name
+	}
+	return method, tool, req.Params
 }
 
 func extractMethodFromBody(body []byte) string {
