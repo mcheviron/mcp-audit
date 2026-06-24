@@ -7,8 +7,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/mostafaelataby-cheviron/mcp-audit/internal/config"
-	"github.com/mostafaelataby-cheviron/mcp-audit/internal/intel"
+	"github.com/mcheviron/mcp-audit/internal/config"
+	"github.com/mcheviron/mcp-audit/internal/intel"
 )
 
 func TestSetTrustConfigEmbeddedFallback(t *testing.T) {

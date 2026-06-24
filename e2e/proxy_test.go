@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mostafaelataby-cheviron/mcp-audit/internal/proxy"
+	"github.com/mcheviron/mcp-audit/internal/proxy"
 )
 
 func TestE2EProxyMockedVCRServer(t *testing.T) {

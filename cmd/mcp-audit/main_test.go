@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mostafaelataby-cheviron/mcp-audit/internal/report"
-	"github.com/mostafaelataby-cheviron/mcp-audit/internal/scanner"
+	"github.com/mcheviron/mcp-audit/internal/report"
+	"github.com/mcheviron/mcp-audit/internal/scanner"
 )
 
 func TestNewLoggerDefault(t *testing.T) {

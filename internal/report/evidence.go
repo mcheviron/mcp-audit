@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/mostafaelataby-cheviron/mcp-audit/internal/scanner"
+	"github.com/mcheviron/mcp-audit/internal/scanner"
 )
 
 type evidenceEntry struct {

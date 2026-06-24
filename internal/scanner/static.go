@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/mostafaelataby-cheviron/mcp-audit/internal/config"
-	"github.com/mostafaelataby-cheviron/mcp-audit/pkg/levenshtein"
+	"github.com/mcheviron/mcp-audit/internal/config"
+	"github.com/mcheviron/mcp-audit/pkg/levenshtein"
 )
 
 type FindingRef struct {

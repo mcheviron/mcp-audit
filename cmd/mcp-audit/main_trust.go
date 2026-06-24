@@ -16,8 +16,8 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-set"
-	"github.com/mostafaelataby-cheviron/mcp-audit/internal/config"
-	"github.com/mostafaelataby-cheviron/mcp-audit/internal/intel"
+	"github.com/mcheviron/mcp-audit/internal/config"
+	"github.com/mcheviron/mcp-audit/internal/intel"
 )
 
 var errUserCancelled = errors.New("update cancelled by user")

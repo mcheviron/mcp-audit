@@ -3,7 +3,7 @@ package analysis
 import (
 	"testing"
 
-	"github.com/mostafaelataby-cheviron/mcp-audit/internal/mcp"
+	"github.com/mcheviron/mcp-audit/internal/mcp"
 )
 
 func makeTool(name, desc string, props map[string]any) mcp.Tool {

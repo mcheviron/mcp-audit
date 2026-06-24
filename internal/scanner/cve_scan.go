@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-set"
-	"github.com/mostafaelataby-cheviron/mcp-audit/internal/config"
+	"github.com/mcheviron/mcp-audit/internal/config"
 )
 
 type serverInfo struct {

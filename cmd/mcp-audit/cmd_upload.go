@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/mostafaelataby-cheviron/mcp-audit/internal/scanner"
+	"github.com/mcheviron/mcp-audit/internal/scanner"
 )
 
 var uploadCmd = &cobra.Command{

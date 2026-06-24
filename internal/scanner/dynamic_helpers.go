@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mostafaelataby-cheviron/mcp-audit/internal/config"
-	"github.com/mostafaelataby-cheviron/mcp-audit/internal/mcp"
+	"github.com/mcheviron/mcp-audit/internal/config"
+	"github.com/mcheviron/mcp-audit/internal/mcp"
 )
 
 func (s *Scanner) collectServers() []config.ServerEntry {

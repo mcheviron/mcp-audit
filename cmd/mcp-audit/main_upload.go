@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-set"
-	"github.com/mostafaelataby-cheviron/mcp-audit/internal/scanner"
+	"github.com/mcheviron/mcp-audit/internal/scanner"
 )
 
 var communityUploadURL = "https://mcp-audit-db.vercel.app/api/report"

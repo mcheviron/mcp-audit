@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/mostafaelataby-cheviron/mcp-audit/internal/config"
+	"github.com/mcheviron/mcp-audit/internal/config"
 )
 
 var AwsKeyPattern = regexp.MustCompile(`AKIA[0-9A-Z]{16}`)

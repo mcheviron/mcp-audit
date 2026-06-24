@@ -4,52 +4,8 @@ MCP ecosystem security auditor. Static config scanning + dynamic SSRF probing. S
 
 ## Install
 
-**go install**
-
 ```bash
-go install github.com/mostafaelataby-cheviron/mcp-audit@latest
-```
-
-**Homebrew**
-
-```bash
-brew tap mostafaelataby-cheviron/tap
-brew install mcp-audit
-```
-
-**Scoop (Windows)**
-
-```powershell
-scoop bucket add mostafaelataby-cheviron https://github.com/mostafaelataby-cheviron/scoop-bucket
-scoop install mcp-audit
-```
-
-**dpkg (Debian/Ubuntu)**
-
-```bash
-gh release download --repo mostafaelataby-cheviron/mcp-audit --pattern '*.deb'
-sudo dpkg -i mcp-audit_*.deb
-```
-
-**rpm (Fedora/RHEL)**
-
-```bash
-gh release download --repo mostafaelataby-cheviron/mcp-audit --pattern '*.rpm'
-sudo rpm -i mcp-audit_*.rpm
-```
-
-**Download binary**
-
-Prebuilt binaries for macOS (amd64, arm64) and Linux (amd64, arm64) are available on the [releases page](https://github.com/mostafaelataby-cheviron/mcp-audit/releases).
-
-**Verify signature**
-
-```bash
-cosign verify-blob \
-  --certificate-identity https://github.com/mostafaelataby-cheviron/mcp-audit/.github/workflows/release.yml@refs/tags/<version> \
-  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-  --signature mcp-audit_<version>_<os>_<arch>.tar.gz.sig \
-  mcp-audit_<version>_<os>_<arch>.tar.gz
+go install github.com/mcheviron/mcp-audit/cmd/mcp-audit@latest
 ```
 
 ## Shell completions
@@ -64,43 +20,6 @@ source <(mcp-audit completion zsh)
 # fish — add to ~/.config/fish/completions/
 mcp-audit completion fish > ~/.config/fish/completions/mcp-audit.fish
 ```
-
-## GitHub Action
-
-Add mcp-audit to your CI pipeline with a single step:
-
-```yaml
-- uses: mostafaelataby-cheviron/mcp-audit/action@v1
-  with:
-    severity-min: HIGH
-```
-
-Inputs:
-- `format` — Output format: sarif (default), json, table, junit
-- `severity-min` — Minimum severity: PASS, INFO, LOW (default), MEDIUM, HIGH, CRITICAL
-- `trust-config` — Path to trust config JSON
-- `targets` — Comma-separated probe target URLs
-- `probe-depth` — Probe depth: basic (default), extended, full
-- `no-cve-scan` — Disable CVE scanning (default: false)
-
-Outputs: `critical-count`, `high-count`, `medium-count`, `low-count`, `sarif-file`
-
-## Pre-commit hook
-
-Run `mcp-audit static` before every commit with the [pre-commit](https://pre-commit.com) framework:
-
-```yaml
-# .pre-commit-config.yaml
-repos:
-  - repo: https://github.com/mostafaelataby-cheviron/mcp-audit
-    rev: v1.0.0
-    hooks:
-      - id: mcp-audit
-```
-
-The hook runs a fast static scan (typosquat detection + CVE checks) on MCP config files whenever an `.mcp.json`, `mcp*.json`, `config.toml`, `.codex.toml`, or `.continue.json` file is staged.
-
-Requirements: `mcp-audit` must be installed on your system. Install via `brew install mcp-audit` or `go install github.com/mostafaelataby-cheviron/mcp-audit@latest`.
 
 ## Usage
 
@@ -144,24 +63,9 @@ just test      # Run tests only
 
 ## Contributing
 
-### Release process
-
-1. Check that `just check` passes on `main`.
-2. Update the changelog (see `CHANGELOG.md` template section at the end).
-3. Tag a new release:
-   ```bash
-   git tag -a v0.2.0 -m "Release v0.2.0"
-   git push origin v0.2.0
-   ```
-4. The [release workflow](.github/workflows/release.yml) builds and publishes binaries, packages, and SBOM.
-
-### Versioning
-
-Version is injected at build time via ldflags. To build with version info:
-
-```bash
-go build -ldflags "-X main.version=v0.2.0 -X main.commit=$(git rev-parse --short HEAD) -X main.date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" .
-```
+1. Run `just check` — must pass clean.
+2. Commit and push.
+3. Tag releases with `git tag -a vX.Y.Z -m "Release vX.Y.Z" && git push origin vX.Y.Z`.
 
 ## CHANGELOG
 

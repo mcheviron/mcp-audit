@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mostafaelataby-cheviron/mcp-audit/internal/proxy"
+	"github.com/mcheviron/mcp-audit/internal/proxy"
 )
 
 func writePolicyFile(t *testing.T, content string) string {

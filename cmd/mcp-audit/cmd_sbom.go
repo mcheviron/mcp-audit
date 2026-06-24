@@ -7,9 +7,9 @@ import (
 	"github.com/hashicorp/go-set"
 	"github.com/spf13/cobra"
 
-	"github.com/mostafaelataby-cheviron/mcp-audit/internal/config"
-	"github.com/mostafaelataby-cheviron/mcp-audit/internal/sbom"
-	"github.com/mostafaelataby-cheviron/mcp-audit/internal/scanner"
+	"github.com/mcheviron/mcp-audit/internal/config"
+	"github.com/mcheviron/mcp-audit/internal/sbom"
+	"github.com/mcheviron/mcp-audit/internal/scanner"
 )
 
 var sbomCmd = &cobra.Command{

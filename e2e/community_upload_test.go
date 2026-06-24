@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mostafaelataby-cheviron/mcp-audit/internal/intel"
+	"github.com/mcheviron/mcp-audit/internal/intel"
 )
 
 // =============================================================================

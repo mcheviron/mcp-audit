@@ -8,7 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/mostafaelataby-cheviron/mcp-audit/internal/scanner"
+	"github.com/mcheviron/mcp-audit/internal/scanner"
 )
 
 var internalHostPattern = regexp.MustCompile(

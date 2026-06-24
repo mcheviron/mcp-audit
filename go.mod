@@ -1,4 +1,4 @@
-module github.com/mostafaelataby-cheviron/mcp-audit
+module github.com/mcheviron/mcp-audit
 
 go 1.26.0
 

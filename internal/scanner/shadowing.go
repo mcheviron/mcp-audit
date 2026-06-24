@@ -3,7 +3,7 @@ package scanner
 import (
 	"fmt"
 
-	"github.com/mostafaelataby-cheviron/mcp-audit/internal/mcp"
+	"github.com/mcheviron/mcp-audit/internal/mcp"
 )
 
 func detectToolShadowing(allTools map[string][]mcp.Tool) []Result {

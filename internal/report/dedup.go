@@ -3,7 +3,7 @@ package report
 import (
 	"strings"
 
-	"github.com/mostafaelataby-cheviron/mcp-audit/internal/scanner"
+	"github.com/mcheviron/mcp-audit/internal/scanner"
 )
 
 func Deduplicate(results []scanner.Result) []scanner.Result {

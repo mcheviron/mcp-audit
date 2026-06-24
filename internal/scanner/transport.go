@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"maps"
 
-	"github.com/mostafaelataby-cheviron/mcp-audit/internal/config"
-	"github.com/mostafaelataby-cheviron/mcp-audit/internal/mcp"
+	"github.com/mcheviron/mcp-audit/internal/config"
+	"github.com/mcheviron/mcp-audit/internal/mcp"
 )
 
 func newClient(ctx context.Context, srv config.ServerEntry, forceFlag string, auth AuthConfig) (mcp.Client, error) {

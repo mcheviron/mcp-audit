@@ -10,9 +10,9 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"github.com/mostafaelataby-cheviron/mcp-audit/internal/configfile"
-	"github.com/mostafaelataby-cheviron/mcp-audit/internal/report"
-	"github.com/mostafaelataby-cheviron/mcp-audit/internal/scanner"
+	"github.com/mcheviron/mcp-audit/internal/configfile"
+	"github.com/mcheviron/mcp-audit/internal/report"
+	"github.com/mcheviron/mcp-audit/internal/scanner"
 )
 
 var (

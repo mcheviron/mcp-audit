@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/hashicorp/go-set"
-	"github.com/mostafaelataby-cheviron/mcp-audit/internal/mcp"
+	"github.com/mcheviron/mcp-audit/internal/mcp"
 )
 
 func TestProbeCount(t *testing.T) {

@@ -1,7 +1,7 @@
 package analysis
 
 import (
-	"github.com/mostafaelataby-cheviron/mcp-audit/internal/mcp"
+	"github.com/mcheviron/mcp-audit/internal/mcp"
 )
 
 type Finding struct {

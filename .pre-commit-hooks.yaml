@@ -1,9 +1,0 @@
-- id: mcp-audit
-  name: MCP Audit
-  description: Scan MCP server configurations for typosquatting and CVE vulnerabilities
-  entry: mcp-audit static --no-color
-  language: system
-  pass_filenames: false
-  always_run: false
-  files: \.mcp\.json$|mcp.*\.json$|config\.toml$|\.codex\.toml$|\.continue\.json$
-  stages: [pre-commit]

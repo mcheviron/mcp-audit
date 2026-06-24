@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-set"
-	"github.com/mostafaelataby-cheviron/mcp-audit/internal/mcp"
+	"github.com/mcheviron/mcp-audit/internal/mcp"
 )
 
 func TestCallbackListenerStartStop(t *testing.T) {

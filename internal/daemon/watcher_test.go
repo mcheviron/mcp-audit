@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mostafaelataby-cheviron/mcp-audit/internal/scanner"
+	"github.com/mcheviron/mcp-audit/internal/scanner"
 )
 
 func TestWatcherDebounce(t *testing.T) {

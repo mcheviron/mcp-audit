@@ -8,7 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/mostafaelataby-cheviron/mcp-audit/internal/daemon"
+	"github.com/mcheviron/mcp-audit/internal/daemon"
 )
 
 var (

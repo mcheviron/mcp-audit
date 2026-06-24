@@ -1,8 +1,8 @@
 package scanner
 
 import (
-	"github.com/mostafaelataby-cheviron/mcp-audit/internal/analysis"
-	"github.com/mostafaelataby-cheviron/mcp-audit/internal/mcp"
+	"github.com/mcheviron/mcp-audit/internal/analysis"
+	"github.com/mcheviron/mcp-audit/internal/mcp"
 )
 
 func runCrossServerAnalysis(allTools map[string][]mcp.Tool) []Result {

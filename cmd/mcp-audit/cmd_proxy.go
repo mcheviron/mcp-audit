@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/mostafaelataby-cheviron/mcp-audit/internal/proxy"
+	"github.com/mcheviron/mcp-audit/internal/proxy"
 )
 
 var proxyCmd = &cobra.Command{
