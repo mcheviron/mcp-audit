@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/hashicorp/go-set"
 )
 
 type mcpServerDef struct {
@@ -171,11 +173,11 @@ func parseOpenCode(data []byte) ([]ServerEntry, error) {
 	return servers, nil
 }
 
-var runners = map[string]bool{
-	"npx": true, "npm": true, "npm exec": true,
-	"uvx": true, "uv": true, "uv run": true,
-	"pipx": true, "pipx run": true,
-}
+var runners = set.From[string]([]string{
+	"npx", "npm", "npm exec",
+	"uvx", "uv", "uv run",
+	"pipx", "pipx run",
+})
 
 func coerceMap(in map[string]any) map[string]string {
 	if len(in) == 0 {
@@ -242,7 +244,7 @@ func parseZedSettings(data []byte) ([]ServerEntry, error) {
 }
 
 func extractPackage(command string, args []string) string {
-	if runners[command] {
+	if runners.Contains(command) {
 		for _, a := range args {
 			if a == "run" {
 				continue

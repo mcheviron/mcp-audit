@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Signed evidence bundle export
-The system SHALL support `--export-evidence <path>` flag producing a tamper-evident JSON bundle. Each bundle SHALL contain: scan timestamp, tool version, scan findings, blast-radius chains (if computed), compliance mappings, and an HMAC-SHA256 chain linking all entries. The HMAC key SHALL default to a random per-session value printed to stderr; it SHALL be overridable via `--evidence-key <hex>`.
+The system SHALL support `--export-evidence <path>` flag producing a tamper-evident JSON bundle. Each bundle SHALL contain: scan timestamp, tool version, scan findings, blast-radius chains (if computed), compliance mappings, and an HMAC-SHA256 chain linking all entries. The HMAC key SHALL default to a random per-session value written to `<evidence-path>.key` with `0600` permissions; it SHALL be overridable via `--evidence-key <hex>`.
 
 #### Scenario: Evidence bundle written
 - **WHEN** `--export-evidence evidence.json` is set and a scan completes

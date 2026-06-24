@@ -1,4 +1,4 @@
-mcp-audit
+/mcp-audit
 *.exe
 *.test
 *.out

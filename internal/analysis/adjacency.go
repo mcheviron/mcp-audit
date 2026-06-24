@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/hashicorp/go-set"
 	"github.com/mostafaelataby-cheviron/mcp-audit/internal/mcp"
 )
 
@@ -146,10 +147,10 @@ func (c capSummary) breakdown() string {
 
 func computeAdjacencyScores(g *toolGraph) []Finding {
 	serverCaps := make(map[string]capSummary)
-	serverNames := make(map[string]bool)
+	serverNames := set.New[string](0)
 
 	for _, n := range g.nodes {
-		serverNames[n.server] = true
+		serverNames.Insert(n.server)
 		cs := serverCaps[n.server]
 		for _, t := range n.inputTypes {
 			switch t {
@@ -174,10 +175,7 @@ func computeAdjacencyScores(g *toolGraph) []Finding {
 		serverCaps[n.server] = cs
 	}
 
-	var servers []string
-	for s := range serverNames {
-		servers = append(servers, s)
-	}
+	servers := serverNames.Slice()
 
 	var results []Finding
 	for i, srvA := range servers {

@@ -3,6 +3,8 @@ package snapshot
 import (
 	"fmt"
 	"time"
+
+	"github.com/hashicorp/go-set"
 )
 
 type Severity int
@@ -197,14 +199,11 @@ func checkPinned(curMap map[string]ToolEntry, server string, pinned map[string]s
 }
 
 func setDifference(a, b []string) []string {
-	bSet := make(map[string]bool, len(b))
-	for _, k := range b {
-		bSet[k] = true
-	}
+	bSet := set.From[string](b)
 	var diff []string
-	for _, k := range a {
-		if !bSet[k] {
-			diff = append(diff, k)
+	for _, v := range a {
+		if !bSet.Contains(v) {
+			diff = append(diff, v)
 		}
 	}
 	return diff

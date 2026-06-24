@@ -2,6 +2,8 @@ package scanner
 
 import (
 	"testing"
+
+	"github.com/hashicorp/go-set"
 )
 
 func TestMapToCompliance_CredentialToSOC2(t *testing.T) {
@@ -43,22 +45,15 @@ func TestMapToCompliance_UnknownTypeEmptyMapping(t *testing.T) {
 func TestMapToCompliance_AllFrameworkShortNames(t *testing.T) {
 	names := GetAllFrameworkShortNames()
 
-	expected := map[string]bool{
-		"soc2":        false,
-		"nist-ai-rmf": false,
-		"owasp-llm":   false,
-		"mitre-atlas": false,
-		"eu-ai-act":   false,
-	}
+	expected := set.From[string]([]string{"soc2", "nist-ai-rmf", "owasp-llm", "mitre-atlas", "eu-ai-act"})
+	found := set.New[string](0)
 	for _, n := range names {
-		if _, ok := expected[n]; ok {
-			expected[n] = true
+		if expected.Contains(n) {
+			found.Insert(n)
 		}
 	}
-	for name, found := range expected {
-		if !found {
-			t.Errorf("expected framework %q not found in GetAllFrameworkShortNames", name)
-		}
+	for _, name := range expected.Difference(found).Slice() {
+		t.Errorf("expected framework %q not found in GetAllFrameworkShortNames", name)
 	}
 }
 

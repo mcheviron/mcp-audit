@@ -32,7 +32,7 @@ Each framework gets `internal/scanner/compliance/<framework>.json` embedded via 
 
 ### Decision 3: HMAC chain via SHA256
 
-Each evidence entry: `{id, data, prev_hash}`. `hash = HMAC-SHA256(key, id || data || prev_hash)`. Chain integrity verified by recomputing all hashes with same key. Key printed to stderr on scan start, NOT included in bundle.
+Each evidence entry: `{id, data, prev_hash}`. `hash = HMAC-SHA256(key, id || data || prev_hash)`. Chain integrity verified by recomputing all hashes with same key. Key written to `<evidence-path>.key` with `0600` permissions, NOT included in bundle.
 
 **Alternative:** Digital signatures (ed25519). Rejected — requires key pair generation and management; HMAC is simpler for local evidence use case.
 

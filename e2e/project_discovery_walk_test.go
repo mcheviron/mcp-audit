@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/hashicorp/go-set"
 )
 
 func setupHomeWithClaudeDesktop(t *testing.T, claudeConfig string) string {
@@ -328,13 +330,13 @@ func TestE2EProjectDiscoveryAllToolsConfigured(t *testing.T) {
 	}
 
 	findings := parseJSONOutput(t, out)
-	serversFound := map[string]bool{}
+	serversFound := set.New[string](0)
 	for _, f := range findings {
 		server, _ := f["server"].(string)
-		serversFound[server] = true
+		serversFound.Insert(server)
 	}
 	for _, name := range []string{"a", "b", "c"} {
-		if !serversFound[name] {
+		if !serversFound.Contains(name) {
 			t.Errorf("expected server %q from all three tools, missing\noutput:\n%s", name, out)
 		}
 	}

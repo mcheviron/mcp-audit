@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/hashicorp/go-set"
 )
 
 //go:embed compliance/soc2.json
@@ -109,12 +111,12 @@ func MapResultsToCompliance(results []Result) []Result {
 		LoadMappings()
 	}
 	for i := range results {
-		tagMap := make(map[string]bool)
+		tagMap := set.New[string](0)
 		var tags []ComplianceTag
 		for _, ctrl := range MapToCompliance(results[i].Type, results[i].Severity) {
 			key := fmt.Sprintf("%s/%s", ctrl.Framework, ctrl.Control)
-			if !tagMap[key] {
-				tagMap[key] = true
+			if !tagMap.Contains(key) {
+				tagMap.Insert(key)
 				tags = append(tags, ComplianceTag(ctrl))
 			}
 		}

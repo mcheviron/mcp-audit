@@ -1,0 +1,3 @@
+# Files accepted to be over 500 lines
+e2e/multi_tier_analysis_formats_test.go
+internal/scanner/dynamic.go

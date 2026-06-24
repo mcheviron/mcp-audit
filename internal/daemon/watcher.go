@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/hashicorp/go-set"
 	"github.com/mostafaelataby-cheviron/mcp-audit/internal/config"
 	"github.com/mostafaelataby-cheviron/mcp-audit/internal/scanner"
 )
@@ -140,14 +141,14 @@ func findingKey(r scanner.Result) string {
 }
 
 func (w *Watcher) diffFindings(current []scanner.Result) []scanner.Result {
-	prevMap := make(map[string]bool)
+	prevMap := set.New[string](0)
 	for _, r := range w.lastFindings {
-		prevMap[findingKey(r)] = true
+		prevMap.Insert(findingKey(r))
 	}
 
 	var newFindings []scanner.Result
 	for _, r := range current {
-		if !prevMap[findingKey(r)] {
+		if !prevMap.Contains(findingKey(r)) {
 			newFindings = append(newFindings, r)
 		}
 	}

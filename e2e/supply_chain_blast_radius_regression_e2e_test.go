@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func TestE2E_SCBR_EvidenceWithRandomKeyHasKeyInStderr(t *testing.T) {
+func TestE2E_SCBR_EvidenceWithRandomKeyWritesKeyFile(t *testing.T) {
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -34,7 +34,31 @@ func TestE2E_SCBR_EvidenceWithRandomKeyHasKeyInStderr(t *testing.T) {
 	if _, err := os.Stat(evidencePath); os.IsNotExist(err) {
 		t.Fatal("evidence file was not created with random key")
 	}
-	t.Logf("stderr length: %d bytes", len(stderr))
+
+	keyPath := evidencePath + ".key"
+	keyData, err := os.ReadFile(keyPath)
+	if err != nil {
+		t.Fatalf("evidence key file was not created: %v", err)
+	}
+	keyStr := strings.TrimSpace(string(keyData))
+	if len(keyStr) != 64 {
+		t.Fatalf("key file content is not 64 hex chars: got %d", len(keyStr))
+	}
+	if _, err := hex.DecodeString(keyStr); err != nil {
+		t.Fatalf("key file content is not valid hex: %v", err)
+	}
+
+	keyFileInfo, err := os.Stat(keyPath)
+	if err != nil {
+		t.Fatalf("failed to stat key file: %v", err)
+	}
+	if keyFileInfo.Mode().Perm() != 0600 {
+		t.Fatalf("key file has wrong permissions: %v", keyFileInfo.Mode().Perm())
+	}
+
+	if !strings.Contains(stderr, "Evidence HMAC key written to:") {
+		t.Fatal("stderr does not contain key file path message")
+	}
 }
 
 func TestE2E_SCBR_EvidenceFileCorruptedDoesNotCrash(t *testing.T) {
@@ -275,7 +299,7 @@ func TestE2E_SCBR_NoCveScanWithBlastRadius(t *testing.T) {
 	}
 }
 
-func TestE2E_SCBR_SCBRExportEvidenceStderrKey(t *testing.T) {
+func TestE2E_SCBR_SCBRExportEvidenceKeyFile(t *testing.T) {
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -288,7 +312,7 @@ func TestE2E_SCBR_SCBRExportEvidenceStderrKey(t *testing.T) {
 	}`
 
 	home := setupHomeDir(t, claudeCfg)
-	evidencePath := filepath.Join(t.TempDir(), "evidence-stderr-key.json")
+	evidencePath := filepath.Join(t.TempDir(), "evidence-key-file.json")
 
 	_, stderr, code := runMCPAudit(t, bin, home, "static", "--no-color",
 		"--no-project-config", "--no-cve-scan",
@@ -302,17 +326,28 @@ func TestE2E_SCBR_SCBRExportEvidenceStderrKey(t *testing.T) {
 		t.Fatal("evidence file not created")
 	}
 
-	hasHexKey := false
-	for part := range strings.FieldsSeq(stderr) {
-		if len(part) == 64 {
-			if _, err := hex.DecodeString(part); err == nil {
-				hasHexKey = true
-				t.Logf("random key found in stderr: %s", part[:16]+"...")
-				break
-			}
-		}
+	keyPath := evidencePath + ".key"
+	keyData, err := os.ReadFile(keyPath)
+	if err != nil {
+		t.Fatalf("evidence key file was not created: %v", err)
 	}
-	if !hasHexKey {
-		t.Logf("no hex key found in stderr (stderr: %d bytes)", len(stderr))
+	keyStr := strings.TrimSpace(string(keyData))
+	if len(keyStr) != 64 {
+		t.Fatalf("key file content is not 64 hex chars: got %d", len(keyStr))
+	}
+	if _, err := hex.DecodeString(keyStr); err != nil {
+		t.Fatalf("key file content is not valid hex: %v", err)
+	}
+
+	keyFileInfo, err := os.Stat(keyPath)
+	if err != nil {
+		t.Fatalf("failed to stat key file: %v", err)
+	}
+	if keyFileInfo.Mode().Perm() != 0600 {
+		t.Fatalf("key file has wrong permissions: %v", keyFileInfo.Mode().Perm())
+	}
+
+	if !strings.Contains(stderr, "Evidence HMAC key written to:") {
+		t.Fatal("stderr does not contain key file path message")
 	}
 }

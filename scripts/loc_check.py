@@ -25,6 +25,7 @@ class Config:
     targets: list[Path]
     excludes: list[str]
     max_loc: int
+    whitelist: set[str]
 
 
 def _eprint(msg: str) -> None:
@@ -200,6 +201,8 @@ def _check(*, repo_root: Path, cfg: Config) -> tuple[bool, int]:
             continue
         if _is_generated(file_path):
             continue
+        if rel_path in cfg.whitelist:
+            continue
 
         checked += 1
         lines = _line_count(file_path)
@@ -231,6 +234,11 @@ def main(argv: list[str]) -> int:
         help="repo-relative glob to exclude (repeatable), e.g. 'common/**' or '**/generated/**'",
     )
     parser.add_argument(
+        "--whitelist",
+        default=".locwhitelist",
+        help="path to whitelist file with paths to skip (one per line, # for comments)",
+    )
+    parser.add_argument(
         "paths",
         nargs="*",
         default=["."],
@@ -254,12 +262,21 @@ def main(argv: list[str]) -> int:
         _eprint(targets_err or "error: invalid target paths")
         return _EXIT_USAGE_ERROR
 
+    whitelist: set[str] = set()
+    whitelist_path = Path(args.whitelist)
+    if whitelist_path.is_file():
+        for line in whitelist_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line and not line.startswith("#"):
+                whitelist.add(line)
+
     cfg = Config(
         mode=str(args.mode),  # type: ignore[arg-type]
         language=str(args.lang),  # type: ignore[arg-type]
         targets=targets,
         excludes=list(args.exclude),
         max_loc=max_loc,
+        whitelist=whitelist,
     )
 
     ok, checked = _check(repo_root=repo_root, cfg=cfg)

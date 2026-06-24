@@ -3,6 +3,8 @@ package intel
 import (
 	"slices"
 	"testing"
+
+	"github.com/hashicorp/go-set"
 )
 
 func TestLoadDefaults(t *testing.T) {
@@ -58,23 +60,23 @@ func TestDefaultTrustKnownSafeScopes(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	expected := map[string]bool{
-		"@anthropic/":            true,
-		"@modelcontextprotocol/": true,
-		"@microsoft/":            true,
-		"@google/":               true,
-		"@vercel/":               true,
-		"@cloudflare/":           true,
-	}
+	expected := set.From[string]([]string{
+		"@anthropic/",
+		"@modelcontextprotocol/",
+		"@microsoft/",
+		"@google/",
+		"@vercel/",
+		"@cloudflare/",
+	})
 
 	for _, trusted := range tf.Trusted {
-		if expected[trusted] {
-			delete(expected, trusted)
+		if expected.Contains(trusted) {
+			expected.Remove(trusted)
 		}
 	}
 
-	if len(expected) > 0 {
-		for missing := range expected {
+	if expected.Size() > 0 {
+		for _, missing := range expected.Slice() {
 			t.Errorf("expected %s in trusted list", missing)
 		}
 	}

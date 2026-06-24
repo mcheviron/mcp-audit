@@ -3,6 +3,8 @@ package scanner
 import (
 	"fmt"
 	"strings"
+
+	"github.com/hashicorp/go-set"
 )
 
 type ChainHop struct {
@@ -101,12 +103,12 @@ func ComputeChains(results []Result, depth int) []Chain {
 	var chains []Chain
 
 	for _, cve := range cveNodes {
-		visited := make(map[string]bool)
+		visited := set.New[string](0)
 
 		var hops []blastRadiusNode
 
 		queue := []bfsQueueItem{{node: cve, d: 0}}
-		visited[cve.id] = true
+		visited.Insert(cve.id)
 
 		for len(queue) > 0 {
 			curr := queue[0]
@@ -150,15 +152,15 @@ func ComputeChains(results []Result, depth int) []Chain {
 }
 
 func expandBlastNode(curr blastRadiusNode, pkgToServers map[string][]string, srvToConfig map[string]string,
-	credNodes, toolNodes []blastRadiusNode, visited map[string]bool, nextD int, queue *[]bfsQueueItem) {
+	credNodes, toolNodes []blastRadiusNode, visited *set.Set[string], nextD int, queue *[]bfsQueueItem) {
 	switch curr.typ {
 	case "cve":
 		if curr.pkg != "" {
 			for _, server := range pkgToServers[curr.pkg] {
-				if visited[server+"-server-hop"] {
+				if visited.Contains(server + "-server-hop") {
 					continue
 				}
-				visited[server+"-server-hop"] = true
+				visited.Insert(server + "-server-hop")
 				*queue = append(*queue, bfsQueueItem{
 					node: blastRadiusNode{
 						server: server,
@@ -172,8 +174,8 @@ func expandBlastNode(curr blastRadiusNode, pkgToServers map[string][]string, srv
 		}
 	case "server":
 		cfg := srvToConfig[curr.server]
-		if cfg != "" && !visited[cfg] {
-			visited[cfg] = true
+		if cfg != "" && !visited.Contains(cfg) {
+			visited.Insert(cfg)
 			*queue = append(*queue, bfsQueueItem{
 				node: blastRadiusNode{
 					server: curr.server,
@@ -185,15 +187,15 @@ func expandBlastNode(curr blastRadiusNode, pkgToServers map[string][]string, srv
 			})
 		}
 		for _, t := range toolNodes {
-			if t.server == curr.server && !visited[t.id] {
-				visited[t.id] = true
+			if t.server == curr.server && !visited.Contains(t.id) {
+				visited.Insert(t.id)
 				*queue = append(*queue, bfsQueueItem{node: t, d: nextD})
 			}
 		}
 	case "tool_analysis", "analysis":
 		for _, c := range credNodes {
-			if c.server == curr.server && !visited[c.id] {
-				visited[c.id] = true
+			if c.server == curr.server && !visited.Contains(c.id) {
+				visited.Insert(c.id)
 				*queue = append(*queue, bfsQueueItem{node: c, d: nextD})
 			}
 		}
@@ -268,18 +270,18 @@ func FilterByFramework(findings []Result, framework string) []Result {
 	if mappings == nil {
 		LoadMappings()
 	}
-	fullNames := map[string]bool{}
+	fullNames := set.New[string](0)
 	for _, fw := range frameworks {
 		if fm, ok := mappings[fw]; ok {
-			fullNames[strings.ToLower(fm.Framework)] = true
+			fullNames.Insert(strings.ToLower(fm.Framework))
 		}
-		fullNames[strings.ToLower(fw)] = true
+		fullNames.Insert(strings.ToLower(fw))
 	}
 
 	var filtered []Result
 	for _, r := range findings {
 		for _, tag := range r.Compliance {
-			if fullNames[strings.ToLower(tag.Framework)] {
+			if fullNames.Contains(strings.ToLower(tag.Framework)) {
 				filtered = append(filtered, r)
 				break
 			}

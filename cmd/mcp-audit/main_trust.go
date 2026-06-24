@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,35 +15,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/go-set"
 	"github.com/mostafaelataby-cheviron/mcp-audit/internal/config"
 	"github.com/mostafaelataby-cheviron/mcp-audit/internal/intel"
 )
 
+var errUserCancelled = errors.New("update cancelled by user")
+
 var trustUpdateURL = "https://github.com/mcp-audit-db/releases/latest/download/trust.json"
 var trustChecksumURL = "https://github.com/mcp-audit-db/releases/latest/download/trust.json.sha256"
-
-func runTrustCmd(args []string) {
-	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, "trust: missing subcommand (update, export, import)")
-		os.Exit(2)
-	}
-
-	switch args[0] {
-	case "update":
-		runTrustUpdate()
-	case "export":
-		runTrustExport()
-	case "import":
-		if len(args) < 2 {
-			fmt.Fprintln(os.Stderr, "trust import: missing file argument")
-			os.Exit(2)
-		}
-		runTrustImport(args[1])
-	default:
-		fmt.Fprintf(os.Stderr, "trust: unknown subcommand %q, expected update, export, or import\n", args[0])
-		os.Exit(2)
-	}
-}
 
 func trustConfigDir() (string, error) {
 	home, err := os.UserHomeDir()
@@ -56,17 +37,15 @@ func trustConfigDir() (string, error) {
 	return dir, nil
 }
 
-func runTrustUpdate() {
+func runTrustUpdate() error {
 	dir, err := trustConfigDir()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "trust update: %v\n", err)
-		os.Exit(4)
+		return &exitError{code: 4, err: fmt.Errorf("trust update: %w", err)}
 	}
 
 	remoteData, err := fetchURL(trustUpdateURL)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "trust update: failed to fetch latest trust config: %v\n", err)
-		os.Exit(4)
+		return &exitError{code: 4, err: fmt.Errorf("trust update: failed to fetch latest trust config: %w", err)}
 	}
 
 	checksumData, checksumErr := fetchURL(trustChecksumURL)
@@ -74,15 +53,13 @@ func runTrustUpdate() {
 		fmt.Fprintf(os.Stderr, "trust update: warning: checksum file unavailable, proceeding without verification\n")
 	} else {
 		if err := verifyChecksum(remoteData, checksumData); err != nil {
-			fmt.Fprintf(os.Stderr, "trust update: checksum verification failed: %v\n", err)
-			os.Exit(4)
+			return &exitError{code: 4, err: fmt.Errorf("trust update: checksum verification failed: %w", err)}
 		}
 	}
 
 	var remoteFile intel.TrustFile
 	if err := json.Unmarshal(remoteData, &remoteFile); err != nil {
-		fmt.Fprintf(os.Stderr, "trust update: invalid remote trust config: %v\n", err)
-		os.Exit(4)
+		return &exitError{code: 4, err: fmt.Errorf("trust update: invalid remote trust config: %w", err)}
 	}
 
 	localPath := filepath.Join(dir, "trust.json")
@@ -90,15 +67,23 @@ func runTrustUpdate() {
 		var localFile intel.TrustFile
 		if json.Unmarshal(data, &localFile) == nil {
 			if localFile.Version != remoteFile.Version || localFile.GeneratedAt != remoteFile.GeneratedAt {
-				promptOverwrite(localPath, &localFile, &remoteFile)
-				return
+				if err := promptOverwrite(localPath, &localFile, &remoteFile); err != nil {
+					if errors.Is(err, errUserCancelled) {
+						return nil
+					}
+					return err
+				}
+				return nil
 			}
 		}
 	}
 
-	writeTrustFile(localPath, &remoteFile)
+	if err := writeTrustFile(localPath, &remoteFile); err != nil {
+		return err
+	}
 	_, _ = fmt.Fprintf(os.Stdout, "Trust config updated to version %s (generated %s)\n",
 		remoteFile.Version, remoteFile.GeneratedAt)
+	return nil
 }
 
 func verifyChecksum(data []byte, checksumFile []byte) error {
@@ -122,28 +107,26 @@ func verifyChecksum(data []byte, checksumFile []byte) error {
 	return nil
 }
 
-func runTrustExport() {
+func runTrustExport() error {
 	effective := loadEffectiveTrust()
 
 	data, err := json.MarshalIndent(effective, "", "  ")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "trust export: marshal error: %v\n", err)
-		os.Exit(4)
+		return &exitError{code: 4, err: fmt.Errorf("trust export: marshal error: %w", err)}
 	}
 	fmt.Println(string(data))
+	return nil
 }
 
-func runTrustImport(path string) {
+func runTrustImport(path string) error {
 	data, err := os.ReadFile(path) //nolint:gosec
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "trust import: read %s: %v\n", path, err)
-		os.Exit(4)
+		return &exitError{code: 4, err: fmt.Errorf("trust import: read %s: %w", path, err)}
 	}
 
 	var incoming intel.TrustFile
 	if err := json.Unmarshal(data, &incoming); err != nil {
-		fmt.Fprintf(os.Stderr, "trust import: invalid trust config: %v\n", err)
-		os.Exit(4)
+		return &exitError{code: 4, err: fmt.Errorf("trust import: invalid trust config: %w", err)}
 	}
 
 	existing := loadEffectiveTrust()
@@ -152,12 +135,14 @@ func runTrustImport(path string) {
 
 	dir, err := trustConfigDir()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "trust import: %v\n", err)
-		os.Exit(4)
+		return &exitError{code: 4, err: fmt.Errorf("trust import: %w", err)}
 	}
 
-	writeTrustFile(filepath.Join(dir, "trust.json"), merged)
+	if err := writeTrustFile(filepath.Join(dir, "trust.json"), merged); err != nil {
+		return err
+	}
 	_, _ = fmt.Fprintf(os.Stdout, "Trust config merged and saved\n")
+	return nil
 }
 
 func loadEffectiveTrust() *intel.TrustFile {
@@ -200,15 +185,15 @@ func loadEffectiveTrust() *intel.TrustFile {
 }
 
 func mergeStringSlices(base, overlay []string) []string {
-	seen := make(map[string]bool, len(base)+len(overlay))
+	seen := set.New[string](len(base) + len(overlay))
 	out := make([]string, 0, len(base)+len(overlay))
 	for _, s := range base {
-		seen[s] = true
+		seen.Insert(s)
 		out = append(out, s)
 	}
 	for _, s := range overlay {
-		if !seen[s] {
-			seen[s] = true
+		if !seen.Contains(s) {
+			seen.Insert(s)
 			out = append(out, s)
 		}
 	}
@@ -267,36 +252,37 @@ func readYes() bool {
 	return line == "y" || line == "Y" || line == "yes" || line == "Yes"
 }
 
-func promptOverwrite(localPath string, local, remote *intel.TrustFile) {
+func promptOverwrite(localPath string, local, remote *intel.TrustFile) error {
 	fmt.Printf("Local trust config differs from remote.\n")
 	fmt.Printf("  Local:  version=%s generated=%s\n", local.Version, local.GeneratedAt)
 	fmt.Printf("  Remote: version=%s generated=%s\n", remote.Version, remote.GeneratedAt)
 	fmt.Print("Overwrite local config with remote? [y/N]: ")
 	if !readYes() {
 		fmt.Println("Update cancelled.")
-		os.Exit(0)
+		return errUserCancelled
 	}
 
-	writeTrustFile(localPath, remote)
+	if err := writeTrustFile(localPath, remote); err != nil {
+		return err
+	}
 	_, _ = fmt.Fprintf(os.Stdout, "Trust config updated to version %s (generated %s)\n",
 		remote.Version, remote.GeneratedAt)
+	return nil
 }
 
-func writeTrustFile(path string, tf *intel.TrustFile) {
+func writeTrustFile(path string, tf *intel.TrustFile) error {
 	data, err := json.MarshalIndent(tf, "", "  ")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "trust: marshal error: %v\n", err)
-		os.Exit(4)
+		return &exitError{code: 4, err: fmt.Errorf("trust: marshal error: %w", err)}
 	}
 	tmp := path + ".tmp"
 	if err := os.WriteFile(tmp, data, 0600); err != nil {
-		fmt.Fprintf(os.Stderr, "trust: write error: %v\n", err)
-		os.Exit(4)
+		return &exitError{code: 4, err: fmt.Errorf("trust: write error: %w", err)}
 	}
 	if err := os.Rename(tmp, path); err != nil {
-		fmt.Fprintf(os.Stderr, "trust: rename error: %v\n", err)
-		os.Exit(4)
+		return &exitError{code: 4, err: fmt.Errorf("trust: rename error: %w", err)}
 	}
+	return nil
 }
 
 func fetchURL(url string) ([]byte, error) {

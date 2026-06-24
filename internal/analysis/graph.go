@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/hashicorp/go-set"
 	"github.com/mostafaelataby-cheviron/mcp-audit/internal/mcp"
 )
 
@@ -86,7 +87,7 @@ func classifyInputs(schema map[string]any) []string {
 	if props == nil {
 		return nil
 	}
-	seen := map[string]bool{}
+	seen := set.New[string](0)
 	var types []string
 	for key, val := range props {
 		propMap, ok := val.(map[string]any)
@@ -95,8 +96,8 @@ func classifyInputs(schema map[string]any) []string {
 		}
 		desc, _ := propMap["description"].(string)
 		t := classifyType(key, desc)
-		if !seen[t] {
-			seen[t] = true
+		if !seen.Contains(t) {
+			seen.Insert(t)
 			types = append(types, t)
 		}
 	}

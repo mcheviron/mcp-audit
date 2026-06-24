@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/go-set"
 	"github.com/mostafaelataby-cheviron/mcp-audit/internal/config"
 )
 
@@ -32,14 +33,14 @@ func (s *Scanner) scanCVEs(configs []config.Config) []Result { //nolint:funlen
 	}
 
 	var results []Result
-	seenPackages := map[string]bool{}
+	seenPackages := set.New[string](0)
 
 	for _, srv := range servers {
 		pkg := strings.TrimSpace(srv.Package)
-		if pkg == "" || seenPackages[pkg] {
+		if pkg == "" || seenPackages.Contains(pkg) {
 			continue
 		}
-		seenPackages[pkg] = true
+		seenPackages.Insert(pkg)
 
 		var allEntries []CVEEntry
 
@@ -128,11 +129,11 @@ func collectServersFromConfigs(configs []config.Config) []serverInfo {
 }
 
 func deduplicateCVEs(entries []CVEEntry) []CVEEntry {
-	seen := map[string]bool{}
+	seen := set.New[string](0)
 	var out []CVEEntry
 	for _, e := range entries {
-		if !seen[e.ID] {
-			seen[e.ID] = true
+		if !seen.Contains(e.ID) {
+			seen.Insert(e.ID)
 			out = append(out, e)
 		}
 	}

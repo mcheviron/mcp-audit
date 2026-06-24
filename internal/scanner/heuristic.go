@@ -5,6 +5,7 @@ import (
 	"math"
 	"strings"
 
+	"github.com/hashicorp/go-set"
 	"github.com/mostafaelataby-cheviron/mcp-audit/internal/mcp"
 )
 
@@ -253,12 +254,12 @@ func computeNetworkFactor(rc resultCounts) float64 {
 func extractRiskFactors(results []Result, allTools map[string][]mcp.Tool) map[string]RiskFactors {
 	factors := map[string]RiskFactors{}
 
-	servers := map[string]bool{}
+	servers := set.New[string](0)
 	for _, r := range results {
-		servers[r.Server] = true
+		servers.Insert(r.Server)
 	}
 
-	for server := range servers {
+	for _, server := range servers.Slice() {
 		rc := countFindingsForServer(results, server)
 
 		rf := RiskFactors{

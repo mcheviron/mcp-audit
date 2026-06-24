@@ -3,6 +3,8 @@ package secrets
 import (
 	"fmt"
 	"strings"
+
+	"github.com/hashicorp/go-set"
 )
 
 type Finding struct {
@@ -12,16 +14,16 @@ type Finding struct {
 
 func ScanRaw(data []byte, location string) []Finding {
 	var findings []Finding
-	seen := map[string]bool{}
+	seen := set.New[string](0)
 	for _, p := range Patterns {
 		if !p.Re.Match(data) {
 			continue
 		}
 		key := p.Type + "|" + location
-		if seen[key] {
+		if seen.Contains(key) {
 			continue
 		}
-		seen[key] = true
+		seen.Insert(key)
 		findings = append(findings, Finding{Type: p.Type, Location: location})
 	}
 	return findings
@@ -63,15 +65,15 @@ func scanMap(m map[string]string, label, serverName string) []Finding {
 
 func scanString(s string) []Finding {
 	var findings []Finding
-	seen := map[string]bool{}
+	seen := set.New[string](0)
 	for _, p := range Patterns {
 		if !p.Re.MatchString(s) {
 			continue
 		}
-		if seen[p.Type] {
+		if seen.Contains(p.Type) {
 			continue
 		}
-		seen[p.Type] = true
+		seen.Insert(p.Type)
 		findings = append(findings, Finding{Type: p.Type})
 	}
 	return findings

@@ -71,10 +71,6 @@ check:
     @go build ./...
     @echo "✓ Go build passed"
     @echo ""
-    @echo "Running tests..."
-    @go test ./...
-    @echo "✓ Tests passed"
-    @echo ""
     @echo "Running LOC check..."
     @just loc-check
     @echo ""
@@ -83,3 +79,8 @@ check:
     @echo "✓ Linters passed"
     @echo ""
     @echo "✓ All checks complete"
+
+test-all:
+    @echo "Running all tests (this may take a while)..."
+    @go test ./...
+    @echo "✓ All tests passed"

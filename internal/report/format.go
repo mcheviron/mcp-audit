@@ -10,6 +10,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/hashicorp/go-set"
 	"github.com/mostafaelataby-cheviron/mcp-audit/internal/scanner"
 )
 
@@ -464,11 +465,11 @@ func writeScoreTable(w io.Writer, header string, scores map[string]float64, form
 }
 
 func uniqueServers(results []scanner.Result) []string {
-	seen := map[string]bool{}
+	seen := set.New[string](0)
 	var servers []string
 	for _, r := range results {
-		if !seen[r.Server] {
-			seen[r.Server] = true
+		if !seen.Contains(r.Server) {
+			seen.Insert(r.Server)
 			servers = append(servers, r.Server)
 		}
 	}

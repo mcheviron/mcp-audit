@@ -3,6 +3,7 @@ package scanner
 import (
 	"fmt"
 
+	"github.com/hashicorp/go-set"
 	"github.com/mostafaelataby-cheviron/mcp-audit/internal/config"
 	"github.com/mostafaelataby-cheviron/mcp-audit/internal/secrets"
 )
@@ -46,14 +47,14 @@ func credResult(server, configPath, finding string) Result {
 }
 
 func dedupCredResults(results []Result) []Result {
-	seen := map[string]bool{}
+	seen := set.New[string](0)
 	var out []Result
 	for _, r := range results {
 		key := r.Finding + "|" + r.ConfigPath
-		if seen[key] {
+		if seen.Contains(key) {
 			continue
 		}
-		seen[key] = true
+		seen.Insert(key)
 		out = append(out, r)
 	}
 	return out

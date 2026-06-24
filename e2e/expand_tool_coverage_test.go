@@ -4,6 +4,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/hashicorp/go-set"
 )
 
 func TestE2E_Expand_ClaudeCodeProjectMCPJSON(t *testing.T) {
@@ -181,16 +183,16 @@ func TestE2E_Expand_ClineMultipleServers(t *testing.T) {
 	}
 
 	findings := parseJSONFindings(t, out)
-	seenCline := map[string]bool{}
+	seenCline := set.New[string](0)
 	for _, f := range findings {
 		if server, ok := f["server"].(string); ok {
 			if server == "cline-a" || server == "cline-b" || server == "cline-c" {
-				seenCline[server] = true
+				seenCline.Insert(server)
 			}
 		}
 	}
-	if len(seenCline) != 3 {
-		t.Errorf("expected 3 cline-roo servers, got %d", len(seenCline))
+	if seenCline.Size() != 3 {
+		t.Errorf("expected 3 cline-roo servers, got %d", seenCline.Size())
 	}
 }
 

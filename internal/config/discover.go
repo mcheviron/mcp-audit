@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/hashicorp/go-set"
 )
 
 var registryInitialized bool
@@ -212,15 +214,15 @@ func readConfig(path string, tp ToolParser, scope string) Config {
 	return cfg
 }
 
-func readConfigIfNew(path string, tp ToolParser, scope string, seen map[string]bool) (Config, bool) {
+func readConfigIfNew(path string, tp ToolParser, scope string, seen *set.Set[string]) (Config, bool) {
 	abs, err := filepath.Abs(path)
 	if err != nil {
 		return Config{}, false
 	}
-	if seen[abs] {
+	if seen.Contains(abs) {
 		return Config{}, false
 	}
-	seen[abs] = true
+	seen.Insert(abs)
 
 	cfg := readConfig(path, tp, scope)
 	if cfg.Raw == nil {
@@ -236,7 +238,7 @@ func discoverGlobal() ([]Config, string) {
 	}
 
 	var configs []Config
-	seen := make(map[string]bool)
+	seen := set.New[string](0)
 
 	for _, tp := range registry {
 		for _, path := range tp.Paths(home) {
@@ -256,7 +258,7 @@ func discoverGlobal() ([]Config, string) {
 }
 
 func discoverProject(cwd, home string) []Config {
-	seen := make(map[string]bool)
+	seen := set.New[string](0)
 
 	var configs []Config
 	for _, tp := range registry {
@@ -276,13 +278,13 @@ func discoverProject(cwd, home string) []Config {
 }
 
 func mergeConfigs(project, global []Config) []Config {
-	projectByTool := make(map[string]map[string]bool)
+	projectByTool := make(map[string]*set.Set[string])
 	for _, cfg := range project {
 		if projectByTool[cfg.Tool] == nil {
-			projectByTool[cfg.Tool] = make(map[string]bool)
+			projectByTool[cfg.Tool] = set.New[string](0)
 		}
 		for _, srv := range cfg.Servers {
-			projectByTool[cfg.Tool][srv.Name] = true
+			projectByTool[cfg.Tool].Insert(srv.Name)
 		}
 	}
 
@@ -294,7 +296,7 @@ func mergeConfigs(project, global []Config) []Config {
 		filtered := make([]ServerEntry, 0, len(gcfg.Servers))
 		hasProject := false
 		for _, srv := range gcfg.Servers {
-			if pNames[srv.Name] {
+			if pNames != nil && pNames.Contains(srv.Name) {
 				hasProject = true
 				continue
 			}

@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/hashicorp/go-set"
 )
 
 func TestE2EProjectDiscoveryOverrideGlobalServer(t *testing.T) {
@@ -128,13 +130,13 @@ func TestE2EProjectDiscoverySameServerNameDifferentTools(t *testing.T) {
 	if len(dbEntries) < 1 {
 		t.Errorf("expected at least 1 'db' entry, got %d\noutput:\n%s", len(dbEntries), out)
 	}
-	seenTools := map[string]bool{}
+	seenTools := set.New[string](0)
 	for _, entry := range dbEntries {
 		cp, _ := entry["config_path"].(string)
-		seenTools[cp] = true
+		seenTools.Insert(cp)
 	}
-	if len(seenTools) >= 2 {
-		t.Logf("both db entries preserved via distinct config_paths: %v", seenTools)
+	if seenTools.Size() >= 2 {
+		t.Logf("both db entries preserved via distinct config_paths: %v", seenTools.Slice())
 	}
 }
 

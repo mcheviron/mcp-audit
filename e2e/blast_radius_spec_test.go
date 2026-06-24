@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/hashicorp/go-set"
 )
 
 func setupTestConfig(t *testing.T, name string) (string, string) {
@@ -330,10 +332,7 @@ func TestE2E_ComplianceMultipleFrameworks(t *testing.T) {
 	result := runStaticJSON(t, bin, home, "--compliance-framework", "soc2,owasp-llm")
 	findings := getFindings(t, result)
 
-	validFW := map[string]bool{
-		"SOC 2":            true,
-		"OWASP LLM Top-10": true,
-	}
+	validFW := set.From[string]([]string{"SOC 2", "OWASP LLM Top-10"})
 	for _, f := range findings {
 		comp, ok := f["compliance"].([]any)
 		if !ok || len(comp) == 0 {
@@ -345,7 +344,7 @@ func TestE2E_ComplianceMultipleFrameworks(t *testing.T) {
 				continue
 			}
 			fw, _ := ct["framework"].(string)
-			if !validFW[fw] {
+			if !validFW.Contains(fw) {
 				t.Errorf("finding has compliance tag for framework %q, expected only soc2 or owasp-llm", fw)
 			}
 		}

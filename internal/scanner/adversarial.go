@@ -166,9 +166,8 @@ func RunAdversarialProbes(
 	auth AuthConfig,
 	tools []mcp.Tool,
 	maxProbes int,
-	maxResp int64,
 ) AdversarialResult {
-	mcpClient, transport, err := handshakeServer(ctx, srv, transportFlag, auth, maxResp)
+	mcpClient, err := handshakeServer(ctx, srv, transportFlag, auth)
 	if err != nil {
 		return AdversarialResult{TrustScore: -1, Results: []Result{{
 			Severity: SevInfo, Server: srv.Name, Type: "adversarial",
@@ -179,7 +178,7 @@ func RunAdversarialProbes(
 		}}}
 	}
 	defer func() {
-		if err := transport.Close(); err != nil {
+		if err := mcpClient.Close(); err != nil {
 			_ = err
 		}
 	}()
@@ -343,7 +342,6 @@ func RunAdversarialFromScanner(s *Scanner) []Result {
 	var results []Result
 	ctx := context.Background()
 	auth := s.authConfig()
-	maxResp := int64(s.MaxResponseSize)
 
 	for _, srv := range servers {
 		if s.TrustConfig != nil {
@@ -354,7 +352,7 @@ func RunAdversarialFromScanner(s *Scanner) []Result {
 		}
 
 		probeCtx, cancel := context.WithTimeout(ctx, time.Duration(s.TimeoutSecs)*time.Second)
-		mcpClient, transport, err := handshakeServer(probeCtx, srv, s.Transport, auth, maxResp)
+		mcpClient, err := handshakeServer(probeCtx, srv, s.Transport, auth)
 		if err != nil {
 			cancel()
 			results = append(results, Result{
@@ -368,7 +366,7 @@ func RunAdversarialFromScanner(s *Scanner) []Result {
 		tools, listErr := mcpClient.ListTools(probeCtx)
 		cancel()
 		if listErr != nil {
-			_ = transport.Close()
+			_ = mcpClient.Close()
 			results = append(results, Result{
 				Severity: SevInfo, Server: srv.Name, Type: "adversarial",
 				Finding:    fmt.Sprintf("adversarial probe tools/list failed for %q: %v", srv.Name, listErr),
@@ -381,7 +379,7 @@ func RunAdversarialFromScanner(s *Scanner) []Result {
 		advCtx, advCancel := context.WithTimeout(ctx, advTimeout)
 		advResult := execProbes(advCtx, mcpClient, tools.Tools, srv.Name, srv.ConfigPath, srv.Scope, s.AdversarialMaxProbes)
 		advCancel()
-		_ = transport.Close()
+		_ = mcpClient.Close()
 		results = append(results, advResult.Results...)
 	}
 

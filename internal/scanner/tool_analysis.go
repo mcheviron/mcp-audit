@@ -31,7 +31,7 @@ func analyzeCallToolResponse(
 	worst.Type = "dynamic"
 
 	for _, content := range callResult.Content {
-		if content.Type != "text" {
+		if content.Text == "" {
 			continue
 		}
 		evalToolTextBlock(content.Text, toolName, target, &worst)

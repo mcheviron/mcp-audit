@@ -3,6 +3,8 @@ package config
 import (
 	"os"
 	"testing"
+
+	"github.com/hashicorp/go-set"
 )
 
 func mustRead(t *testing.T, path string) []byte {
@@ -415,9 +417,9 @@ func TestRegistryIncludesAllTools(t *testing.T) {
 	initRegistry()
 	tools := GetRegistry()
 
-	names := make(map[string]bool)
+	names := set.New[string](0)
 	for _, tp := range tools {
-		names[tp.Name] = true
+		names.Insert(tp.Name)
 	}
 
 	expected := []string{
@@ -425,7 +427,7 @@ func TestRegistryIncludesAllTools(t *testing.T) {
 		"copilot-cli", "claude-code", "codex", "gemini", "cline-roo", "zed",
 	}
 	for _, name := range expected {
-		if !names[name] {
+		if !names.Contains(name) {
 			t.Errorf("expected tool %q in registry, but not found", name)
 		}
 	}

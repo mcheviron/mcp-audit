@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hashicorp/go-set"
 	"github.com/mostafaelataby-cheviron/mcp-audit/internal/mcp"
 )
 
@@ -48,12 +49,12 @@ func TestProbeIDUniqueness(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadProbes: %v", err)
 	}
-	seen := map[string]bool{}
+	seen := set.New[string](0)
 	for _, p := range probes {
-		if seen[p.ID] {
+		if seen.Contains(p.ID) {
 			t.Errorf("duplicate probe ID: %s", p.ID)
 		}
-		seen[p.ID] = true
+		seen.Insert(p.ID)
 	}
 }
 

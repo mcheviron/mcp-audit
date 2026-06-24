@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hashicorp/go-set"
 	"github.com/mostafaelataby-cheviron/mcp-audit/internal/mcp"
 )
 
@@ -290,11 +291,11 @@ func TestProbeMethodsList(t *testing.T) {
 	if len(probeMethods) != 3 {
 		t.Errorf("expected 3 probe methods, got %d", len(probeMethods))
 	}
-	methods := make(map[string]bool)
+	methods := set.New[string](0)
 	for _, m := range probeMethods {
-		methods[m] = true
+		methods.Insert(m)
 	}
-	if !methods["GET"] || !methods["POST"] || !methods["PUT"] {
+	if !methods.Contains("GET") || !methods.Contains("POST") || !methods.Contains("PUT") {
 		t.Errorf("missing expected methods: %v", probeMethods)
 	}
 }

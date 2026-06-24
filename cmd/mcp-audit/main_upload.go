@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/go-set"
 	"github.com/mostafaelataby-cheviron/mcp-audit/internal/scanner"
 )
 
@@ -34,65 +35,13 @@ type uploadPayload struct {
 	Findings []anonFinding `json:"findings"`
 }
 
-func runUpload(args []string) {
-	f, err := parseFlags(args)
-	if err != nil {
-		os.Exit(2)
-	}
-	applyConfigDefaults(&f)
-
-	logger := newLogger(f.verbose, f.quiet, f.debug)
-	logger.Debug("starting upload")
-
-	s := scanner.NewScanner()
-	if !f.noProject {
-		s.ProjectDir = f.projectDir
-	}
-	s.NoSecretScan = f.noSecretScan
-	if err := s.SetTrustConfig(f.trustConfig); err != nil {
-		if f.trustConfig != "" {
-			logger.Error("trust config error", "error", err)
-			os.Exit(4)
-		}
-	}
-
-	results, err := s.Static()
-	if err != nil {
-		logger.Error("scan failed", "error", err)
-		os.Exit(4)
-	}
-
-	payload := anonymizeFindings(results.Results)
-	if len(payload.Findings) == 0 {
-		fmt.Println("No findings to upload.")
-		return
-	}
-
-	displayPayload(payload)
-
-	fmt.Print("\nUpload these anonymized findings to community DB? [y/N]: ")
-	if !readYes() {
-		fmt.Println("Upload cancelled.")
-		return
-	}
-
-	if err := postPayload(communityUploadURL, payload); err != nil {
-		fmt.Fprintf(os.Stderr, "upload: POST failed: %v\n", err)
-		fmt.Println("Findings could not be uploaded. You can submit them manually at:")
-		fmt.Println("  https://github.com/mcp-audit-db/issues/new")
-		os.Exit(4)
-	}
-
-	fmt.Println("Upload complete. Thank you for contributing to the community DB.")
-}
-
 func anonymizeFindings(results []scanner.Result) uploadPayload {
 	payload := uploadPayload{
 		Version: "1.0.0",
 		Tool:    "mcp-audit",
 	}
 
-	seen := make(map[string]bool)
+	seen := set.New[string](0)
 
 	for _, r := range results {
 		if r.Severity == scanner.SevPass {
@@ -101,10 +50,10 @@ func anonymizeFindings(results []scanner.Result) uploadPayload {
 
 		sanitizedFinding := sanitizeDetail(r.Finding)
 		key := r.Type + "|" + r.Severity.String() + "|" + sanitizedFinding
-		if seen[key] {
+		if seen.Contains(key) {
 			continue
 		}
-		seen[key] = true
+		seen.Insert(key)
 
 		detail := sanitizeDetail(r.Detail)
 

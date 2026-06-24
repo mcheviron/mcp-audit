@@ -10,7 +10,7 @@ import (
 	"github.com/mostafaelataby-cheviron/mcp-audit/internal/mcp"
 )
 
-func newTransport(srv config.ServerEntry, forceFlag string, auth AuthConfig, maxResp int64) (mcp.Transport, error) {
+func newClient(ctx context.Context, srv config.ServerEntry, forceFlag string, auth AuthConfig) (mcp.Client, error) {
 	kind := srv.Kind()
 	if forceFlag != "" {
 		switch forceFlag {
@@ -25,6 +25,8 @@ func newTransport(srv config.ServerEntry, forceFlag string, auth AuthConfig, max
 		}
 	}
 
+	token, headers, certFile, keyFile := mergeAuth(srv, auth)
+
 	switch kind {
 	case config.TransportStdio:
 		if forceFlag == "" {
@@ -34,91 +36,61 @@ func newTransport(srv config.ServerEntry, forceFlag string, auth AuthConfig, max
 		if srv.Command == "" {
 			return nil, fmt.Errorf("no command for stdio transport")
 		}
-		tr := mcp.NewStdioTransport(srv.Command, srv.Args, mcp.DefaultTimeout)
-		if err := applyAuth(tr, srv, auth); err != nil {
-			return nil, err
-		}
-		return tr, nil
+		return mcp.NewStdioClient(ctx, srv.Command, srv.Args, mcp.DefaultTimeout), nil
 	case config.TransportHTTP:
 		if srv.URL == "" {
 			return nil, fmt.Errorf("no URL for HTTP transport")
 		}
 		if forceFlag != "" {
-			tr := mcp.NewHTTPTransport(srv.URL, mcp.DefaultTimeout, maxResp)
-			if err := applyAuth(tr, srv, auth); err != nil {
-				return nil, err
-			}
-			return tr, nil
+			return mcp.NewHTTPClient(srv.URL, mcp.DefaultTimeout, token, headers, certFile, keyFile)
 		}
-		tr := mcp.NewAutoTransport(srv.URL, mcp.DefaultTimeout, maxResp)
-		if err := applyAuth(tr, srv, auth); err != nil {
-			return nil, err
-		}
-		return tr, nil
+		return mcp.NewAutoClient(srv.URL, mcp.DefaultTimeout, token, headers, certFile, keyFile)
 	case config.TransportSSE:
 		if srv.URL == "" {
 			return nil, fmt.Errorf("no URL for SSE transport")
 		}
-		tr := mcp.NewSSETransport(srv.URL, mcp.DefaultTimeout)
-		if err := applyAuth(tr, srv, auth); err != nil {
-			return nil, err
-		}
-		return tr, nil
+		return mcp.NewSSEClient(srv.URL, mcp.DefaultTimeout, token, headers, certFile, keyFile)
 	default:
 		return nil, fmt.Errorf("unknown transport: %v", kind)
 	}
 }
 
-func applyAuth(tr mcp.Transport, srv config.ServerEntry, global AuthConfig) error {
+func mergeAuth(srv config.ServerEntry, global AuthConfig) (string, map[string]string, string, string) {
 	token := srv.AuthToken
 	if token == "" {
 		token = global.Token
 	}
-	if token != "" {
-		tr.SetAuthToken(token)
+	headers := make(map[string]string)
+	maps.Copy(headers, global.Headers)
+	maps.Copy(headers, srv.AuthHeaders)
+	cert := srv.TLSCertFile
+	if cert == "" {
+		cert = global.Cert
 	}
-
-	if len(global.Headers) > 0 || len(srv.AuthHeaders) > 0 {
-		headers := make(map[string]string)
-		maps.Copy(headers, global.Headers)
-		maps.Copy(headers, srv.AuthHeaders)
-		tr.SetAuthHeaders(headers)
+	key := srv.TLSKeyFile
+	if key == "" {
+		key = global.Key
 	}
-
-	certFile := srv.TLSCertFile
-	if certFile == "" {
-		certFile = global.Cert
-	}
-	keyFile := srv.TLSKeyFile
-	if keyFile == "" {
-		keyFile = global.Key
-	}
-	if certFile != "" && keyFile != "" {
-		if err := tr.SetTLS(certFile, keyFile); err != nil {
-			return fmt.Errorf("TLS setup failed: %w", err)
-		}
-	}
-	return nil
+	return token, headers, cert, key
 }
 
 func handshakeServer(
-	ctx context.Context, srv config.ServerEntry, transportFlag string, auth AuthConfig, maxResp int64,
-) (mcp.Client, mcp.Transport, error) {
-	transport, err := newTransport(srv, transportFlag, auth, maxResp)
+	ctx context.Context, srv config.ServerEntry, transportFlag string, auth AuthConfig,
+) (mcp.Client, error) {
+	client, err := newClient(ctx, srv, transportFlag, auth)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	mcpClient := mcp.NewClient(transport)
-	_, err = mcpClient.Initialize(ctx)
+	_, err = client.Initialize(ctx)
 	if err != nil {
-		if cerr := transport.Close(); cerr != nil {
-			slog.Debug("close transport after init failure", "err", cerr)
+		if cerr := client.Close(); cerr != nil {
+			slog.Debug("close client after init failure", "err", cerr)
 		}
-		return nil, nil, err
+		return nil, err
 	}
 
-	return mcpClient, transport, nil
+	return client, nil
 }
 
 func noAuthConfigured(srv config.ServerEntry, global AuthConfig) bool {

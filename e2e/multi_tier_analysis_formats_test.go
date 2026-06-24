@@ -7,6 +7,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/hashicorp/go-set"
 )
 
 func TestE2EScoreInAllFormats(t *testing.T) {
@@ -271,27 +273,27 @@ func TestE2EMultipleServersScoreAggregation(t *testing.T) {
 		t.Fatalf("json parse failed: %v\noutput:\n%s", err, out)
 	}
 
-	serversWithScores := map[string]bool{}
+	serversWithScores := set.New[string](0)
 	for _, s := range wrapper.Scores {
 		if server, ok := s["server"].(string); ok {
-			serversWithScores[server] = true
+			serversWithScores.Insert(server)
 		}
 	}
-	if len(serversWithScores) < 2 {
-		t.Errorf("expected scores for both servers, got %d\noutput:\n%s", len(serversWithScores), out)
+	if serversWithScores.Size() < 2 {
+		t.Errorf("expected scores for both servers, got %d\noutput:\n%s", serversWithScores.Size(), out)
 	}
 
-	hasLayer1 := map[string]bool{}
+	hasLayer1 := set.New[string](0)
 	for _, f := range wrapper.Findings {
 		if finding, ok := f["finding"].(string); ok {
 			if server, ok := f["server"].(string); ok {
 				if strings.Contains(finding, "capabilities:") {
-					hasLayer1[server] = true
+					hasLayer1.Insert(server)
 				}
 			}
 		}
 	}
-	if len(hasLayer1) < 1 {
+	if hasLayer1.Size() < 1 {
 		t.Errorf("expected Layer 1 capability findings for at least one server\noutput:\n%s", out)
 	}
 }

@@ -3,6 +3,8 @@ package analysis
 import (
 	"fmt"
 	"strings"
+
+	"github.com/hashicorp/go-set"
 )
 
 func detectCompositionChains(g *toolGraph) []Finding {
@@ -43,15 +45,15 @@ func detectCompositionChains(g *toolGraph) []Finding {
 	return results
 }
 
-func findPaths(g *toolGraph, from int, depth int, visited map[int]bool) [][]int {
+func findPaths(g *toolGraph, from int, depth int, visited *set.Set[int]) [][]int {
 	if depth > 4 {
 		return nil
 	}
 	if visited == nil {
-		visited = map[int]bool{}
+		visited = set.New[int](0)
 	}
-	visited[from] = true
-	defer func() { delete(visited, from) }()
+	visited.Insert(from)
+	defer visited.Remove(from)
 
 	var chains [][]int
 
@@ -60,7 +62,7 @@ func findPaths(g *toolGraph, from int, depth int, visited map[int]bool) [][]int 
 	}
 
 	for _, next := range g.edges[from] {
-		if visited[next] {
+		if visited.Contains(next) {
 			continue
 		}
 		chains = append(chains, findPaths(g, next, depth+1, visited)...)
