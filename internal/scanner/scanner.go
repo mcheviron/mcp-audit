@@ -8,6 +8,7 @@ import (
 
 	"github.com/mostafaelataby-cheviron/mcp-audit/internal/config"
 	"github.com/mostafaelataby-cheviron/mcp-audit/internal/intel"
+	"github.com/mostafaelataby-cheviron/mcp-audit/internal/mcp"
 )
 
 type AuthConfig struct {
@@ -88,6 +89,16 @@ type Scanner struct {
 	CVECacheTTLHours int
 
 	ProjectDir string
+
+	HeuristicEnabled bool
+	ScoreWeights     Weights
+	MinSecurityScore float64
+	MaxAbsoluteRisk  float64
+
+	Adversarial          bool
+	AdversarialMaxProbes int
+
+	LastProbeTools map[string][]mcp.Tool
 
 	TestConfigs []config.Config
 }

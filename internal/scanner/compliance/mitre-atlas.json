@@ -1,0 +1,16 @@
+{
+  "framework": "MITRE ATLAS",
+  "short_name": "mitre-atlas",
+  "version": "1.0",
+  "finding_types": {
+    "prompt_injection": ["AML.T0051", "AML.T0054"],
+    "shadowing": ["AML.T0000"],
+    "typosquat": ["AML.T0000"],
+    "cve": ["AML.T0000"],
+    "tool_capability": ["AML.T0051"],
+    "credential_leak": ["AML.T0054"],
+    "secret_leak": ["AML.T0054"],
+    "ssrf": ["AML.T0051"],
+    "config_misconfig": ["AML.T0000"]
+  }
+}

@@ -34,105 +34,115 @@ func initRegistry() {
 	}
 	registryInitialized = true
 	registry = []ToolParser{
-		{
-			Name:   "claude",
-			Format: FormatJSON,
-			Paths:  claudePaths,
-			Parse: func(data []byte) ([]ServerEntry, error) {
-				return parseMcpServers(data, "claude")
-			},
+		makeClaudeParser(),
+		makeCursorParser(),
+		makeWindsurfParser(),
+		makeVSCodeParser(),
+		makeContinueParser(),
+		makeOpenCodeParser(),
+		makeCopilotCLIParser(),
+		makeClaudeCodeParser(),
+		makeCodexParser(),
+		makeGeminiParser(),
+		makeClineRooParser(),
+		makeZedParser(),
+	}
+}
+
+func makeJSONMcpServersParser(name string, paths func(string) []string) ToolParser {
+	return ToolParser{
+		Name:   name,
+		Format: FormatJSON,
+		Paths:  paths,
+		Parse: func(data []byte) ([]ServerEntry, error) {
+			return parseMcpServers(data, name)
 		},
-		{
-			Name:   "cursor",
-			Format: FormatJSON,
-			Paths: func(home string) []string {
-				return []string{filepath.Join(home, ".cursor", "mcp.json")}
-			},
-			Parse: func(data []byte) ([]ServerEntry, error) {
-				return parseMcpServers(data, "cursor")
-			},
+	}
+}
+
+func makeClaudeParser() ToolParser {
+	return makeJSONMcpServersParser("claude", claudePaths)
+}
+
+func makeCursorParser() ToolParser {
+	return makeJSONMcpServersParser("cursor", func(home string) []string {
+		return []string{filepath.Join(home, ".cursor", "mcp.json")}
+	})
+}
+
+func makeWindsurfParser() ToolParser {
+	return makeJSONMcpServersParser("windsurf", func(home string) []string {
+		return []string{filepath.Join(home, ".codeium", "windsurf", "mcp_config.json")}
+	})
+}
+
+func makeVSCodeParser() ToolParser {
+	return makeJSONMcpServersParser("vscode", func(home string) []string {
+		return []string{filepath.Join(home, ".vscode", "mcp.json")}
+	})
+}
+
+func makeContinueParser() ToolParser {
+	return ToolParser{
+		Name:   "continue",
+		Format: FormatJSON,
+		Paths: func(home string) []string {
+			return []string{filepath.Join(home, ".continue", "config.json")}
 		},
-		{
-			Name:   "windsurf",
-			Format: FormatJSON,
-			Paths: func(home string) []string {
-				return []string{filepath.Join(home, ".codeium", "windsurf", "mcp_config.json")}
-			},
-			Parse: func(data []byte) ([]ServerEntry, error) {
-				return parseMcpServers(data, "windsurf")
-			},
+		Parse: parseContinue,
+	}
+}
+
+func makeOpenCodeParser() ToolParser {
+	return ToolParser{
+		Name:   "opencode",
+		Format: FormatJSON,
+		Paths: func(home string) []string {
+			return []string{filepath.Join(home, ".config", "opencode", "opencode.json")}
 		},
-		{
-			Name:   "vscode",
-			Format: FormatJSON,
-			Paths: func(home string) []string {
-				return []string{filepath.Join(home, ".vscode", "mcp.json")}
-			},
-			Parse: func(data []byte) ([]ServerEntry, error) {
-				return parseMcpServers(data, "vscode")
-			},
+		Parse: parseOpenCode,
+	}
+}
+
+func makeCopilotCLIParser() ToolParser {
+	return makeJSONMcpServersParser("copilot-cli", func(home string) []string {
+		return []string{filepath.Join(home, ".copilot", "mcp-config.json")}
+	})
+}
+
+func makeClaudeCodeParser() ToolParser {
+	return makeJSONMcpServersParser("claude-code", claudeCodePaths)
+}
+
+func makeCodexParser() ToolParser {
+	return ToolParser{
+		Name:   "codex",
+		Format: FormatTOML,
+		Paths:  codexPaths,
+	}
+}
+
+func makeGeminiParser() ToolParser {
+	return ToolParser{
+		Name:   "gemini",
+		Format: FormatJSON,
+		Paths:  geminiPaths,
+		Parse:  parseGeminiSettings,
+	}
+}
+
+func makeClineRooParser() ToolParser {
+	return makeJSONMcpServersParser("cline-roo", clineRooPaths)
+}
+
+func makeZedParser() ToolParser {
+	return ToolParser{
+		Name:   "zed",
+		Format: FormatJSON,
+		Paths: func(home string) []string {
+			return []string{filepath.Join(home, ".config", "zed", "settings.json")}
 		},
-		{
-			Name:   "continue",
-			Format: FormatJSON,
-			Paths: func(home string) []string {
-				return []string{filepath.Join(home, ".continue", "config.json")}
-			},
-			Parse: parseContinue,
-		},
-		{
-			Name:   "opencode",
-			Format: FormatJSON,
-			Paths: func(home string) []string {
-				return []string{filepath.Join(home, ".config", "opencode", "opencode.json")}
-			},
-			Parse: parseOpenCode,
-		},
-		{
-			Name:   "copilot-cli",
-			Format: FormatJSON,
-			Paths: func(home string) []string {
-				return []string{filepath.Join(home, ".copilot", "mcp-config.json")}
-			},
-			Parse: func(data []byte) ([]ServerEntry, error) {
-				return parseMcpServers(data, "copilot-cli")
-			},
-		},
-		{
-			Name:   "claude-code",
-			Format: FormatJSON,
-			Paths:  claudeCodePaths,
-			Parse: func(data []byte) ([]ServerEntry, error) {
-				return parseMcpServers(data, "claude-code")
-			},
-		},
-		{
-			Name:   "codex",
-			Format: FormatTOML,
-			Paths:  codexPaths,
-		},
-		{
-			Name:   "gemini",
-			Format: FormatJSON,
-			Paths:  geminiPaths,
-			Parse:  parseGeminiSettings,
-		},
-		{
-			Name:   "cline-roo",
-			Format: FormatJSON,
-			Paths:  clineRooPaths,
-			Parse: func(data []byte) ([]ServerEntry, error) {
-				return parseMcpServers(data, "cline-roo")
-			},
-		},
-		{
-			Name:   "zed",
-			Format: FormatJSON,
-			Paths: func(home string) []string {
-				return []string{filepath.Join(home, ".config", "zed", "settings.json")}
-			},
-			Parse: parseZedSettings,
-		},
+		Parse: parseZedSettings,
 	}
 }
 

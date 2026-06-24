@@ -1,0 +1,16 @@
+{
+  "framework": "NIST AI RMF",
+  "short_name": "nist-ai-rmf",
+  "version": "1.0",
+  "finding_types": {
+    "credential_leak": ["GOVERN 1.2", "MANAGE 4.1"],
+    "secret_leak": ["GOVERN 1.2", "MANAGE 4.1"],
+    "prompt_injection": ["MAP 2.1", "MEASURE 2.3"],
+    "ssrf": ["MAP 2.1"],
+    "tool_capability": ["GOVERN 1.2"],
+    "shadowing": ["GOVERN 1.2"],
+    "typosquat": ["MAP 2.1"],
+    "cve": ["MANAGE 4.1"],
+    "config_misconfig": ["GOVERN 1.2"]
+  }
+}

@@ -67,10 +67,17 @@ type description struct {
 }
 
 type result struct {
-	RuleID    string  `json:"ruleId"`
-	Level     string  `json:"level"`
-	Message   message `json:"message"`
-	Locations []loc   `json:"locations"`
+	RuleID     string            `json:"ruleId"`
+	Level      string            `json:"level"`
+	Message    message           `json:"message"`
+	Locations  []loc             `json:"locations"`
+	Rank       float64           `json:"rank,omitempty"`
+	Properties *resultProperties `json:"properties,omitempty"`
+}
+
+type resultProperties struct {
+	SecurityScore float64 `json:"securityScore,omitempty"`
+	TrustScore    float64 `json:"trustScore,omitempty"`
 }
 
 type message struct {
@@ -110,7 +117,7 @@ func sarifResultsFromFindings(results []scanner.Result) []result {
 		level := severityToSARIF(r.Severity)
 		ruleID := fmt.Sprintf("mcp-audit/%s-%s", r.Type,
 			strings.ToLower(r.Severity.String()))
-		out = append(out, result{
+		sr := result{
 			RuleID: ruleID,
 			Level:  level,
 			Message: message{
@@ -123,7 +130,15 @@ func sarifResultsFromFindings(results []scanner.Result) []result {
 					},
 				},
 			}},
-		})
+		}
+		if r.Score > 0 || r.TrustScore != 0 {
+			sr.Rank = 100 - r.Score
+			sr.Properties = &resultProperties{
+				SecurityScore: r.Score,
+				TrustScore:    r.TrustScore,
+			}
+		}
+		out = append(out, sr)
 	}
 	return out
 }

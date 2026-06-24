@@ -113,7 +113,7 @@ func TestWriteResultsOutputFile(t *testing.T) {
 	results := []scanner.Result{
 		{Severity: scanner.SevInfo, Server: "test", Type: "static", Finding: "test finding"},
 	}
-	writeResults(results, f)
+	writeResults(results, nil, f)
 
 	data, err := os.ReadFile(tmpfile.Name())
 	if err != nil {
@@ -157,7 +157,7 @@ func TestCIFlagForcesSARIF(t *testing.T) {
 	results := []scanner.Result{
 		{Severity: scanner.SevCritical, Server: "test.example.com", Type: "dynamic", Finding: "SSRF found"},
 	}
-	writeResults(results, f)
+	writeResults(results, nil, f)
 
 	data, err := os.ReadFile(tmpfile.Name())
 	if err != nil {
@@ -196,7 +196,7 @@ func TestCIFlagSummaryOutput(t *testing.T) {
 		{Severity: scanner.SevMedium, Server: "s1", Type: "dynamic", Finding: "f3"},
 		{Severity: scanner.SevPass, Server: "s3", Type: "static", Finding: "f4"},
 	}
-	writeResults(results, f)
+	writeResults(results, nil, f)
 
 	w.Close()
 	var buf bytes.Buffer
@@ -239,7 +239,7 @@ func TestCIFlagNoProvenanceWithoutEnvVars(t *testing.T) {
 	results := []scanner.Result{
 		{Severity: scanner.SevInfo, Server: "test.example.com", Type: "static", Finding: "info"},
 	}
-	writeResults(results, f)
+	writeResults(results, nil, f)
 
 	data, err := os.ReadFile(tmpfile.Name())
 	if err != nil {
@@ -286,5 +286,75 @@ func TestParseFlagsWithCI(t *testing.T) {
 	}
 	if !f.ci {
 		t.Error("--ci flag should set ci to true")
+	}
+}
+
+func TestParseFlagsMinSecurityScore(t *testing.T) {
+	f, err := parseFlags([]string{"--min-security-score", "75"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.minSecurityScore != 75 {
+		t.Errorf("expected minSecurityScore 75, got %f", f.minSecurityScore)
+	}
+}
+
+func TestParseFlagsMaxAbsoluteRisk(t *testing.T) {
+	f, err := parseFlags([]string{"--max-absolute-risk", "30"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.maxAbsoluteRisk != 30 {
+		t.Errorf("expected maxAbsoluteRisk 30, got %f", f.maxAbsoluteRisk)
+	}
+}
+
+func TestParseFlagsHeuristic(t *testing.T) {
+	f, err := parseFlags([]string{"--heuristic=false"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.heuristic {
+		t.Error("expected heuristic to be false")
+	}
+}
+
+func TestParseFlagsScoreWeights(t *testing.T) {
+	f, err := parseFlags([]string{"--score-weights", "0.30,0.25,0.20,0.15,0.10"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.scoreWeights != "0.30,0.25,0.20,0.15,0.10" {
+		t.Errorf("unexpected scoreWeights: %s", f.scoreWeights)
+	}
+}
+
+func TestParseFlagsLLMEndpoint(t *testing.T) {
+	f, err := parseFlags([]string{"--llm-endpoint", "http://localhost:9999"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.llmEndpoint != "http://localhost:9999" {
+		t.Errorf("expected llmEndpoint, got %q", f.llmEndpoint)
+	}
+}
+
+func TestParseFlagsHeuristicDefaultTrue(t *testing.T) {
+	f, err := parseFlags([]string{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !f.heuristic {
+		t.Error("heuristic should default to true")
+	}
+}
+
+func TestParseFlagsMaxAbsoluteRiskDefault(t *testing.T) {
+	f, err := parseFlags([]string{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.maxAbsoluteRisk != 100 {
+		t.Errorf("maxAbsoluteRisk should default to 100, got %f", f.maxAbsoluteRisk)
 	}
 }

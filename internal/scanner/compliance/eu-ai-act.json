@@ -1,0 +1,16 @@
+{
+  "framework": "EU AI Act",
+  "short_name": "eu-ai-act",
+  "version": "1.0",
+  "finding_types": {
+    "credential_leak": ["Article 9"],
+    "secret_leak": ["Article 9"],
+    "prompt_injection": ["Article 15"],
+    "tool_capability": ["Article 9", "Article 15"],
+    "shadowing": ["Article 24"],
+    "typosquat": ["Article 24"],
+    "cve": ["Article 15"],
+    "ssrf": ["Article 15"],
+    "config_misconfig": ["Article 9"]
+  }
+}

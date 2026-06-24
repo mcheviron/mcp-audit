@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"flag"
 	"fmt"
 	"io"
@@ -54,6 +56,8 @@ func main() {
 		runTrustCmd(os.Args[2:])
 	case "upload":
 		runUpload(os.Args[2:])
+	case "sbom":
+		runSBOM(os.Args[2:])
 	case "help", "-h", "--help":
 		printUsage()
 	default:
@@ -64,17 +68,14 @@ func main() {
 }
 
 func splitKeyValue(s string) map[string]string {
-	if s == "" {
+	pairs := splitCSV(s)
+	if len(pairs) == 0 {
 		return nil
 	}
-	var m map[string]string
-	for pair := range strings.SplitSeq(s, ",") {
-		pair = strings.TrimSpace(pair)
+	m := make(map[string]string, len(pairs))
+	for _, pair := range pairs {
 		kv := strings.SplitN(pair, "=", 2)
 		if len(kv) == 2 {
-			if m == nil {
-				m = make(map[string]string)
-			}
 			m[strings.TrimSpace(kv[0])] = strings.TrimSpace(kv[1])
 		}
 	}
@@ -158,6 +159,18 @@ type flags struct {
 	ci                    bool
 	ciSummaryFile         string
 	ciInfo                report.CIInfo
+	heuristic             bool
+	scoreWeights          string
+	minSecurityScore      float64
+	maxAbsoluteRisk       float64
+	llmEndpoint           string
+	adversarial           bool
+	adversarialMaxProbes  int
+	blastRadius           bool
+	blastRadiusDepth      int
+	complianceFramework   string
+	exportEvidence        string
+	evidenceKey           string
 }
 
 var validSeverities = map[string]bool{
@@ -212,6 +225,22 @@ func parseFlags(args []string) (flags, error) { //nolint:funlen
 	fs.IntVar(&f.cveCacheTTL, "cve-cache-ttl", 24, "CVE cache TTL in hours")
 	fs.BoolVar(&f.ci, "ci", false, "CI mode: force SARIF, print JSON summary, add provenance")
 	fs.StringVar(&f.ciSummaryFile, "ci-summary-file", "", "write CI summary JSON to file (CI mode)")
+	fs.BoolVar(&f.heuristic, "heuristic", true, "enable heuristic risk scoring")
+	fs.StringVar(&f.scoreWeights, "score-weights", "",
+		"comma-separated weights: typosquat,cve,capability,description,network")
+	fs.Float64Var(&f.minSecurityScore, "min-security-score", 0,
+		"fail if any server scores below this threshold (0-100)")
+	fs.Float64Var(&f.maxAbsoluteRisk, "max-absolute-risk", 100,
+		"fail if any server's absolute risk exceeds this threshold (0-100)")
+	fs.StringVar(&f.llmEndpoint, "llm-endpoint", "", "LLM analysis endpoint URL")
+	fs.BoolVar(&f.adversarial, "adversarial", false, "enable adversarial prompt injection testing")
+	fs.IntVar(&f.adversarialMaxProbes, "adversarial-max-probes", 30, "max adversarial probes per server (0=unlimited)")
+	fs.BoolVar(&f.blastRadius, "blast-radius", false, "compute blast-radius dependency chains")
+	fs.IntVar(&f.blastRadiusDepth, "blast-radius-depth", 3, "max blast-radius chain depth (1-5)")
+	fs.StringVar(&f.complianceFramework, "compliance-framework", "all",
+		"compliance framework filter: soc2,nist-ai-rmf,owasp-llm,mitre-atlas,eu-ai-act,all")
+	fs.StringVar(&f.exportEvidence, "export-evidence", "", "export signed evidence bundle to path")
+	fs.StringVar(&f.evidenceKey, "evidence-key", "", "HMAC key for evidence bundle (hex, default random)")
 	fs.SetOutput(os.Stderr)
 	if err := fs.Parse(args); err != nil {
 		return f, err
@@ -348,17 +377,8 @@ func runStaticAction(action string, args []string) {
 	logger := newLogger(f.verbose, f.quiet, f.debug)
 	logger.Debug("starting", "action", action)
 
-	s := scanner.NewScanner()
+	s := setupScanner(f, logger)
 	s.NoSecretScan = f.noSecretScan
-	s.ProjectDir = f.projectDir
-	s.NoCVEScan = f.noCVEScan
-	applyCVECacheDefaults(s, f.cveCacheDir, f.cveCacheTTL)
-	if err := s.SetTrustConfig(f.trustConfig); err != nil {
-		if f.trustConfig != "" {
-			logger.Error("trust config error", "error", err)
-			os.Exit(4)
-		}
-	}
 
 	sp := startSpinner("Discovering configs...")
 	results, err := s.Static()
@@ -368,7 +388,16 @@ func runStaticAction(action string, args []string) {
 		os.Exit(4)
 	}
 
-	writeResults(results.Results, f)
+	if s.HeuristicEnabled {
+		results.Results = scanner.ComputeServerScores(results.Results, nil, s.ScoreWeights)
+	}
+
+	scanner.LinkFindings(results.Results)
+	results.Results = scanner.MapResultsToCompliance(results.Results)
+
+	chains := postProcessResults(&results.Results, f, logger)
+
+	writeResults(results.Results, chains, f)
 
 	var serverCount int
 	for _, c := range results.Configs {
@@ -380,6 +409,7 @@ func runStaticAction(action string, args []string) {
 	}
 
 	report.PrintSummary(results.Results, serverCount)
+	exitAfterGateCheck(results.Results, s.MinSecurityScore, s.MaxAbsoluteRisk)
 	os.Exit(report.ExitCode(results.Results))
 }
 
@@ -395,9 +425,72 @@ func runProbe(args []string) {
 	logger := newLogger(f.verbose, f.quiet, f.debug)
 	logger.Debug("starting probe")
 
+	if f.llmEndpoint != "" {
+		logger.Warn("LLM analysis not yet implemented")
+	}
+
+	s := setupScanner(f, logger)
+
+	sp := startSpinner("Probing servers...")
+	dynResults := s.Probe(f.dryRun)
+	sp.clear()
+
+	if s.HeuristicEnabled {
+		dynResults = scanner.ComputeServerScores(dynResults, s.LastProbeTools, s.ScoreWeights)
+	}
+
+	if s.Adversarial {
+		logger.Info("running adversarial probes")
+		advResults := scanner.RunAdversarialFromScanner(s)
+		dynResults = append(dynResults, advResults...)
+	}
+
+	scanner.LinkFindings(dynResults)
+	dynResults = scanner.MapResultsToCompliance(dynResults)
+
+	probeChains := postProcessResults(&dynResults, f, logger)
+	writeResults(dynResults, probeChains, f)
+
+	report.PrintSummary(dynResults, report.UniqueServerCount(dynResults))
+	exitAfterGateCheck(dynResults, s.MinSecurityScore, s.MaxAbsoluteRisk)
+	os.Exit(report.ExitCode(dynResults))
+}
+
+func postProcessResults(results *[]scanner.Result, f flags, logger *slog.Logger) []scanner.Chain {
+	var chains []scanner.Chain
+	if f.blastRadius {
+		chains = scanner.ComputeChains(*results, f.blastRadiusDepth)
+	}
+
+	if f.exportEvidence != "" {
+		evidenceKey := f.evidenceKey
+		if evidenceKey == "" {
+			buf := make([]byte, 32)
+			if _, err := rand.Read(buf); err != nil {
+				logger.Error("failed to generate evidence key", "error", err)
+				os.Exit(4)
+			}
+			evidenceKey = hex.EncodeToString(buf)
+			fmt.Fprintf(os.Stderr, "Evidence HMAC key: %s\n", evidenceKey)
+		}
+		if err := report.ExportEvidence(f.exportEvidence, evidenceKey, *results, chains); err != nil {
+			logger.Error("evidence export failed", "error", err)
+			os.Exit(4)
+		}
+	}
+
+	if f.complianceFramework != "all" && f.complianceFramework != "" {
+		*results = scanner.FilterByFramework(*results, f.complianceFramework)
+	}
+
+	return chains
+}
+
+func setupScanner(f flags, logger *slog.Logger) *scanner.Scanner {
 	s := scanner.NewScanner()
 	s.ProjectDir = f.projectDir
 	s.NoCVEScan = f.noCVEScan
+	applyScoreConfig(s, f, logger)
 	applyCVECacheDefaults(s, f.cveCacheDir, f.cveCacheTTL)
 	s.AllowHosts = splitCSV(f.allowHosts)
 	s.BlockHosts = splitCSV(f.blockHosts)
@@ -411,6 +504,8 @@ func runProbe(args []string) {
 	s.TLSKeyFile = firstNonEmpty(f.tlsKey, os.Getenv("MCP_TLS_KEY"))
 	s.ToolAnalysis = !f.noToolAnalysis
 	s.CrossServerAnalysis = !f.noCrossServerAnalysis
+	s.Adversarial = f.adversarial
+	s.AdversarialMaxProbes = f.adversarialMaxProbes
 	s.SnapshotDir = f.snapshotDir
 	s.NoSnapshot = f.noSnapshot
 	s.NoTrustOnFirstUse = f.noTrustOnFirstUse
@@ -430,18 +525,10 @@ func runProbe(args []string) {
 			os.Exit(4)
 		}
 	}
-
-	sp := startSpinner("Probing servers...")
-	dynResults := s.Probe(f.dryRun)
-	sp.clear()
-
-	writeResults(dynResults, f)
-
-	report.PrintSummary(dynResults, report.UniqueServerCount(dynResults))
-	os.Exit(report.ExitCode(dynResults))
+	return s
 }
 
-func writeResults(results []scanner.Result, f flags) {
+func writeResults(results []scanner.Result, chains []scanner.Chain, f flags) {
 	for i := range results {
 		scanner.PopulateRemediation(&results[i])
 	}
@@ -472,7 +559,7 @@ func writeResults(results []scanner.Result, f flags) {
 		ciPtr = &f.ciInfo
 	}
 
-	if err := report.Write(w, results, effectiveFormat(f), ciPtr); err != nil {
+	if err := report.Write(w, results, chains, effectiveFormat(f), ciPtr); err != nil {
 		if outFile != nil {
 			cerr := outFile.Close()
 			if cerr != nil {
@@ -519,6 +606,34 @@ func filterBySeverity(results []scanner.Result, min scanner.Severity) []scanner.
 	return filtered
 }
 
+func applyScoreConfig(s *scanner.Scanner, f flags, logger *slog.Logger) {
+	s.HeuristicEnabled = f.heuristic
+	if w, err := scanner.ParseWeights(f.scoreWeights); err != nil {
+		logger.Error("invalid score weights", "error", err)
+		os.Exit(4)
+	} else {
+		s.ScoreWeights = w
+	}
+	s.MinSecurityScore = f.minSecurityScore
+	s.MaxAbsoluteRisk = f.maxAbsoluteRisk
+}
+
+func exitAfterGateCheck(results []scanner.Result, minScore, maxRisk float64) {
+	for _, r := range results {
+		if r.Score > 0 && r.Score < minScore {
+			fmt.Fprintf(os.Stderr, "Failing: server %q scored %.0f below minimum %.0f\n",
+				r.Server, r.Score, minScore)
+			os.Exit(2)
+		}
+		risk := 100 - r.Score
+		if r.Score > 0 && risk > maxRisk {
+			fmt.Fprintf(os.Stderr, "Failing: server %q absolute risk %.0f above maximum %.0f\n",
+				r.Server, risk, maxRisk)
+			os.Exit(2)
+		}
+	}
+}
+
 func printUsage() {
 	fmt.Println(`mcp-audit — MCP ecosystem security auditor
 Usage:
@@ -529,6 +644,7 @@ Usage:
   mcp-audit proxy       Start a transparent MCP proxy
   mcp-audit trust       Manage trust config (update, export, import)
   mcp-audit upload      Upload anonymized findings to community DB
+  mcp-audit sbom        Generate Software Bill of Materials
   mcp-audit version     Print version
   mcp-audit completion  Generate shell completion
   mcp-audit help        Show this help
@@ -562,5 +678,10 @@ Scan/probe flags:
 Watch/Proxy flags:
   --watch-interval <n>   Re-scan interval in seconds (default: 300)
   --listen <addr>        Listen addr (default: 127.0.0.1:8080)
-  --block-critical       Block responses with CRITICAL findings`)
+  --block-critical       Block responses with CRITICAL findings
+SBOM flags:
+  --format <fmt>         Output: cyclonedx-json (default), cyclonedx-xml, spdx-json, spdx-tag
+  --with-cves            Include CVE vulnerability data in SBOM
+  --output <path>        Write SBOM to file instead of stdout
+  --config-root <dir>    Override project directory for config discovery`)
 }

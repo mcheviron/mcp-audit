@@ -271,15 +271,22 @@ func analyzeToolDescription(tool mcp.Tool, serverName, configPath, scope string)
 		}}
 	}
 
+	cleanDesc, deobFindings := deobfuscate(desc)
 	var results []Result
+	if stop := collectDeobFindings(
+		deobFindings, tool.Name, serverName, configPath, scope, &results,
+	); stop {
+		return results
+	}
+
 	for _, p := range PromptInjectionPatterns {
-		if m := p.FindString(desc); m != "" {
+		if m := p.FindString(cleanDesc); m != "" {
 			results = append(results, Result{
 				Severity:   SevLow,
 				Server:     serverName,
 				Type:       "static",
 				Finding:    fmt.Sprintf("tool %q description matches injection pattern %q", tool.Name, m),
-				Detail:     redactDetail(desc),
+				Detail:     redactDetail(cleanDesc),
 				ConfigPath: configPath,
 				Scope:      scope,
 			})
@@ -287,7 +294,7 @@ func analyzeToolDescription(tool mcp.Tool, serverName, configPath, scope string)
 		}
 	}
 
-	if urls := urlEmbedPattern.FindAllString(desc, 20); len(urls) > 0 {
+	if urls := urlEmbedPattern.FindAllString(cleanDesc, 20); len(urls) > 0 {
 		for _, u := range urls {
 			results = append(results, Result{
 				Severity:   SevLow,
@@ -312,6 +319,26 @@ func analyzeToolDescription(tool mcp.Tool, serverName, configPath, scope string)
 	}
 
 	return results
+}
+
+func collectDeobFindings(
+	deobFindings []Result, toolName, serverName, configPath, scope string, results *[]Result,
+) bool {
+	for i := range deobFindings {
+		deobFindings[i].Server = serverName
+		deobFindings[i].ConfigPath = configPath
+		deobFindings[i].Scope = scope
+		if deobFindings[i].Finding != "" && !strings.Contains(deobFindings[i].Finding, toolName) {
+			deobFindings[i].Finding = fmt.Sprintf("tool %q %s", toolName, deobFindings[i].Finding)
+		}
+	}
+	*results = append(*results, deobFindings...)
+	for _, f := range deobFindings {
+		if f.Severity >= SevHigh {
+			return true
+		}
+	}
+	return false
 }
 
 func classifyToolCapabilities(schema map[string]any) []string {

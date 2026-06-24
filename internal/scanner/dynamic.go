@@ -484,6 +484,8 @@ func (s *Scanner) runProbes(
 	results = append(results, analyzeTiming(directTimings)...)
 	results = s.analyzeCollectedTools(allTools, results)
 
+	s.LastProbeTools = allTools
+
 	return results
 }
 

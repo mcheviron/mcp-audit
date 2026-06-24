@@ -1,0 +1,16 @@
+{
+  "framework": "OWASP LLM Top-10",
+  "short_name": "owasp-llm",
+  "version": "1.0",
+  "finding_types": {
+    "prompt_injection": ["LLM01: Prompt Injection"],
+    "tool_capability": ["LLM02: Insecure Output Handling", "LLM08: Excessive Agency"],
+    "shadowing": ["LLM05: Supply Chain Vulnerabilities"],
+    "typosquat": ["LLM05: Supply Chain Vulnerabilities"],
+    "cve": ["LLM06: Sensitive Information Disclosure"],
+    "credential_leak": ["LLM06: Sensitive Information Disclosure"],
+    "secret_leak": ["LLM06: Sensitive Information Disclosure"],
+    "ssrf": ["LLM08: Excessive Agency"],
+    "config_misconfig": ["LLM02: Insecure Output Handling"]
+  }
+}

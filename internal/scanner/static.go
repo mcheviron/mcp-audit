@@ -8,6 +8,12 @@ import (
 	"github.com/mostafaelataby-cheviron/mcp-audit/pkg/levenshtein"
 )
 
+type FindingRef struct {
+	ID    string `json:"id"`
+	Type  string `json:"type"`
+	Label string `json:"label"`
+}
+
 type Result struct {
 	Severity    Severity
 	Server      string
@@ -17,6 +23,17 @@ type Result struct {
 	ConfigPath  string
 	Remediation string
 	Scope       string
+	Score       float64
+	TrustScore  float64
+	Factors     RiskFactors
+
+	RelatedFindings []FindingRef
+	Compliance      []ComplianceTag
+}
+
+type ComplianceTag struct {
+	Framework string `json:"framework"`
+	Control   string `json:"control"`
 }
 
 type Severity int

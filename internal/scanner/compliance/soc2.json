@@ -1,0 +1,16 @@
+{
+  "framework": "SOC 2",
+  "short_name": "soc2",
+  "version": "1.0",
+  "finding_types": {
+    "credential_leak": ["CC6.1", "CC6.6"],
+    "secret_leak": ["CC6.1", "CC6.6"],
+    "prompt_injection": ["CC7.1"],
+    "ssrf": ["CC6.6", "CC7.1"],
+    "tool_capability": ["CC6.7"],
+    "shadowing": ["CC6.1"],
+    "typosquat": ["CC6.1"],
+    "cve": ["CC6.1", "CC7.1"],
+    "config_misconfig": ["CC6.7"]
+  }
+}
