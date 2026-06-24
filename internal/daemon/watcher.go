@@ -117,7 +117,7 @@ func (w *Watcher) debounce() {
 }
 
 func (w *Watcher) scan() []scanner.Result {
-	s := scanner.NewScanner()
+	s := scanner.New()
 	s.ProjectDir = w.ProjectDir
 	results, err := s.Static()
 	if err != nil {

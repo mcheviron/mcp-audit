@@ -15,8 +15,7 @@ func isTransient(err error) bool {
 	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
 		return false
 	}
-	var netErr net.Error
-	if errors.As(err, &netErr) && netErr.Timeout() {
+	if netErr, ok := errors.AsType[net.Error](err); ok && netErr.Timeout() {
 		return true
 	}
 	errStr := err.Error()
@@ -32,12 +31,18 @@ func isTransient(err error) bool {
 func retry(ctx context.Context, maxAttempts int, fn func() error) error {
 	var lastErr error
 	backoff := 100 * time.Millisecond
+	timer := time.NewTimer(0)
+	if !timer.Stop() {
+		<-timer.C
+	}
 	for attempt := range maxAttempts {
 		if attempt > 0 {
+			timer.Reset(backoff)
 			select {
 			case <-ctx.Done():
+				timer.Stop()
 				return ctx.Err()
-			case <-time.After(backoff):
+			case <-timer.C:
 				backoff *= 2
 			}
 		}

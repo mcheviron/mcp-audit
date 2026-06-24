@@ -105,7 +105,7 @@ type Scanner struct {
 
 const embeddedTrustStaleness = 90 * 24 * time.Hour
 
-func NewScanner() *Scanner {
+func New() *Scanner {
 	return &Scanner{ToolAnalysis: true, CrossServerAnalysis: true, MaxResponseSize: 65536}
 }
 

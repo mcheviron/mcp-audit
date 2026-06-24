@@ -2,6 +2,7 @@ package scanner
 
 import (
 	"context"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
@@ -89,6 +90,7 @@ var probeHeaders = map[string]string{
 func loadTargetsFile(path string) []string {
 	data, err := os.ReadFile(path) //nolint:gosec
 	if err != nil {
+		slog.Debug("load targets file", "path", path, "err", err)
 		return nil
 	}
 	var targets []string

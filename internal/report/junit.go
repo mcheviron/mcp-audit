@@ -44,11 +44,11 @@ type junitSkipped struct {
 	Message string `xml:"message,attr"`
 }
 
-func writeJUNIT(w io.Writer, results []scanner.Result) error {
+func writeJUnit(w io.Writer, results []scanner.Result) error {
 	failures := 0
 	errors := 0
 	skipped := 0
-	var cases []junitTestCase
+	cases := make([]junitTestCase, 0, len(results))
 
 	for _, r := range results {
 		name := fmt.Sprintf("%s: %s", r.Server, r.Finding)

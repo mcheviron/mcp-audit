@@ -83,7 +83,7 @@ func resolveParser(
 		return parseCodexToml
 	case "json", "":
 		return func(data []byte) ([]ServerEntry, error) {
-			return parseMcpServers(data, "")
+			return parseMCPServers(data, "")
 		}
 	default:
 		slog.Debug("no parser registered for tool format", "format", format)

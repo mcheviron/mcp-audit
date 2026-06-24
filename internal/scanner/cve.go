@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -88,7 +89,7 @@ func queryNVD(packageName string) ([]CVEEntry, error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			_ = cerr
+			slog.Debug("close NVD response body", "err", cerr)
 		}
 	}()
 
@@ -156,7 +157,7 @@ func queryGitHubAdvisory(packageName, ecosystem string) ([]CVEEntry, error) { //
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			_ = cerr
+			slog.Debug("close GitHub Advisory response body", "err", cerr)
 		}
 	}()
 

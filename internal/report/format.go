@@ -1,10 +1,13 @@
 package report
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 	"text/tabwriter"
@@ -20,7 +23,7 @@ const (
 	FormatTable Format = "table"
 	FormatJSON  Format = "json"
 	FormatSARIF Format = "sarif"
-	FormatJUNIT Format = "junit"
+	FormatJUnit Format = "junit"
 )
 
 type CIInfo struct {
@@ -37,7 +40,7 @@ func ResolveFormat(f string) Format {
 	case "sarif":
 		return FormatSARIF
 	case "junit":
-		return FormatJUNIT
+		return FormatJUnit
 	default:
 		return FormatTable
 	}
@@ -49,8 +52,8 @@ func Write(w io.Writer, results []scanner.Result, chains []scanner.Chain, format
 		return writeJSON(w, results, chains)
 	case FormatSARIF:
 		return writeSARIF(w, results, ci)
-	case FormatJUNIT:
-		return writeJUNIT(w, results)
+	case FormatJUnit:
+		return writeJUnit(w, results)
 	default:
 		return writeTable(w, results, chains)
 	}
@@ -77,18 +80,10 @@ func writeComplianceSummary(w io.Writer, results []scanner.Result) {
 		return
 	}
 	_, _ = fmt.Fprintln(w, "── Compliance Summary ──")
-	frameworks := make([]string, 0, len(summary))
-	for fw := range summary {
-		frameworks = append(frameworks, fw)
-	}
-	sort.Strings(frameworks)
+	frameworks := slices.Sorted(maps.Keys(summary))
 	for _, fw := range frameworks {
 		controls := summary[fw]
-		ctrlIDs := make([]string, 0, len(controls))
-		for c := range controls {
-			ctrlIDs = append(ctrlIDs, c)
-		}
-		sort.Strings(ctrlIDs)
+		ctrlIDs := slices.Sorted(maps.Keys(controls))
 		for _, c := range ctrlIDs {
 			_, _ = fmt.Fprintf(w, "  %s / %s: %d findings\n", fw, c, controls[c])
 		}
@@ -288,7 +283,7 @@ func writeJSON(w io.Writer, results []scanner.Result, chains []scanner.Chain) er
 		}
 		serverMap[r.Server] = info
 	}
-	var scores []jsonScore
+	scores := make([]jsonScore, 0, len(servers))
 	for _, srv := range servers {
 		if info, ok := serverMap[srv]; ok {
 			scores = append(scores, jsonScore{
@@ -395,8 +390,8 @@ func groupBySeverity(results []scanner.Result) map[scanner.Severity][]scanner.Re
 		groups[r.Severity] = append(groups[r.Severity], r)
 	}
 	for sev := range groups {
-		sort.Slice(groups[sev], func(i, j int) bool {
-			return groups[sev][i].Server < groups[sev][j].Server
+		slices.SortFunc(groups[sev], func(a, b scanner.Result) int {
+			return cmp.Compare(a.Server, b.Server)
 		})
 	}
 	return groups
@@ -446,11 +441,7 @@ func writeScoreTable(w io.Writer, header string, scores map[string]float64, form
 	if _, err := fmt.Fprintln(w, header); err != nil {
 		return err
 	}
-	servers := make([]string, 0, len(scores))
-	for s := range scores {
-		servers = append(servers, s)
-	}
-	sort.Strings(servers)
+	servers := slices.Sorted(maps.Keys(scores))
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
 	for _, server := range servers {
 		if _, err := fmt.Fprintf(tw, "%s\t%s\n", server, format(scores[server])); err != nil {

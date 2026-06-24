@@ -126,7 +126,7 @@ func verifyHMACChain(entries []evidenceEntry, key []byte) bool {
 }
 
 func buildEvidenceEntries(results []scanner.Result, key []byte) []evidenceEntry {
-	var entries []evidenceEntry
+	entries := make([]evidenceEntry, 0, len(results))
 	prevHash := ""
 	for _, r := range results {
 		id := scanner.MakeResultIDForExport(r)

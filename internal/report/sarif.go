@@ -110,7 +110,7 @@ func severityToSARIF(s scanner.Severity) string {
 }
 
 func sarifResultsFromFindings(results []scanner.Result) []result {
-	var out []result
+	out := make([]result, 0, len(results))
 	for _, r := range results {
 		uri := r.Server
 		if r.ConfigPath != "" {

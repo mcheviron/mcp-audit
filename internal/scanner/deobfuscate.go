@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"regexp"
 	"strings"
 	"unicode/utf8"
@@ -22,6 +23,7 @@ func init() {
 func loadConfusables(data string) map[string]string {
 	m := map[string]string{}
 	if err := json.Unmarshal([]byte(data), &m); err != nil {
+		slog.Warn("load confusables", "err", err)
 		m = map[string]string{}
 	}
 	return m

@@ -4,6 +4,7 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"log/slog"
 	"regexp"
 	"strings"
 	"time"
@@ -179,7 +180,7 @@ func RunAdversarialProbes(
 	}
 	defer func() {
 		if err := mcpClient.Close(); err != nil {
-			_ = err
+			slog.Debug("close adversarial client", "err", err)
 		}
 	}()
 
@@ -366,7 +367,9 @@ func RunAdversarialFromScanner(s *Scanner) []Result {
 		tools, listErr := mcpClient.ListTools(probeCtx)
 		cancel()
 		if listErr != nil {
-			_ = mcpClient.Close()
+			if cerr := mcpClient.Close(); cerr != nil {
+				slog.Debug("close adversarial client", "err", cerr)
+			}
 			results = append(results, Result{
 				Severity: SevInfo, Server: srv.Name, Type: "adversarial",
 				Finding:    fmt.Sprintf("adversarial probe tools/list failed for %q: %v", srv.Name, listErr),
@@ -379,7 +382,9 @@ func RunAdversarialFromScanner(s *Scanner) []Result {
 		advCtx, advCancel := context.WithTimeout(ctx, advTimeout)
 		advResult := execProbes(advCtx, mcpClient, tools.Tools, srv.Name, srv.ConfigPath, srv.Scope, s.AdversarialMaxProbes)
 		advCancel()
-		_ = mcpClient.Close()
+		if cerr := mcpClient.Close(); cerr != nil {
+			slog.Debug("close adversarial client", "err", cerr)
+		}
 		results = append(results, advResult.Results...)
 	}
 

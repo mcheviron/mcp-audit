@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/hashicorp/go-set"
@@ -48,6 +49,7 @@ func LoadMappings() {
 	for _, f := range files {
 		var fm frameworkMapping
 		if err := json.Unmarshal(f.data, &fm); err != nil {
+			slog.Warn("load compliance mapping", "framework", f.name, "err", err)
 			continue
 		}
 		mappings[f.name] = fm

@@ -23,7 +23,11 @@ type toolGraph struct {
 }
 
 func buildGraph(allTools map[string][]mcp.Tool) *toolGraph {
-	var nodes []toolNode
+	total := 0
+	for _, tools := range allTools {
+		total += len(tools)
+	}
+	nodes := make([]toolNode, 0, total)
 	for server, tools := range allTools {
 		for _, t := range tools {
 			n := toolNode{

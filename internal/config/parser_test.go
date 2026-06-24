@@ -28,7 +28,7 @@ func findServer(t *testing.T, servers []ServerEntry, name string) *ServerEntry {
 }
 
 func TestParseClaudeValid(t *testing.T) {
-	servers, err := parseMcpServers(mustRead(t, "claude_valid.json"), "claude")
+	servers, err := parseMCPServers(mustRead(t, "claude_valid.json"), "claude")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -62,7 +62,7 @@ func TestParseClaudeValid(t *testing.T) {
 }
 
 func TestParseClaudeEmpty(t *testing.T) {
-	servers, err := parseMcpServers(mustRead(t, "claude_empty.json"), "claude")
+	servers, err := parseMCPServers(mustRead(t, "claude_empty.json"), "claude")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -72,7 +72,7 @@ func TestParseClaudeEmpty(t *testing.T) {
 }
 
 func TestParseClaudeMalformed(t *testing.T) {
-	_, err := parseMcpServers(mustRead(t, "claude_malformed.json"), "claude")
+	_, err := parseMCPServers(mustRead(t, "claude_malformed.json"), "claude")
 	if err == nil {
 		t.Fatal("expected error for malformed JSON")
 	}
@@ -108,7 +108,7 @@ func TestParseContinueEmpty(t *testing.T) {
 }
 
 func TestParseCursor(t *testing.T) {
-	servers, err := parseMcpServers(mustRead(t, "cursor_valid.json"), "cursor")
+	servers, err := parseMCPServers(mustRead(t, "cursor_valid.json"), "cursor")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -124,7 +124,7 @@ func TestParseCursor(t *testing.T) {
 }
 
 func TestParseWindsurf(t *testing.T) {
-	servers, err := parseMcpServers(mustRead(t, "windsurf_valid.json"), "windsurf")
+	servers, err := parseMCPServers(mustRead(t, "windsurf_valid.json"), "windsurf")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -137,7 +137,7 @@ func TestParseWindsurf(t *testing.T) {
 }
 
 func TestParseVSCode(t *testing.T) {
-	servers, err := parseMcpServers(mustRead(t, "vscode_valid.json"), "vscode")
+	servers, err := parseMCPServers(mustRead(t, "vscode_valid.json"), "vscode")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -194,7 +194,7 @@ func TestParseClaudeEnvHeaders(t *testing.T) {
 	    }
 	  }
 	}`)
-	servers, err := parseMcpServers(data, "claude")
+	servers, err := parseMCPServers(data, "claude")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -217,7 +217,7 @@ func TestParseClaudeEnvHeaders(t *testing.T) {
 }
 
 func TestParseClaudeLegacyNoEnvHeaders(t *testing.T) {
-	servers, err := parseMcpServers(mustRead(t, "claude_valid.json"), "claude")
+	servers, err := parseMCPServers(mustRead(t, "claude_valid.json"), "claude")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -229,7 +229,7 @@ func TestParseClaudeLegacyNoEnvHeaders(t *testing.T) {
 }
 
 func TestParseCopilotCli(t *testing.T) {
-	servers, err := parseMcpServers(mustRead(t, "copilot_valid.json"), "copilot-cli")
+	servers, err := parseMCPServers(mustRead(t, "copilot_valid.json"), "copilot-cli")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -258,7 +258,7 @@ func TestParseCopilotCli(t *testing.T) {
 }
 
 func TestParseClaudeCodeCli(t *testing.T) {
-	servers, err := parseMcpServers(mustRead(t, "claude_code_valid.json"), "claude-code")
+	servers, err := parseMCPServers(mustRead(t, "claude_code_valid.json"), "claude-code")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -336,7 +336,7 @@ func TestParseGeminiEmpty(t *testing.T) {
 }
 
 func TestParseClineRoo(t *testing.T) {
-	servers, err := parseMcpServers(mustRead(t, "cline_roo_valid.json"), "cline-roo")
+	servers, err := parseMCPServers(mustRead(t, "cline_roo_valid.json"), "cline-roo")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -415,7 +415,7 @@ func TestParseZedEmpty(t *testing.T) {
 
 func TestRegistryIncludesAllTools(t *testing.T) {
 	initRegistry()
-	tools := GetRegistry()
+	tools := Registry()
 
 	names := set.New[string](0)
 	for _, tp := range tools {

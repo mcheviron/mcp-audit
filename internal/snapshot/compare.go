@@ -117,7 +117,7 @@ func sessionFindings(old, current *Snapshot, pinned map[string]string) []DriftFi
 }
 
 func toolMap(s *Snapshot) map[string]ToolEntry {
-	m := make(map[string]ToolEntry)
+	m := make(map[string]ToolEntry, len(s.Tools))
 	for _, t := range s.Tools {
 		m[t.Name] = t
 	}

@@ -12,7 +12,7 @@ import (
 )
 
 func TestSetTrustConfigEmbeddedFallback(t *testing.T) {
-	s := NewScanner()
+	s := New()
 
 	err := s.SetTrustConfig("")
 	if err != nil {
@@ -32,7 +32,7 @@ func TestSetTrustConfigEmbeddedFallback(t *testing.T) {
 func TestSetTrustConfigEmbeddedFallbackMissingDefault(t *testing.T) {
 	t.Setenv("HOME", "/nonexistent-home-dir-xyz")
 
-	s := NewScanner()
+	s := New()
 
 	err := s.SetTrustConfig("")
 	if err != nil {
@@ -67,7 +67,7 @@ func TestSetTrustConfigUserOverrideEmbedded(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 
-	s := NewScanner()
+	s := New()
 	if err := s.SetTrustConfig(userPath); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -84,7 +84,7 @@ func TestSetTrustConfigUserOverrideEmbedded(t *testing.T) {
 }
 
 func TestSetTrustConfigExplicitPathNotFound(t *testing.T) {
-	s := NewScanner()
+	s := New()
 
 	err := s.SetTrustConfig("")
 	if err != nil {
@@ -97,7 +97,7 @@ func TestSetTrustConfigExplicitPathNotFound(t *testing.T) {
 }
 
 func TestLoadEmbeddedDefaultsServerScope(t *testing.T) {
-	s := NewScanner()
+	s := New()
 	if err := s.loadEmbeddedDefaults(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -122,7 +122,7 @@ func TestLoadEmbeddedDefaultsViaIntel(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	s := NewScanner()
+	s := New()
 	if err := s.loadEmbeddedDefaults(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

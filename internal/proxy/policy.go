@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -8,7 +9,7 @@ import (
 	"maps"
 	"os"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -62,8 +63,8 @@ func NewPolicyEngine(cfg *PolicyConfig, defaultDeny bool) *PolicyEngine {
 			}
 		}
 	}
-	sort.Slice(cfg.Rules, func(i, j int) bool {
-		return cfg.Rules[i].Priority < cfg.Rules[j].Priority
+	slices.SortFunc(cfg.Rules, func(a, b PolicyRule) int {
+		return cmp.Compare(a.Priority, b.Priority)
 	})
 	return &PolicyEngine{
 		rules:       cfg.Rules,
@@ -229,8 +230,8 @@ func LoadPolicy(path string) (*PolicyConfig, error) {
 		seen[rule.Priority] = i
 	}
 
-	sort.Slice(cfg.Rules, func(i, j int) bool {
-		return cfg.Rules[i].Priority < cfg.Rules[j].Priority
+	slices.SortFunc(cfg.Rules, func(a, b PolicyRule) int {
+		return cmp.Compare(a.Priority, b.Priority)
 	})
 
 	return cfg, nil

@@ -78,7 +78,7 @@ func runScanE(cmd *cobra.Command, _ []string) error {
 }
 
 func setupScanner(f flags, logger *slog.Logger) (*scanner.Scanner, error) {
-	s := scanner.NewScanner()
+	s := scanner.New()
 	s.ProjectDir = f.projectDir
 	s.NoCVEScan = f.noCVEScan
 	if err := applyScoreConfig(s, f, logger); err != nil {

@@ -16,7 +16,7 @@ var uploadCmd = &cobra.Command{
 		logger := newLogger(f.verbose, f.quiet, f.debug)
 		logger.Debug("starting upload")
 
-		s := scanner.NewScanner()
+		s := scanner.New()
 		if !f.noProject {
 			s.ProjectDir = f.projectDir
 		}

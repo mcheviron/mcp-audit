@@ -68,6 +68,6 @@ func RegisterTool(tp ToolParser) {
 	registry = append(registry, tp)
 }
 
-func GetRegistry() []ToolParser {
+func Registry() []ToolParser {
 	return registry
 }

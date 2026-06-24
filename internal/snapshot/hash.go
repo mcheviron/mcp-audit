@@ -4,7 +4,8 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"sort"
+	"maps"
+	"slices"
 	"strings"
 )
 
@@ -13,12 +14,7 @@ func SchemaPropertyKeys(schema map[string]any) []string {
 	if props == nil {
 		return nil
 	}
-	keys := make([]string, 0, len(props))
-	for k := range props {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
+	return slices.Sorted(maps.Keys(props))
 }
 
 func HashToolSchema(schema map[string]any) string {
@@ -30,11 +26,7 @@ func HashToolSchema(schema map[string]any) string {
 func normalizeJSON(v any) []byte {
 	switch val := v.(type) {
 	case map[string]any:
-		keys := make([]string, 0, len(val))
-		for k := range val {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
+		keys := slices.Sorted(maps.Keys(val))
 
 		var sb strings.Builder
 		sb.WriteByte('{')

@@ -13,7 +13,6 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/mostafaelataby-cheviron/mcp-audit/internal/scanner"
@@ -340,7 +339,7 @@ func (p *Proxy) inspectJSONBody(body []byte, method string) {
 		return
 	}
 
-	if strings.HasPrefix(string(body), "{") {
+	if len(body) > 0 && body[0] == '{' {
 		var rpcResp struct {
 			Result json.RawMessage `json:"result"`
 			Error  *struct {

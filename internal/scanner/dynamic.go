@@ -17,6 +17,11 @@ import (
 	"github.com/mostafaelataby-cheviron/mcp-audit/internal/mcp"
 )
 
+var (
+	errTooManyRedirects   = errors.New("too many redirects")
+	errRedirectToInternal = errors.New("redirect to internal host blocked")
+)
+
 type probeResult struct {
 	target      string
 	status      int
@@ -89,10 +94,10 @@ func newProbeClient(timeout time.Duration, depth ProbeDepth) *http.Client {
 	if depth >= DepthExtended {
 		client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 			if len(via) >= 5 {
-				return errors.New("too many redirects")
+				return errTooManyRedirects
 			}
 			if isInternalHost(req.URL.String()) {
-				return errors.New("redirect to internal host blocked")
+				return errRedirectToInternal
 			}
 			return nil
 		}

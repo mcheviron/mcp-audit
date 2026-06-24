@@ -51,35 +51,35 @@ func initRegistry() {
 	}
 }
 
-func makeJSONMcpServersParser(name string, paths func(string) []string) ToolParser {
+func makeJSONMCPServersParser(name string, paths func(string) []string) ToolParser {
 	return ToolParser{
 		Name:   name,
 		Format: FormatJSON,
 		Paths:  paths,
 		Parse: func(data []byte) ([]ServerEntry, error) {
-			return parseMcpServers(data, name)
+			return parseMCPServers(data, name)
 		},
 	}
 }
 
 func makeClaudeParser() ToolParser {
-	return makeJSONMcpServersParser("claude", claudePaths)
+	return makeJSONMCPServersParser("claude", claudePaths)
 }
 
 func makeCursorParser() ToolParser {
-	return makeJSONMcpServersParser("cursor", func(home string) []string {
+	return makeJSONMCPServersParser("cursor", func(home string) []string {
 		return []string{filepath.Join(home, ".cursor", "mcp.json")}
 	})
 }
 
 func makeWindsurfParser() ToolParser {
-	return makeJSONMcpServersParser("windsurf", func(home string) []string {
+	return makeJSONMCPServersParser("windsurf", func(home string) []string {
 		return []string{filepath.Join(home, ".codeium", "windsurf", "mcp_config.json")}
 	})
 }
 
 func makeVSCodeParser() ToolParser {
-	return makeJSONMcpServersParser("vscode", func(home string) []string {
+	return makeJSONMCPServersParser("vscode", func(home string) []string {
 		return []string{filepath.Join(home, ".vscode", "mcp.json")}
 	})
 }
@@ -107,13 +107,13 @@ func makeOpenCodeParser() ToolParser {
 }
 
 func makeCopilotCLIParser() ToolParser {
-	return makeJSONMcpServersParser("copilot-cli", func(home string) []string {
+	return makeJSONMCPServersParser("copilot-cli", func(home string) []string {
 		return []string{filepath.Join(home, ".copilot", "mcp-config.json")}
 	})
 }
 
 func makeClaudeCodeParser() ToolParser {
-	return makeJSONMcpServersParser("claude-code", claudeCodePaths)
+	return makeJSONMCPServersParser("claude-code", claudeCodePaths)
 }
 
 func makeCodexParser() ToolParser {
@@ -134,7 +134,7 @@ func makeGeminiParser() ToolParser {
 }
 
 func makeClineRooParser() ToolParser {
-	return makeJSONMcpServersParser("cline-roo", clineRooPaths)
+	return makeJSONMCPServersParser("cline-roo", clineRooPaths)
 }
 
 func makeZedParser() ToolParser {

@@ -81,7 +81,7 @@ func init() {
 }
 
 func collectCVEsFromScan(cfgs []config.Config) map[string][]sbom.CVEResult {
-	s := scanner.NewScanner()
+	s := scanner.New()
 	s.NoCVEScan = false
 	res, err := s.Static()
 	if err != nil {

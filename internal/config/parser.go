@@ -22,7 +22,7 @@ type mcpServerDef struct {
 	} `json:"tls"`
 }
 
-func serversFromMcpMap(mcpServers map[string]mcpServerDef, tool string) []ServerEntry {
+func serversFromMCPMap(mcpServers map[string]mcpServerDef, tool string) []ServerEntry {
 	var servers []ServerEntry
 	for name, s := range mcpServers {
 		headers := coerceMap(s.Headers)
@@ -58,16 +58,16 @@ func serversFromMcpMap(mcpServers map[string]mcpServerDef, tool string) []Server
 	return servers
 }
 
-func parseMcpServers(data []byte, tool string) ([]ServerEntry, error) {
+func parseMCPServers(data []byte, tool string) ([]ServerEntry, error) {
 	var wrapper struct {
-		McpServers map[string]mcpServerDef `json:"mcpServers"`
+		MCPServers map[string]mcpServerDef `json:"mcpServers"`
 	}
 
 	if err := json.Unmarshal(data, &wrapper); err != nil {
 		return nil, fmt.Errorf("invalid config JSON: %w", err)
 	}
 
-	return serversFromMcpMap(wrapper.McpServers, tool), nil
+	return serversFromMCPMap(wrapper.MCPServers, tool), nil
 }
 
 func parseContinue(data []byte) ([]ServerEntry, error) {
@@ -123,7 +123,7 @@ func parseContinue(data []byte) ([]ServerEntry, error) {
 
 func parseOpenCode(data []byte) ([]ServerEntry, error) {
 	var wrapper struct {
-		Mcp map[string]struct {
+		MCP map[string]struct {
 			Type    string         `json:"type"`
 			Command []string       `json:"command"`
 			URL     string         `json:"url"`
@@ -138,7 +138,7 @@ func parseOpenCode(data []byte) ([]ServerEntry, error) {
 	}
 
 	var servers []ServerEntry
-	for name, s := range wrapper.Mcp {
+	for name, s := range wrapper.MCP {
 		headers := coerceMap(s.Headers)
 		entry := ServerEntry{
 			Name:        name,
@@ -206,41 +206,41 @@ func coerceValue(v any) string {
 }
 
 func parseGeminiSettings(data []byte) ([]ServerEntry, error) {
-	servers, err := parseMcpServers(data, "gemini")
+	servers, err := parseMCPServers(data, "gemini")
 	if err == nil && len(servers) > 0 {
 		return servers, nil
 	}
 
 	var nested struct {
-		Mcp struct {
-			McpServers map[string]mcpServerDef `json:"mcpServers"`
+		MCP struct {
+			MCPServers map[string]mcpServerDef `json:"mcpServers"`
 		} `json:"mcp"`
 	}
 	if uerr := json.Unmarshal(data, &nested); uerr != nil && err != nil {
 		return nil, err
 	}
-	if len(nested.Mcp.McpServers) == 0 {
+	if len(nested.MCP.MCPServers) == 0 {
 		return nil, nil
 	}
-	return serversFromMcpMap(nested.Mcp.McpServers, "gemini"), nil
+	return serversFromMCPMap(nested.MCP.MCPServers, "gemini"), nil
 }
 
 func parseZedSettings(data []byte) ([]ServerEntry, error) {
-	servers, err := parseMcpServers(data, "zed")
+	servers, err := parseMCPServers(data, "zed")
 	if err == nil && len(servers) > 0 {
 		return servers, nil
 	}
 
 	var altWrapper struct {
-		McpServers map[string]mcpServerDef `json:"mcp_servers"`
+		MCPServers map[string]mcpServerDef `json:"mcp_servers"`
 	}
 	if uerr := json.Unmarshal(data, &altWrapper); uerr != nil && err != nil {
 		return nil, err
 	}
-	if len(altWrapper.McpServers) == 0 {
+	if len(altWrapper.MCPServers) == 0 {
 		return nil, nil
 	}
-	return serversFromMcpMap(altWrapper.McpServers, "zed"), nil
+	return serversFromMCPMap(altWrapper.MCPServers, "zed"), nil
 }
 
 func extractPackage(command string, args []string) string {
