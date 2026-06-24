@@ -1,4 +1,9 @@
-## ADDED Requirements
+# compliance-mapping Specification
+
+## Purpose
+Map scan findings to compliance framework controls (SOC 2, NIST AI RMF, OWASP LLM Top-10, MITRE ATLAS, EU AI Act) using embedded JSON mappings. Support framework filtering and compliance summary output.
+
+## Requirements
 
 ### Requirement: Finding-to-control mapping
 The system SHALL map each scan finding to relevant compliance framework controls based on finding type and severity. Mappings SHALL be defined in embedded JSON files per framework. The mapping SHALL be added as a `compliance` field on each finding in the output.

@@ -1,4 +1,9 @@
-## ADDED Requirements
+# evidence-export Specification
+
+## Purpose
+Export tamper-evident evidence bundles with HMAC-SHA256 chained integrity verification for audit and compliance purposes.
+
+## Requirements
 
 ### Requirement: Signed evidence bundle export
 The system SHALL support `--export-evidence <path>` flag producing a tamper-evident JSON bundle. Each bundle SHALL contain: scan timestamp, tool version, scan findings, blast-radius chains (if computed), compliance mappings, and an HMAC-SHA256 chain linking all entries. The HMAC key SHALL default to a random per-session value written to `<evidence-path>.key` with `0600` permissions; it SHALL be overridable via `--evidence-key <hex>`.

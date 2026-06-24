@@ -76,8 +76,10 @@ type result struct {
 }
 
 type resultProperties struct {
-	SecurityScore float64 `json:"securityScore,omitempty"`
-	TrustScore    float64 `json:"trustScore,omitempty"`
+	SecurityScore   float64                 `json:"securityScore,omitempty"`
+	TrustScore      float64                 `json:"trustScore,omitempty"`
+	RelatedFindings []scanner.FindingRef    `json:"relatedFindings,omitempty"`
+	ComplianceTags  []scanner.ComplianceTag `json:"complianceTags,omitempty"`
 }
 
 type message struct {
@@ -137,6 +139,13 @@ func sarifResultsFromFindings(results []scanner.Result) []result {
 				SecurityScore: r.Score,
 				TrustScore:    r.TrustScore,
 			}
+		}
+		if len(r.RelatedFindings) > 0 || len(r.Compliance) > 0 {
+			if sr.Properties == nil {
+				sr.Properties = &resultProperties{}
+			}
+			sr.Properties.RelatedFindings = r.RelatedFindings
+			sr.Properties.ComplianceTags = r.Compliance
 		}
 		out = append(out, sr)
 	}

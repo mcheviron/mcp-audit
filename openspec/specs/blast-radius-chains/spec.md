@@ -1,4 +1,9 @@
-## ADDED Requirements
+# blast-radius-chains Specification
+
+## Purpose
+Compute blast-radius dependency chains from CVE findings through MCP server configurations, tools, and credentials using BFS. Output chains as structured hops with severity tracking and configurable depth limits.
+
+## Requirements
 
 ### Requirement: BFS blast-radius chain computation
 The system SHALL compute impact chains from CVE findings via breadth-first search: CVE → affected package → MCP server → agent configuration file → tools exposed → credential findings (if any). Chain depth SHALL be configurable via `--blast-radius-depth` (default 3, max 5). The chain SHALL be computed at the end of each scan after all CVE, credential, and tool analysis results are available.

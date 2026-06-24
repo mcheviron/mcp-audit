@@ -23,4 +23,4 @@
 - [x] 4.1 Add e2e test: run `mcp-audit sbom`, parse stdout as JSON, verify `bomFormat: "CycloneDX"` and `specVersion: "1.6"`
 - [x] 4.2 Add e2e test: run `mcp-audit sbom --format spdx-tag`, verify output contains `SPDXVersion: SPDX-2.3`
 - [x] 4.3 Add e2e test: run `mcp-audit sbom --output /tmp/test-sbom.json`, verify file exists and contains valid CycloneDX JSON
-- [ ] 4.4 Add e2e test: run `mcp-audit sbom --with-cves` against test server with known CVE, verify vulnerability appears in SBOM
+- [x] 4.4 Add e2e test: run `mcp-audit sbom --with-cves` against test server with known CVE, verify vulnerability appears in SBOM

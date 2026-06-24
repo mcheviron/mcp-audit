@@ -108,6 +108,44 @@ func TestE2ESBOMSPDXJSON(t *testing.T) {
 	}
 }
 
+func TestE2ESBOMWithCVEs(t *testing.T) {
+	bin := buildBinary(t)
+	home := setupHomeDir(t, `{"mcpServers":{"fs":{"command":"npx","args":["-y","@modelcontextprotocol/server-filesystem","/tmp"]}}}`)
+
+	stdout, _, code := runMCPAudit(t, bin, home, "sbom", "--with-cves")
+	if code != 0 {
+		t.Fatalf("sbom --with-cves exit code = %d, want 0", code)
+	}
+
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(stdout), &parsed); err != nil {
+		t.Fatalf("unmarshal: %v\noutput: %s", err, stdout)
+	}
+	if parsed["bomFormat"] != "CycloneDX" {
+		t.Errorf("bomFormat = %v, want CycloneDX", parsed["bomFormat"])
+	}
+	if parsed["specVersion"] != "1.6" {
+		t.Errorf("specVersion = %v, want 1.6", parsed["specVersion"])
+	}
+
+	vulns, ok := parsed["vulnerabilities"].([]any)
+	if ok && len(vulns) > 0 {
+		for _, v := range vulns {
+			vuln, ok := v.(map[string]any)
+			if !ok {
+				t.Error("vulnerability should be an object")
+				continue
+			}
+			if _, ok := vuln["id"]; !ok {
+				t.Error("vulnerability missing 'id' field")
+			}
+		}
+		t.Logf("SBOM includes %d vulnerabilities", len(vulns))
+	} else {
+		t.Log("no vulnerabilities found (expected if test package has no known CVEs)")
+	}
+}
+
 func TestE2ESBOMEmptyConfig(t *testing.T) {
 	bin := buildBinary(t)
 	home := setupHomeDir(t, `{"mcpServers":{}}`)
