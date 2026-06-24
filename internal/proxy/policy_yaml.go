@@ -177,7 +177,6 @@ func parseSequenceNodes(lines []string, start, parentIndent int) (*yamlNode, int
 			break
 		}
 
-		// Find the end of this sequence item (next - at same indent or lower)
 		itemEnd := len(lines)
 		for j := i + 1; j < len(info); j++ {
 			if info[j].indent <= baseIndent {
@@ -216,7 +215,6 @@ func parseSequenceNodes(lines []string, start, parentIndent int) (*yamlNode, int
 			node.sequence = append(node.sequence, &yamlNode{kind: yamlScalar, scalar: rest})
 		}
 
-		// Advance to next sequence item
 		i++
 		for i < len(info) && info[i].index < itemEnd {
 			i++

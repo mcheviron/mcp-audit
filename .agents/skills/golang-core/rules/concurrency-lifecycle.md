@@ -22,6 +22,41 @@ Use for goroutines, channels, worker pools, fan-out/fan-in flows, and background
 - Avoid `time.After` in loops; use `time.NewTimer` or `time.NewTicker` and stop them.
 - Avoid unbounded goroutine creation under load; bound concurrency.
 - Protect shared mutable state with synchronization primitives.
+- Prefer synchronous functions over asynchronous ones; keep goroutines localized to aid reasoning about lifetimes, avoid leaks and data races, and simplify testing.
+- Specify channel direction in function signatures where possible (`chan<-` for send-only, `<-chan` for receive-only) to prevent casual programming errors.
+
+```go
+// Good: synchronous function; caller decides concurrency.
+func probeAll(ctx context.Context, servers []config.ServerEntry) ([]Result, error) {
+	var all []Result
+	for _, srv := range servers {
+		results, err := probeServer(ctx, srv)
+		if err != nil {
+			return nil, err
+		}
+		all = append(all, results...)
+	}
+	return all, nil
+}
+```
+
+```go
+// Good: directional channel signatures.
+func fanOut(ctx context.Context, jobs <-chan Job) <-chan Result {
+	results := make(chan Result)
+	go func() {
+		defer close(results)
+		for job := range jobs {
+			select {
+			case <-ctx.Done():
+				return
+			case results <- process(job):
+			}
+		}
+	}()
+	return results
+}
+```
 
 ## Examples
 

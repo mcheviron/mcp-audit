@@ -21,12 +21,12 @@ func TestMakeKey(t *testing.T) {
 
 	k3 := MakeKey("filesystem", "http://localhost:9090", "")
 	if k1 == k3 {
-		t.Fatal("different URLs should produce different keys")
+		t.Error("different URLs should produce different keys")
 	}
 
 	k4 := MakeKey("", "", "node server.js")
 	if k4 == "unknown" || k4 == "" {
-		t.Fatalf("command-only key should not be empty: %q", k4)
+		t.Errorf("command-only key should not be empty: %q", k4)
 	}
 }
 
@@ -58,21 +58,21 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	}
 
 	if snap.Server != "test-server" {
-		t.Fatalf("expected server 'test-server', got %q", snap.Server)
+		t.Errorf("expected server 'test-server', got %q", snap.Server)
 	}
 	if len(snap.Tools) != 2 {
-		t.Fatalf("expected 2 tools, got %d", len(snap.Tools))
+		t.Errorf("expected 2 tools, got %d", len(snap.Tools))
 	}
 	if snap.Tools[0].Name != "read_file" {
-		t.Fatalf("expected first tool 'read_file', got %q", snap.Tools[0].Name)
+		t.Errorf("expected first tool 'read_file', got %q", snap.Tools[0].Name)
 	}
 	if snap.Tools[1].Name != "write_file" {
-		t.Fatalf("expected second tool 'write_file', got %q", snap.Tools[1].Name)
+		t.Errorf("expected second tool 'write_file', got %q", snap.Tools[1].Name)
 	}
 
 	_, err = LoadSnapshot(dir, "nonexistent")
 	if err == nil {
-		t.Fatal("LoadSnapshot should fail for nonexistent key")
+		t.Error("LoadSnapshot should fail for nonexistent key")
 	}
 }
 
@@ -91,10 +91,10 @@ func TestSaveSnapshotCreatesDir(t *testing.T) {
 		t.Fatalf("directory not created: %v", err)
 	}
 	if !info.IsDir() {
-		t.Fatal("not a directory")
+		t.Error("not a directory")
 	}
 	if info.Mode().Perm() != 0700 {
-		t.Fatalf("expected 0700 permissions, got %o", info.Mode().Perm())
+		t.Errorf("expected 0700 permissions, got %o", info.Mode().Perm())
 	}
 }
 
@@ -102,12 +102,12 @@ func TestHashToolDescription(t *testing.T) {
 	h1 := HashToolDescription("Read a file from the filesystem")
 	h2 := HashToolDescription("Read a file from the filesystem")
 	if h1 != h2 {
-		t.Fatal("same description should produce same hash")
+		t.Error("same description should produce same hash")
 	}
 
 	h3 := HashToolDescription("Write a file to the filesystem")
 	if h1 == h3 {
-		t.Fatal("different descriptions should produce different hashes")
+		t.Error("different descriptions should produce different hashes")
 	}
 }
 
@@ -128,7 +128,7 @@ func TestHashToolSchema(t *testing.T) {
 	h1 := HashToolSchema(schema1)
 	h2 := HashToolSchema(schema2)
 	if h1 != h2 {
-		t.Fatal("key order should not affect hash")
+		t.Error("key order should not affect hash")
 	}
 }
 
@@ -147,7 +147,7 @@ func TestNormalizeJSONFloat(t *testing.T) {
 	h1 := HashToolSchema(schema)
 	h2 := HashToolSchema(schema)
 	if h1 != h2 {
-		t.Fatal("float values should produce stable hashes")
+		t.Error("float values should produce stable hashes")
 	}
 }
 
@@ -296,10 +296,10 @@ func TestCompareSnapshotsDescriptionAndSchemaBothChanged(t *testing.T) {
 		}
 	}
 	if !hasDesc {
-		t.Fatal("description change finding missing when schema also changed")
+		t.Error("description change finding missing when schema also changed")
 	}
 	if !hasSchema {
-		t.Fatal("schema change finding missing")
+		t.Error("schema change finding missing")
 	}
 }
 

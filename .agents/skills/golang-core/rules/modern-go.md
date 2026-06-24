@@ -15,6 +15,9 @@ Use when introducing new code or modernizing existing implementations.
 ## Mandatory Rules
 
 - Prefer generics when they improve type safety and clarity over loose typing.
+- Be wary of premature generic use; start with concrete types when only one type is used in practice. Conventional approaches often work without added complexity.
+- Do not use generics to invent domain-specific languages or error-handling frameworks. Write code, don't design types.
+- If generics are used in exported APIs, document them and include motivating runnable examples.
 - Prefer `any` over `interface{}` in modern code.
 - Use standard library helpers (`slices`, `maps`, `cmp`) when they improve readability.
 - Use `errors.Join` for combining independent errors.

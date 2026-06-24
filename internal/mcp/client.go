@@ -165,7 +165,9 @@ func toMap(v any) map[string]any {
 		return nil
 	}
 	var m map[string]any
-	_ = json.Unmarshal(b, &m)
+	if err := json.Unmarshal(b, &m); err != nil {
+		return nil
+	}
 	return m
 }
 

@@ -23,7 +23,11 @@ var sbomCmd = &cobra.Command{
 
 		cwd := configRoot
 		if cwd == "" {
-			cwd, _ = os.Getwd()
+			var err error
+			cwd, err = os.Getwd()
+			if err != nil {
+				return &exitError{code: 1, err: fmt.Errorf("get working directory: %w", err)}
+			}
 		}
 
 		config.InitRegistry("")

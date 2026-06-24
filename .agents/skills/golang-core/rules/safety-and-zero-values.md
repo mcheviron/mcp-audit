@@ -23,6 +23,45 @@ Use for pointer-heavy code, collection handling, type assertions, resource manag
 - Validate bounds before integer narrowing or signed/unsigned conversions.
 - Favor designs where useful zero values are safe defaults.
 
+## Nil Slices
+
+- Prefer nil initialization for local slice variables (`var t []string`) over empty composite literals (`t := []string{}`).
+- Do not create APIs that force callers to distinguish between nil and empty slices; both should behave identically.
+- Use `len(s) == 0` to check for emptiness, not `s == nil`.
+
+```go
+// Good: nil slice, ready to append.
+var results []Result
+for _, item := range items {
+	results = append(results, transform(item))
+}
+```
+
+```go
+// Avoid: unnecessary empty composite literal.
+results := []Result{}
+for _, item := range items {
+	results = append(results, transform(item))
+}
+```
+
+## Copy Safety
+
+- Do not copy a value of type `T` if its methods are associated with the pointer type `*T` (e.g., types with `sync.Mutex` fields).
+- Do not copy structs from other packages that contain synchronization primitives (`sync.Mutex`, `sync.WaitGroup`, `sync.Once`).
+- Author APIs to take and return pointer types when structs contain fields that should not be copied.
+
+```go
+// Avoid: copying a struct with a mutex.
+type Scanner struct {
+	mu      sync.Mutex
+	results []Result
+}
+
+s := Scanner{}
+s2 := s // copies the mutex — data race risk
+```
+
 ## Examples
 
 ```go

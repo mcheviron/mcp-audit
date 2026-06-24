@@ -179,7 +179,10 @@ func postPayload(url string, payload uploadPayload) error {
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		respBody, _ := io.ReadAll(resp.Body)
+		respBody, rerr := io.ReadAll(resp.Body)
+		if rerr != nil {
+			return fmt.Errorf("POST %s: HTTP %d: (failed to read body: %w)", url, resp.StatusCode, rerr)
+		}
 		return fmt.Errorf("POST %s: HTTP %d: %s", url, resp.StatusCode, string(respBody))
 	}
 

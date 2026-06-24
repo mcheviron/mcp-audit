@@ -83,7 +83,10 @@ func ExportEvidence(path, keyHex string, results []scanner.Result, chains []scan
 		}
 	}
 
-	entries := buildEvidenceEntries(results, key)
+	entries, err := buildEvidenceEntries(results, key)
+	if err != nil {
+		return err
+	}
 
 	valid := verifyHMACChain(entries, key)
 
@@ -102,11 +105,7 @@ func ExportEvidence(path, keyHex string, results []scanner.Result, chains []scan
 	if err != nil {
 		return fmt.Errorf("create evidence file: %w", err)
 	}
-	defer func() {
-		if cerr := f.Close(); cerr != nil {
-			_ = cerr
-		}
-	}()
+	defer func() { _ = f.Close() }()
 
 	enc := json.NewEncoder(f)
 	enc.SetIndent("", "  ")
@@ -125,12 +124,12 @@ func verifyHMACChain(entries []evidenceEntry, key []byte) bool {
 	return true
 }
 
-func buildEvidenceEntries(results []scanner.Result, key []byte) []evidenceEntry {
+func buildEvidenceEntries(results []scanner.Result, key []byte) ([]evidenceEntry, error) {
 	entries := make([]evidenceEntry, 0, len(results))
 	prevHash := ""
 	for _, r := range results {
 		id := scanner.MakeResultIDForExport(r)
-		dataJSON, _ := json.Marshal(evidenceFinding{
+		dataJSON, err := json.Marshal(evidenceFinding{
 			Severity:   r.Severity.String(),
 			Server:     r.Server,
 			Type:       r.Type,
@@ -139,6 +138,9 @@ func buildEvidenceEntries(results []scanner.Result, key []byte) []evidenceEntry 
 			Compliance: r.Compliance,
 			Related:    r.RelatedFindings,
 		})
+		if err != nil {
+			return nil, fmt.Errorf("marshal evidence finding: %w", err)
+		}
 		h := computeHMAC(key, id, string(dataJSON), prevHash)
 		entries = append(entries, evidenceEntry{
 			ID:       id,
@@ -148,7 +150,7 @@ func buildEvidenceEntries(results []scanner.Result, key []byte) []evidenceEntry 
 		})
 		prevHash = h
 	}
-	return entries
+	return entries, nil
 }
 
 func VerifyEvidenceBundle(path, keyHex string) (bool, error) {
