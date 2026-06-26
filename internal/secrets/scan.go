@@ -16,6 +16,29 @@ func ScanRaw(data []byte, location string) []Finding {
 	var findings []Finding
 	seen := set.New[string](0)
 	for _, p := range Patterns {
+		if p.Name == "apikey" {
+			matched := false
+			for _, m := range p.Re.FindAllStringSubmatch(string(data), -1) {
+				if len(m) < 3 {
+					continue
+				}
+				if looksLikeEnvVarRef(m[2]) {
+					continue
+				}
+				matched = true
+				break
+			}
+			if !matched {
+				continue
+			}
+			key := p.Type + "|" + location
+			if seen.Contains(key) {
+				continue
+			}
+			seen.Insert(key)
+			findings = append(findings, Finding{Type: p.Type, Location: location})
+			continue
+		}
 		if !p.Re.Match(data) {
 			continue
 		}
@@ -67,6 +90,28 @@ func scanString(s string) []Finding {
 	var findings []Finding
 	seen := set.New[string](0)
 	for _, p := range Patterns {
+		if p.Name == "apikey" {
+			matched := false
+			for _, m := range p.Re.FindAllStringSubmatch(s, -1) {
+				if len(m) < 3 {
+					continue
+				}
+				if looksLikeEnvVarRef(m[2]) {
+					continue
+				}
+				matched = true
+				break
+			}
+			if !matched {
+				continue
+			}
+			if seen.Contains(p.Type) {
+				continue
+			}
+			seen.Insert(p.Type)
+			findings = append(findings, Finding{Type: p.Type})
+			continue
+		}
 		if !p.Re.MatchString(s) {
 			continue
 		}
@@ -77,4 +122,14 @@ func scanString(s string) []Finding {
 		findings = append(findings, Finding{Type: p.Type})
 	}
 	return findings
+}
+
+func looksLikeEnvVarRef(v string) bool {
+	if strings.HasPrefix(v, "$") {
+		return true
+	}
+	if strings.HasPrefix(v, "process.env.") {
+		return true
+	}
+	return false
 }

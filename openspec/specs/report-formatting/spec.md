@@ -132,3 +132,47 @@ The system SHALL print a summary block after all findings showing: total servers
 - **WHEN** scan finds 2 CRITICAL, 1 HIGH, 0 MEDIUM, 1 INFO, and 4 PASS across 8 servers
 - **THEN** the summary displays: "2 CRITICAL  1 HIGH  0 MEDIUM  1 INFO  4 PASS  —  8 servers scanned"
 
+### Requirement: Header/footer summary consistency
+The header `Summary:` line and the footer tally SHALL be computed from the same displayed (deduplicated, severity-filtered) result set. The header line SHALL be suppressed when no findings exist.
+
+#### Scenario: Header matches footer after dedup
+- **WHEN** 3 duplicate CRITICAL findings collapse to 1 unique + 1 unique PASS
+- **THEN** both the header `Summary:` and the footer tally show `1 CRITICAL  0 HIGH  ...  1 PASS  —  N servers scanned`
+
+#### Scenario: Header matches footer after severity filter
+- **WHEN** results include PASS but `--severity-min HIGH` is set
+- **THEN** both header and footer show zero PASS
+
+### Requirement: Clean-run summary suppression
+When a scan produces no findings across all severity tiers, the system SHALL suppress the `Summary:` header line and print `0 findings — N servers scanned` on stderr instead of the seven-tuple footer.
+
+#### Scenario: Clean-run output
+- **WHEN** scan produces zero findings across all severities
+- **THEN** stdout omits the `Summary:` line, stderr prints `0 findings — N servers scanned`
+
+### Requirement: Cross-group table column alignment
+The terminal table SHALL be rendered with a single column-alignment pass across all severity groups so that continuation fields (`Detail`, `Remediation:`) start at the same column position in every group. Section headers (`── CRITICAL ──`) and blank-line separators between groups SHALL be written outside the column-alignment pass so they do not influence column widths.
+
+#### Scenario: Remediation column consistent across groups
+- **WHEN** CRITICAL rows have long `ConfigPath` and PASS rows have empty `ConfigPath`
+- **THEN** the `Remediation:` text starts at the same column offset in both groups
+
+### Requirement: Vertical table layout with per-file sub-headers
+The terminal table SHALL group rows within each severity tier by `ConfigPath`. Each distinct config file SHALL be preceded by a sub-header line containing the file path (and `Scope` when set). Rows within a file SHALL print with the format `<SEVERITY>  <server-padded>  <finding>`, where `<server-padded>` is right-padded with spaces to the longest server name in the visible severity group. Remediation text SHALL print on its own line, indented to align with the finding text, prefixed with `↳ Remediation:`. Detail text (if present) SHALL print on its own line, indented like remediation but without a prefix. When a row has no `ConfigPath`, no sub-header SHALL be printed for it.
+
+#### Scenario: Per-file sub-headers emitted
+- **WHEN** 3 PASS findings span 2 different `ConfigPath` values
+- **THEN** the output contains 2 sub-header lines, one per file, and each appears exactly once
+
+#### Scenario: Remediation indented under finding
+- **WHEN** a finding has a `Remediation` field
+- **THEN** the output contains a `↳ Remediation:` line on its own row, indented past the severity+server columns, with the remediation text following
+
+#### Scenario: Server column right-padded
+- **WHEN** 3 rows in the same severity group have server names of different lengths
+- **THEN** the finding texts all start at the same column offset
+
+#### Scenario: No sub-header for empty config path
+- **WHEN** a row has no `ConfigPath`
+- **THEN** no sub-header line is printed for that row; the row prints directly under its severity group heading
+

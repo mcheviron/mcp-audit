@@ -52,11 +52,36 @@ func TestScanRawNegativeCases(t *testing.T) {
 		{"dburl-no-creds", "postgres://localhost/db"},
 		{"mongo-srv-no-creds", "mongodb+srv://cluster.abc12.mongodb.net/"},
 		{"plain", `{"command":"npx","args":["-y","pkg"]}`},
+		{"env-shell", `{"CLICKHOUSE_PASSWORD":"$CLICKHOUSE_PASSWORD_DEV"}`},
+		{"env-brace", `{"CLICKHOUSE_PASSWORD":"${CLICKHOUSE_PASSWORD_DEV}"}`},
+		{"env-vscode", `{"BRAVE_API_KEY":"${env:BRAVE_API_KEY}"}`},
+		{"env-node", `{"MY_TOKEN":"process.env.MY_TOKEN_LITERAL_X"}`},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			if findings := ScanRaw([]byte(tt.input), "config.json"); len(findings) != 0 {
 				t.Fatalf("expected no findings for %q, got %v", tt.name, findings)
+			}
+		})
+	}
+}
+
+func TestScanRawEnvVarPrefixExclusion(t *testing.T) {
+	cases := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"real-openai", `{"api_key":"sk-` + strings.Repeat("a", 24) + `"}`, "API key"},
+		{"real-password-literal", `{"password":"` + strings.Repeat("a", 30) + `"}`, "API key"},
+		{"real-uppercase-key", `{"API_KEY":"sk-` + strings.Repeat("a", 24) + `"}`, "API key"},
+		{"real-secret", `{"client_secret":"` + strings.Repeat("a", 30) + `"}`, "API key"},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			findings := ScanRaw([]byte(tt.input), "config.json")
+			if !findingsContain(findings, tt.want) {
+				t.Fatalf("expected %q in %v", tt.want, findings)
 			}
 		})
 	}

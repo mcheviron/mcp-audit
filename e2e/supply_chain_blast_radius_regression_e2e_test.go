@@ -196,14 +196,15 @@ func TestE2E_SCBR_RegressionStaticScanWithBlastFlags(t *testing.T) {
 	}`
 
 	home := setupHomeDir(t, claudeCfg)
-	out, _, code := runMCPAudit(t, bin, home, "static", "--no-color",
+	out, errOut, code := runMCPAudit(t, bin, home, "static", "--no-color",
 		"--no-project-config", "--no-cve-scan", "--blast-radius",
 		"--compliance-framework", "owasp-llm", "--blast-radius-depth", "3")
 	if code != 0 && code != 3 {
 		t.Fatalf("static with all blast-radius flags failed: %d", code)
 	}
-	if !strings.Contains(out, "PASS") {
-		t.Error("static scan with blast-radius flags missing 'PASS'")
+	combined := out + errOut
+	if !strings.Contains(combined, "PASS") && !strings.Contains(combined, "0 findings") {
+		t.Error("static scan with blast-radius flags produced no severity output")
 	}
 	if strings.Contains(out, "panic") || strings.Contains(out, "fatal") {
 		t.Error("static scan with blast-radius flags contains panic/fatal")

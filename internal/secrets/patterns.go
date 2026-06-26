@@ -28,5 +28,5 @@ var Patterns = []Pattern{
 	{Name: "dburl", Type: "database connection string with credentials",
 		Re: regexp.MustCompile(`(?i)(postgres|mysql|mongodb(\+srv)?|redis)://[^:\s"']+:[^@\s"']+@`)},
 	{Name: "apikey", Type: "API key",
-		Re: regexp.MustCompile(`(?i)"([^"]*api[_-]?key|[^"]*secret|[^"]*token|[^"]*password)"\s*:\s*"[^"]{20,}"`)},
+		Re: regexp.MustCompile(`(?i)"([^"]*api[_-]?key|[^"]*secret|[^"]*token|[^"]*password)"\s*:\s*"([^"]{20,})"`)},
 }

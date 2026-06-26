@@ -54,7 +54,8 @@ func runScanE(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	if err := writeResults(results.Results, chains, f); err != nil {
+	displayed, err := writeResults(results.Results, chains, f)
+	if err != nil {
 		return err
 	}
 
@@ -67,11 +68,11 @@ func runScanE(cmd *cobra.Command, _ []string) error {
 		logger.Info("static scan complete, run probe for SSRF testing", "servers", serverCount)
 	}
 
-	report.PrintSummary(results.Results, serverCount)
+	report.PrintSummary(displayed, serverCount)
 	if err := exitAfterGateCheck(results.Results, s.Heuristic.MinSecurityScore, s.Heuristic.MaxAbsoluteRisk); err != nil {
 		return err
 	}
-	if code := report.ExitCode(results.Results, false); code != 0 {
+	if code := report.ExitCode(displayed, false); code != 0 {
 		return &exitError{code: code, err: fmt.Errorf("scan completed with findings")}
 	}
 	return nil

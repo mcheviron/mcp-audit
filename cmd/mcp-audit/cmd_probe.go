@@ -49,11 +49,12 @@ var probeCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		if err := writeResults(dynResults, probeChains, f); err != nil {
+		displayed, err := writeResults(dynResults, probeChains, f)
+		if err != nil {
 			return err
 		}
 
-		report.PrintSummary(dynResults, report.UniqueServerCount(dynResults))
+		report.PrintSummary(displayed, report.UniqueServerCount(displayed))
 		if err := exitAfterGateCheck(dynResults, s.Heuristic.MinSecurityScore, s.Heuristic.MaxAbsoluteRisk); err != nil {
 			return err
 		}

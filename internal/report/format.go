@@ -11,7 +11,6 @@ import (
 	"sort"
 	"strings"
 	"text/tabwriter"
-	"time"
 
 	"github.com/hashicorp/go-set"
 	"github.com/mcheviron/mcp-audit/internal/scanner"
@@ -46,7 +45,10 @@ func ResolveFormat(f string) Format {
 	}
 }
 
-func Write(w io.Writer, results []scanner.Result, chains []scanner.Chain, format Format, ci *CIInfo) error {
+func Write(
+	w io.Writer, results []scanner.Result, chains []scanner.Chain,
+	format Format, ci *CIInfo, opts TableOptions,
+) error {
 	switch format {
 	case FormatJSON:
 		return writeJSON(w, results, chains)
@@ -55,15 +57,27 @@ func Write(w io.Writer, results []scanner.Result, chains []scanner.Chain, format
 	case FormatJUnit:
 		return writeJUnit(w, results)
 	default:
-		return writeTable(w, results, chains)
+		return writeTable(w, results, chains, opts)
 	}
 }
 
 func writeSummaryLine(w io.Writer, counts map[scanner.Severity]int) error {
+	if allZero(counts) {
+		return nil
+	}
 	_, err := fmt.Fprintf(w, "Summary: %d CRITICAL  %d HIGH  %d MEDIUM  %d LOW  %d INFO  %d PASS\n\n",
 		counts[scanner.SevCritical], counts[scanner.SevHigh], counts[scanner.SevMedium],
 		counts[scanner.SevLow], counts[scanner.SevInfo], counts[scanner.SevPass])
 	return err
+}
+
+func allZero(counts map[scanner.Severity]int) bool {
+	for _, v := range counts {
+		if v != 0 {
+			return false
+		}
+	}
+	return true
 }
 
 func writeComplianceSummary(w io.Writer, results []scanner.Result) {
@@ -127,7 +141,7 @@ func WriteCISummary(w io.Writer, results []scanner.Result, serversScanned int) e
 	return err
 }
 
-func writeTable(w io.Writer, results []scanner.Result, chains []scanner.Chain) error {
+func writeTable(w io.Writer, results []scanner.Result, chains []scanner.Chain, opts TableOptions) error {
 	counts := countBySeverity(results)
 	if err := writeSummaryLine(w, counts); err != nil {
 		return err
@@ -146,197 +160,87 @@ func writeTable(w io.Writer, results []scanner.Result, chains []scanner.Chain) e
 		scanner.SevLow, scanner.SevInfo, scanner.SevPass,
 	}
 
-	for i, sev := range order {
+	emitted := 0
+	for _, sev := range order {
 		g, ok := groups[sev]
 		if !ok || len(g) == 0 {
 			continue
 		}
+		if emitted > 0 {
+			if _, err := fmt.Fprintln(w, ""); err != nil {
+				return err
+			}
+		}
 		if _, err := fmt.Fprintf(w, "── %s ──\n", sev); err != nil {
 			return err
 		}
+		emitted++
+		if err := writeSeverityGroup(w, g, opts); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
-		tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-		for _, r := range g {
-			server := r.Server
-			if r.ConfigPath != "" {
-				label := r.ConfigPath
-				if r.Scope == "project" {
-					label += " (project)"
-				}
-				server += " (" + label + ")"
+func writeSeverityGroup(w io.Writer, g []scanner.Result, opts TableOptions) error {
+	serverWidth := 0
+	for _, r := range g {
+		if l := len(r.Server); l > serverWidth {
+			serverWidth = l
+		}
+	}
+	remIndent := "↳ Remediation: "
+	remPrefixLen := 2 + serverWidth + 2 + len(remIndent)
+	remWidth := contentWidth(opts.Width, remPrefixLen)
+
+	paths := make([]string, 0)
+	pathIndex := map[string]int{}
+	for _, r := range g {
+		key := r.ConfigPath + "|" + r.Scope
+		if _, ok := pathIndex[key]; !ok {
+			pathIndex[key] = len(paths)
+			paths = append(paths, key)
+		}
+	}
+	sort.Strings(paths)
+
+	for _, key := range paths {
+		parts := strings.SplitN(key, "|", 2)
+		path, scope := parts[0], parts[1]
+		if path != "" {
+			label := path
+			if scope == "project" {
+				label += " (project)"
 			}
-			if _, err := fmt.Fprintf(tw, "%s\t%s\t%s\n", colorize(r.Severity.String()), server, r.Finding); err != nil {
+			if _, err := fmt.Fprintf(w, "  %s\n", label); err != nil {
+				return err
+			}
+		}
+		for _, r := range g {
+			if r.ConfigPath != path || r.Scope != scope {
+				continue
+			}
+			padded := r.Server + strings.Repeat(" ", serverWidth-len(r.Server))
+			if _, err := fmt.Fprintf(w, "%s  %s  %s\n",
+				colorize(r.Severity.String()), padded, r.Finding); err != nil {
 				return err
 			}
 			if r.Detail != "" {
-				if _, err := fmt.Fprintf(tw, "\t\t%s\n", r.Detail); err != nil {
+				indent := strings.Repeat(" ", 2+serverWidth+2)
+				if err := writeWrapped(w, "", indent, r.Detail, remWidth); err != nil {
 					return err
 				}
 			}
-			if r.Remediation != "" {
-				if _, err := fmt.Fprintf(tw, "\t\tRemediation: %s\n", r.Remediation); err != nil {
-					return err
-				}
-			}
-		}
-		if err := tw.Flush(); err != nil {
-			return err
-		}
-		if i < len(order)-1 {
-			if next, ok := groups[order[i+1]]; ok && len(next) > 0 {
-				if _, err := fmt.Fprintln(w, ""); err != nil {
+			if r.Remediation != "" &&
+				(r.Severity != scanner.SevPass || opts.ShowPassRemediation) {
+				indent := strings.Repeat(" ", 2+serverWidth+2)
+				if err := writeWrapped(w, remIndent, indent, r.Remediation, remWidth); err != nil {
 					return err
 				}
 			}
 		}
 	}
 	return nil
-}
-
-type jsonOutput struct {
-	Tool              string                    `json:"tool"`
-	Version           string                    `json:"version"`
-	ScanTime          string                    `json:"scan_time"`
-	Summary           jsonSummary               `json:"summary"`
-	Findings          []jsonEntry               `json:"findings"`
-	Scores            []jsonScore               `json:"scores,omitempty"`
-	BlastRadiusChains []jsonChain               `json:"blastRadiusChains,omitempty"`
-	ComplianceSummary map[string]map[string]int `json:"compliance_summary,omitempty"`
-}
-
-type jsonChain struct {
-	Hops        []scanner.ChainHop `json:"hops"`
-	MaxSeverity string             `json:"max_severity"`
-	Truncated   bool               `json:"truncated"`
-}
-
-type jsonSummary struct {
-	Critical       int `json:"critical"`
-	High           int `json:"high"`
-	Medium         int `json:"medium"`
-	Low            int `json:"low"`
-	Info           int `json:"info"`
-	Pass           int `json:"pass"`
-	ServersScanned int `json:"servers_scanned"`
-}
-
-type jsonEntry struct {
-	Severity        string                  `json:"severity"`
-	Server          string                  `json:"server"`
-	Type            string                  `json:"type"`
-	Finding         string                  `json:"finding"`
-	Detail          string                  `json:"detail,omitempty"`
-	ConfigPath      string                  `json:"config_path,omitempty"`
-	Remediation     string                  `json:"remediation,omitempty"`
-	Scope           string                  `json:"scope,omitempty"`
-	Score           float64                 `json:"score,omitempty"`
-	RiskScore       float64                 `json:"risk_score,omitempty"`
-	RelatedFindings []scanner.FindingRef    `json:"related_findings,omitempty"`
-	Compliance      []scanner.ComplianceTag `json:"compliance,omitempty"`
-}
-
-type jsonScore struct {
-	Server    string              `json:"server"`
-	Score     float64             `json:"score"`
-	RiskScore float64             `json:"risk_score,omitempty"`
-	Factors   scanner.RiskFactors `json:"riskFactors"`
-}
-
-func writeJSON(w io.Writer, results []scanner.Result, chains []scanner.Chain) error {
-	counts := countBySeverity(results)
-	servers := uniqueServers(results)
-
-	entries := make([]jsonEntry, len(results))
-	for i, r := range results {
-		entries[i] = jsonEntry{
-			Severity:        r.Severity.String(),
-			Server:          r.Server,
-			Type:            r.Type,
-			Finding:         r.Finding,
-			Detail:          r.Detail,
-			ConfigPath:      r.ConfigPath,
-			Remediation:     r.Remediation,
-			Scope:           r.Scope,
-			Score:           r.Score,
-			RiskScore:       r.RiskScore,
-			RelatedFindings: r.RelatedFindings,
-			Compliance:      r.Compliance,
-		}
-	}
-
-	type serverInfo struct {
-		score     float64
-		riskScore float64
-		factors   scanner.RiskFactors
-	}
-	serverMap := map[string]serverInfo{}
-	for _, r := range results {
-		info := serverMap[r.Server]
-		if r.Score > 0 {
-			info.score = r.Score
-		}
-		if r.RiskScore != 0 {
-			info.riskScore = r.RiskScore
-		}
-		if r.Score > 0 || r.Factors.TyposquatDistance > 0 {
-			info.factors = r.Factors
-		}
-		serverMap[r.Server] = info
-	}
-	scores := make([]jsonScore, 0, len(servers))
-	for _, srv := range servers {
-		if info, ok := serverMap[srv]; ok {
-			scores = append(scores, jsonScore{
-				Server: srv, Score: info.score,
-				RiskScore: info.riskScore, Factors: info.factors,
-			})
-		}
-	}
-
-	out := buildJSONOutput(counts, servers, entries, scores, chains, results)
-
-	enc := json.NewEncoder(w)
-	enc.SetIndent("", "  ")
-	return enc.Encode(out)
-}
-
-func buildJSONOutput(counts map[scanner.Severity]int, servers []string, entries []jsonEntry,
-	scores []jsonScore, chains []scanner.Chain, results []scanner.Result) jsonOutput {
-	jsonChains := make([]jsonChain, len(chains))
-	for i, c := range chains {
-		jsonChains[i] = jsonChain{
-			Hops:        c.Hops,
-			MaxSeverity: c.MaxSeverity.String(),
-			Truncated:   c.Truncated,
-		}
-	}
-	compSummary := map[string]map[string]int{}
-	for _, r := range results {
-		for _, tag := range r.Compliance {
-			if compSummary[tag.Framework] == nil {
-				compSummary[tag.Framework] = map[string]int{}
-			}
-			compSummary[tag.Framework][tag.Control]++
-		}
-	}
-	return jsonOutput{
-		Tool:     "mcp-audit",
-		Version:  "0.1.0",
-		ScanTime: time.Now().UTC().Format(time.RFC3339),
-		Summary: jsonSummary{
-			Critical:       counts[scanner.SevCritical],
-			High:           counts[scanner.SevHigh],
-			Medium:         counts[scanner.SevMedium],
-			Low:            counts[scanner.SevLow],
-			Info:           counts[scanner.SevInfo],
-			Pass:           counts[scanner.SevPass],
-			ServersScanned: len(servers),
-		},
-		Findings:          entries,
-		Scores:            scores,
-		BlastRadiusChains: jsonChains,
-		ComplianceSummary: compSummary,
-	}
 }
 
 func ExitCode(results []scanner.Result, scanErrored bool) int {
@@ -353,6 +257,10 @@ func ExitCode(results []scanner.Result, scanErrored bool) int {
 
 func PrintSummary(results []scanner.Result, serversScanned int) {
 	counts := countBySeverity(results)
+	if allZero(counts) {
+		fmt.Fprintf(os.Stderr, "0 findings — %d servers scanned\n", serversScanned)
+		return
+	}
 
 	fmt.Fprintf(os.Stderr,
 		"%d CRITICAL  %d HIGH  %d MEDIUM  %d LOW  %d INFO  %d PASS  —  %d servers scanned\n",

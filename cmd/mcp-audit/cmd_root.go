@@ -72,6 +72,8 @@ func setupRootFlags(pf *pflag.FlagSet) {
 	pf.IntVar(&f.timeout, "timeout", 30, "timeout in seconds for MCP handshake")
 	pf.IntVar(&f.concurrency, "concurrency", 10, "maximum concurrent probes")
 	pf.BoolVar(&f.noColor, "no-color", false, "disable terminal color codes")
+	pf.BoolVar(&f.showPassRemediation, "show-pass-remediation", false,
+		"include Remediation lines for PASS findings (off by default to reduce noise)")
 	pf.BoolVar(&f.noCrossServerAnalysis, "no-cross-server-analysis", false, "disable cross-server analysis")
 	pf.StringVar(&f.toolsConfig, "tools-config", "", "path to custom tools registry JSON")
 	pf.StringVar(&f.projectDir, "project-dir", "", "directory for project-scoped discovery")
@@ -162,6 +164,7 @@ type flags struct {
 	timeout               int
 	concurrency           int
 	noColor               bool
+	showPassRemediation   bool
 	noCrossServerAnalysis bool
 	toolsConfig           string
 	projectDir            string

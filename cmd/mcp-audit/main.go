@@ -75,7 +75,7 @@ func postProcessResults(results *[]scanner.Result, f flags, logger *slog.Logger)
 	return chains, nil
 }
 
-func writeResults(results []scanner.Result, chains []scanner.Chain, f flags) error {
+func writeResults(results []scanner.Result, chains []scanner.Chain, f flags) ([]scanner.Result, error) {
 	for i := range results {
 		scanner.PopulateRemediation(&results[i])
 	}
@@ -93,10 +93,11 @@ func writeResults(results []scanner.Result, chains []scanner.Chain, f flags) err
 	var outFile *os.File
 	if f.outputFile != "" {
 		var err error
-		outFile, err = os.Create(f.outputFile)
+		outfile, err := os.Create(f.outputFile)
 		if err != nil {
-			return &exitError{code: 2, err: fmt.Errorf("error opening output file: %w", err)}
+			return results, &exitError{code: 2, err: fmt.Errorf("error opening output file: %w", err)}
 		}
+		outFile = outfile
 		w = outFile
 	}
 
@@ -105,14 +106,18 @@ func writeResults(results []scanner.Result, chains []scanner.Chain, f flags) err
 		ciPtr = &f.ciInfo
 	}
 
-	if err := report.Write(w, results, chains, effectiveFormat(f), ciPtr); err != nil {
+	opts := report.TableOptions{
+		ShowPassRemediation: f.showPassRemediation,
+		Width:               report.TerminalWidth(),
+	}
+	if err := report.Write(w, results, chains, effectiveFormat(f), ciPtr, opts); err != nil {
 		if outFile != nil {
 			cerr := outFile.Close()
 			if cerr != nil {
 				slog.Debug("close output file", "err", cerr)
 			}
 		}
-		return &exitError{code: 2, err: fmt.Errorf("error writing output: %w", err)}
+		return results, &exitError{code: 2, err: fmt.Errorf("error writing output: %w", err)}
 	}
 	if outFile != nil {
 		if cerr := outFile.Close(); cerr != nil {
@@ -139,7 +144,7 @@ func writeResults(results []scanner.Result, chains []scanner.Chain, f flags) err
 			fmt.Fprintf(os.Stderr, "error writing CI summary: %v\n", err)
 		}
 	}
-	return nil
+	return results, nil
 }
 
 func filterBySeverity(results []scanner.Result, min scanner.Severity) []scanner.Result {

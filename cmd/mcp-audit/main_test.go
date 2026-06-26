@@ -113,7 +113,9 @@ func TestWriteResultsOutputFile(t *testing.T) {
 	results := []scanner.Result{
 		{Severity: scanner.SevInfo, Server: "test", Type: "static", Finding: "test finding"},
 	}
-	writeResults(results, nil, f)
+	if _, err := writeResults(results, nil, f); err != nil {
+		t.Fatal(err)
+	}
 
 	data, err := os.ReadFile(tmpfile.Name())
 	if err != nil {
@@ -157,7 +159,9 @@ func TestCIFlagForcesSARIF(t *testing.T) {
 	results := []scanner.Result{
 		{Severity: scanner.SevCritical, Server: "test.example.com", Type: "dynamic", Finding: "SSRF found"},
 	}
-	writeResults(results, nil, f)
+	if _, err := writeResults(results, nil, f); err != nil {
+		t.Fatal(err)
+	}
 
 	data, err := os.ReadFile(tmpfile.Name())
 	if err != nil {
@@ -196,7 +200,9 @@ func TestCIFlagSummaryOutput(t *testing.T) {
 		{Severity: scanner.SevMedium, Server: "s1", Type: "dynamic", Finding: "f3"},
 		{Severity: scanner.SevPass, Server: "s3", Type: "static", Finding: "f4"},
 	}
-	writeResults(results, nil, f)
+	if _, err := writeResults(results, nil, f); err != nil {
+		t.Fatal(err)
+	}
 
 	w.Close()
 	var buf bytes.Buffer
@@ -239,7 +245,9 @@ func TestCIFlagNoProvenanceWithoutEnvVars(t *testing.T) {
 	results := []scanner.Result{
 		{Severity: scanner.SevInfo, Server: "test.example.com", Type: "static", Finding: "info"},
 	}
-	writeResults(results, nil, f)
+	if _, err := writeResults(results, nil, f); err != nil {
+		t.Fatal(err)
+	}
 
 	data, err := os.ReadFile(tmpfile.Name())
 	if err != nil {

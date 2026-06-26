@@ -70,3 +70,22 @@ The system SHALL support a `--no-secret-scan` flag to disable credential scannin
 #### Scenario: Secret scanning disabled
 - **WHEN** `--no-secret-scan` is passed
 - **THEN** no credential patterns are applied to config files
+
+### Requirement: Env-var reference exclusion
+The apikey credential pattern SHALL ignore values that are environment-variable references, namely values starting with `$` (covering `$VAR`, `${VAR}`, `${env:VAR}`) or with `process.env.` (Node-style). This avoids false-positive CRITICAL findings on config files that reference shell-exported credentials via env-var substitution.
+
+#### Scenario: Shell env-var ref excluded
+- **WHEN** a config contains `"CLICKHOUSE_PASSWORD": "$CLICKHOUSE_PASSWORD_DEV"`
+- **THEN** no apikey finding is raised
+
+#### Scenario: VS Code env-var ref excluded
+- **WHEN** a config contains `"BRAVE_API_KEY": "${env:BRAVE_API_KEY}"`
+- **THEN** no apikey finding is raised
+
+#### Scenario: Node process.env ref excluded
+- **WHEN** a config contains `"MY_TOKEN": "process.env.MY_TOKEN_LITERAL_X"`
+- **THEN** no apikey finding is raised
+
+#### Scenario: Real literal key still flagged
+- **WHEN** a config contains `"api_key": "sk-...24chars..."`
+- **THEN** a CRITICAL apikey finding IS raised
