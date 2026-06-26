@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/go-set"
@@ -18,8 +19,10 @@ type serverInfo struct {
 	Scope      string
 }
 
-func (s *Scanner) scanCVEs(configs []config.Config) []Result { //nolint:funlen
-	if s.NoCVEScan {
+var cveSem = make(chan struct{}, 1)
+
+func (s *Scanner) scanCVEs(configs []config.Config) []Result {
+	if s.CVE.Disabled {
 		return nil
 	}
 
@@ -28,88 +31,121 @@ func (s *Scanner) scanCVEs(configs []config.Config) []Result { //nolint:funlen
 		return nil
 	}
 
-	if s.CVECacheDir != "" {
-		_ = os.MkdirAll(s.CVECacheDir, 0o700)
+	if s.CVE.CacheDir != "" {
+		_ = os.MkdirAll(s.CVE.CacheDir, 0o700)
 	}
 
-	var results []Result
 	seenPackages := set.New[string](0)
-
+	type pkgWork struct {
+		pkg string
+		srv serverInfo
+	}
+	var work []pkgWork
 	for _, srv := range servers {
 		pkg := strings.TrimSpace(srv.Package)
 		if pkg == "" || seenPackages.Contains(pkg) {
 			continue
 		}
 		seenPackages.Insert(pkg)
-
-		var allEntries []CVEEntry
-
-		if cached, ok := loadCVECache(s.CVECacheDir, pkg, s.CVECacheTTLHours); ok {
-			allEntries = cached
-			slog.Debug("cve cache hit", "package", pkg)
-		} else {
-			eco := guessEcosystem(pkg)
-			var atLeastOneOK bool
-
-			nvdEntries, err := queryNVD(pkg)
-			if err != nil {
-				slog.Warn("NVD query failed", "package", pkg, "error", err)
-			} else {
-				allEntries = append(allEntries, nvdEntries...)
-				atLeastOneOK = true
-			}
-
-			time.Sleep(cveRateLimitDelay)
-
-			ghEntries, err := queryGitHubAdvisory(pkg, eco)
-			if err != nil {
-				slog.Warn("GitHub Advisory query failed", "package", pkg, "error", err)
-			} else {
-				allEntries = append(allEntries, ghEntries...)
-				atLeastOneOK = true
-			}
-
-			deduped := deduplicateCVEs(allEntries)
-
-			if atLeastOneOK {
-				if err := writeCVECache(s.CVECacheDir, pkg, deduped); err != nil {
-					slog.Warn("cve cache write failed", "package", pkg, "error", err)
-				}
-			}
-
-			allEntries = deduped
-		}
-
-		for _, entry := range allEntries {
-			sev := cveSeverity(entry.CVSSScore)
-			detail := fmt.Sprintf("%s (CVSS %.1f)", entry.Description, entry.CVSSScore)
-			if entry.Published != "" {
-				detail += fmt.Sprintf(" | published: %s", entry.Published)
-			}
-			results = append(results, Result{
-				Severity:    sev,
-				Server:      srv.Name,
-				Type:        "cve",
-				Finding:     fmt.Sprintf("%s: %s", entry.ID, entry.Description),
-				Detail:      detail,
-				ConfigPath:  srv.ConfigPath,
-				Remediation: fmt.Sprintf("Review %s and apply vendor patch. See: %s", entry.ID, entry.URL),
-				Scope:       srv.Scope,
-			})
-		}
-
-		if len(allEntries) == 0 {
-			results = append(results, Result{
-				Severity:   SevPass,
-				Server:     srv.Name,
-				Type:       "cve",
-				Finding:    fmt.Sprintf("no known CVEs for package %q", pkg),
-				ConfigPath: srv.ConfigPath,
-				Scope:      srv.Scope,
-			})
-		}
+		work = append(work, pkgWork{pkg: pkg, srv: srv})
 	}
 
+	type pkgResult struct {
+		srv     serverInfo
+		pkg     string
+		entries []CVEEntry
+	}
+	resultsCh := make(chan pkgResult, len(work))
+	var wg sync.WaitGroup
+	for _, w := range work {
+		wg.Add(1)
+		go func(w pkgWork) {
+			defer wg.Done()
+			entries := s.fetchCVEEntries(w.pkg)
+			resultsCh <- pkgResult{srv: w.srv, pkg: w.pkg, entries: entries}
+		}(w)
+	}
+	wg.Wait()
+	close(resultsCh)
+
+	var results []Result
+	for pr := range resultsCh {
+		results = append(results, buildCVEResults(pr.srv, pr.pkg, pr.entries)...)
+	}
+	return results
+}
+
+func (s *Scanner) fetchCVEEntries(pkg string) []CVEEntry {
+	if cached, ok := loadCVECache(s.CVE.CacheDir, pkg, s.CVE.CacheTTLHrs); ok {
+		slog.Debug("cve cache hit", "package", pkg)
+		return cached
+	}
+
+	cveSem <- struct{}{}
+	defer func() { <-cveSem }()
+	time.Sleep(cveRateLimitDelay)
+
+	var (
+		nvdEntries, ghEntries []CVEEntry
+		nvdErr, ghErr         error
+	)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		nvdEntries, nvdErr = queryNVD(pkg)
+		if nvdErr != nil {
+			slog.Warn("NVD query failed", "package", pkg, "error", nvdErr)
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		ghEntries, ghErr = queryGitHubAdvisory(pkg, guessEcosystem(pkg))
+		if ghErr != nil {
+			slog.Warn("GitHub Advisory query failed", "package", pkg, "error", ghErr)
+		}
+	}()
+	wg.Wait()
+
+	deduped := deduplicateCVEs(append(nvdEntries, ghEntries...))
+	if nvdErr == nil || ghErr == nil {
+		if err := writeCVECache(s.CVE.CacheDir, pkg, deduped); err != nil {
+			slog.Warn("cve cache write failed", "package", pkg, "error", err)
+		}
+	}
+	return deduped
+}
+
+func buildCVEResults(srv serverInfo, pkg string, entries []CVEEntry) []Result {
+	var results []Result
+	for _, entry := range entries {
+		sev := cveSeverity(entry.CVSSScore)
+		detail := fmt.Sprintf("%s (CVSS %.1f)", entry.Description, entry.CVSSScore)
+		if entry.Published != "" {
+			detail += fmt.Sprintf(" | published: %s", entry.Published)
+		}
+		results = append(results, Result{
+			Severity:    sev,
+			Server:      srv.Name,
+			Package:     pkg,
+			Type:        "cve",
+			Finding:     fmt.Sprintf("%s: %s", entry.ID, entry.Description),
+			Detail:      detail,
+			ConfigPath:  srv.ConfigPath,
+			Remediation: fmt.Sprintf("Review %s and apply vendor patch. See: %s", entry.ID, entry.URL),
+			Scope:       srv.Scope,
+		})
+	}
+	if len(entries) == 0 {
+		results = append(results, Result{
+			Severity:   SevPass,
+			Server:     srv.Name,
+			Type:       "cve",
+			Finding:    fmt.Sprintf("no known CVEs for package %q", pkg),
+			ConfigPath: srv.ConfigPath,
+			Scope:      srv.Scope,
+		})
+	}
 	return results
 }
 

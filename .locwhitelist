@@ -1,3 +1,9 @@
 # Files accepted to be over 500 lines
 e2e/multi_tier_analysis_formats_test.go
+e2e/multi_tier_analysis_test.go
+e2e/adversarial_test.go
+e2e/ci_cd_integration_test.go
+e2e/expand_tool_coverage_regression_test.go
+e2e/expand_tool_coverage_test.go
+e2e/pluggable_registry_test.go
 internal/scanner/dynamic.go

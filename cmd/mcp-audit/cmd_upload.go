@@ -16,11 +16,8 @@ var uploadCmd = &cobra.Command{
 		logger := newLogger(f.verbose, f.quiet, f.debug)
 		logger.Debug("starting upload")
 
-		s := scanner.New()
-		if !f.noProject {
-			s.ProjectDir = f.projectDir
-		}
-		s.NoSecretScan = f.noSecretScan
+		s := scanner.New(scanner.ScannerConfig{ProjectDir: f.projectDir})
+		s.Snapshot.NoSecretScan = f.noSecretScan
 		if err := s.SetTrustConfig(f.trustConfig); err != nil {
 			if f.trustConfig != "" {
 				logger.Error("trust config error", "error", err)

@@ -18,6 +18,7 @@ import (
 // WHEN a user adds the hook definition to their .pre-commit-config.yaml
 // THEN the pre-commit framework runs `mcp-audit static` on every commit
 func TestE2E_PreCommit_HookDefinitionExists(t *testing.T) {
+	t.Parallel()
 	data, err := os.ReadFile(filepath.Join("..", ".pre-commit-hooks.yaml"))
 	if err != nil {
 		t.Fatalf("failed to read .pre-commit-hooks.yaml: %v", err)
@@ -41,6 +42,7 @@ func TestE2E_PreCommit_HookDefinitionExists(t *testing.T) {
 // WHEN the hook runs on a commit
 // THEN the scan completes in under 2 seconds with no network requests beyond CVE cache
 func TestE2E_PreCommit_FastStaticScan(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -70,6 +72,7 @@ func TestE2E_PreCommit_FastStaticScan(t *testing.T) {
 // THEN the hook exits 0 without running a scan
 // (This tests the hook's files filter -- the hook only triggers on MCP config patterns)
 func TestE2E_PreCommit_HookFilesFilter(t *testing.T) {
+	t.Parallel()
 	data, err := os.ReadFile(filepath.Join("..", ".pre-commit-hooks.yaml"))
 	if err != nil {
 		t.Fatalf("failed to read .pre-commit-hooks.yaml: %v", err)
@@ -90,6 +93,7 @@ func TestE2E_PreCommit_HookFilesFilter(t *testing.T) {
 // WHEN a commit includes changes to .mcp.json
 // THEN the hook runs static analysis on that file
 func TestE2E_PreCommit_ScansMcpJson(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	home := t.TempDir()
@@ -112,6 +116,7 @@ func TestE2E_PreCommit_ScansMcpJson(t *testing.T) {
 // WHEN static scan finds a typosquat match against a blocked package
 // THEN the commit is blocked with the finding details printed
 func TestE2E_PreCommit_CriticalFindingShowsDetails(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -139,6 +144,7 @@ func TestE2E_PreCommit_CriticalFindingShowsDetails(t *testing.T) {
 // WHEN static scan finds a potential typosquat (Levenshtein <= 2 from trusted)
 // THEN the commit proceeds but the finding is displayed as a warning
 func TestE2E_PreCommit_InfoFindingDisplaysWarning(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -171,6 +177,7 @@ func TestE2E_PreCommit_InfoFindingDisplaysWarning(t *testing.T) {
 // WHEN --ci is set and GITHUB_REPOSITORY, GITHUB_REF, GITHUB_SHA are present
 // THEN SARIF output includes versionControlProvenance with those values
 func TestE2E_CIMode_GitHubProvenanceInSarif(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -223,6 +230,7 @@ func TestE2E_CIMode_GitHubProvenanceInSarif(t *testing.T) {
 // WHEN --ci is set and scan completes with findings
 // THEN stdout includes a JSON summary line with severity counts and server count
 func TestE2E_CIMode_SummaryLine(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -270,6 +278,7 @@ func TestE2E_CIMode_SummaryLine(t *testing.T) {
 // WHEN --ci is set but no GITHUB_* env vars are present
 // THEN SARIF output omits versionControlProvenance but the summary line is still printed
 func TestE2E_CIMode_NoGitHubEnvVarsOmitsProvenance(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -312,6 +321,7 @@ func TestE2E_CIMode_NoGitHubEnvVarsOmitsProvenance(t *testing.T) {
 // WHEN GITHUB_REPOSITORY=owner/repo, GITHUB_REF=refs/heads/main, GITHUB_SHA=abc123
 // THEN SARIF run includes versionControlProvenance
 func TestE2E_SarifVersionControlProvenance(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -361,6 +371,7 @@ func TestE2E_SarifVersionControlProvenance(t *testing.T) {
 
 // Regression: --ci without GitHub vars produces valid SARIF
 func TestE2E_SarifValidWithoutProvenance(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -390,6 +401,7 @@ func TestE2E_SarifValidWithoutProvenance(t *testing.T) {
 
 // Edge case: --ci with SARIF format explicitly set
 func TestE2E_CIMode_RespectsFormatFlag(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -425,6 +437,7 @@ func TestE2E_CIMode_RespectsFormatFlag(t *testing.T) {
 
 // Regression: CI mode with --severity-min works correctly
 func TestE2E_CIMode_WithSeverityMin(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -464,6 +477,7 @@ func TestE2E_CIMode_WithSeverityMin(t *testing.T) {
 // WHEN a GitHub Actions workflow references `uses: mcp-audit/action@v1`
 // THEN the action downloads and runs the mcp-audit binary, producing scan results
 func TestE2E_GitHubAction_DefinitionExists(t *testing.T) {
+	t.Parallel()
 	data, err := os.ReadFile(filepath.Join("..", "action", "action.yml"))
 	if err != nil {
 		t.Fatalf("failed to read action/action.yml: %v", err)
@@ -484,6 +498,7 @@ func TestE2E_GitHubAction_DefinitionExists(t *testing.T) {
 // WHEN the action is configured with severity-min: HIGH
 // THEN only HIGH and CRITICAL findings cause the action to fail
 func TestE2E_GitHubAction_SeverityMinHigh(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -509,6 +524,7 @@ func TestE2E_GitHubAction_SeverityMinHigh(t *testing.T) {
 // WHEN the action is configured with targets: "http://staging.internal:8080/"
 // THEN probes target the specified URLs instead of defaults
 func TestE2E_GitHubAction_CustomTargets(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -540,6 +556,7 @@ func TestE2E_GitHubAction_CustomTargets(t *testing.T) {
 // THEN downstream steps can reference output counts
 // (We test that the output file is usable JSON and contains severity counts)
 func TestE2E_GitHubAction_OutputJsonCounts(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -576,6 +593,7 @@ func TestE2E_GitHubAction_OutputJsonCounts(t *testing.T) {
 // THEN the action uploads SARIF to Code Scanning
 // (We test that SARIF output is valid and contains results)
 func TestE2E_GitHubAction_SarifUploadsOnFindings(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -614,6 +632,7 @@ func TestE2E_GitHubAction_SarifUploadsOnFindings(t *testing.T) {
 // WHEN scan produces only PASS and INFO findings
 // THEN the SARIF upload step is skipped
 func TestE2E_GitHubAction_NoFindingsCleanOutput(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -654,6 +673,7 @@ func TestE2E_GitHubAction_NoFindingsCleanOutput(t *testing.T) {
 // WHEN scan finds a CRITICAL finding and severity-min is LOW
 // THEN the workflow step fails with exit code 1
 func TestE2E_GitHubAction_GateBlocksCritical(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -679,6 +699,7 @@ func TestE2E_GitHubAction_GateBlocksCritical(t *testing.T) {
 // WHEN scan finds only INFO and PASS findings with severity-min set to LOW
 // THEN the workflow step succeeds
 func TestE2E_GitHubAction_GatePassesInfoOnly(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -706,6 +727,7 @@ func TestE2E_GitHubAction_GatePassesInfoOnly(t *testing.T) {
 
 // Edge case: --ci with --dry-run should still produce summary
 func TestE2E_CIMode_DryRunWithCi(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -735,6 +757,7 @@ func TestE2E_CIMode_DryRunWithCi(t *testing.T) {
 
 // Regression: normal static scan still works without --ci
 func TestE2E_Regression_StaticWithoutCIStillWorks(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -761,6 +784,7 @@ func TestE2E_Regression_StaticWithoutCIStillWorks(t *testing.T) {
 
 // Regression: --format json still works
 func TestE2E_Regression_JSONFormatStillWorks(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -787,6 +811,7 @@ func TestE2E_Regression_JSONFormatStillWorks(t *testing.T) {
 
 // Regression: --format table still works (default)
 func TestE2E_Regression_TableFormatStillWorks(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -813,6 +838,7 @@ func TestE2E_Regression_TableFormatStillWorks(t *testing.T) {
 
 // Regression: --output-file still works
 func TestE2E_Regression_OutputFileStillWorks(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -845,6 +871,7 @@ func TestE2E_Regression_OutputFileStillWorks(t *testing.T) {
 
 // Edge case: CI mode with partial GitHub env vars (only GITHUB_REPOSITORY set)
 func TestE2E_CIMode_PartialGitHubEnvVars(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -888,6 +915,7 @@ func TestE2E_CIMode_PartialGitHubEnvVars(t *testing.T) {
 
 // Edge case: CI mode with output file should write SARIF to file
 func TestE2E_CIMode_OutputFileWithCI(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -929,6 +957,7 @@ func TestE2E_CIMode_OutputFileWithCI(t *testing.T) {
 
 // Edge case: CI mode tag check — ensure --ci is listed in help
 func TestE2E_CIMode_ListedInHelp(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	cmd := exec.Command(bin, "help")

@@ -33,7 +33,7 @@ func runScanE(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	s.NoSecretScan = f.noSecretScan
+	s.Snapshot.NoSecretScan = f.noSecretScan
 
 	sp := startSpinner("Discovering configs...")
 	results, err := s.Static()
@@ -43,8 +43,8 @@ func runScanE(cmd *cobra.Command, _ []string) error {
 		return &exitError{code: 4, err: fmt.Errorf("scan failed: %w", err)}
 	}
 
-	if s.HeuristicEnabled {
-		results.Results = scanner.ComputeServerScores(results.Results, nil, s.ScoreWeights)
+	if s.Heuristic.Enabled {
+		results.Results = scanner.ComputeServerScores(results.Results, nil, s.Heuristic.ScoreWeights)
 	}
 
 	scanner.LinkFindings(results.Results)
@@ -68,19 +68,18 @@ func runScanE(cmd *cobra.Command, _ []string) error {
 	}
 
 	report.PrintSummary(results.Results, serverCount)
-	if err := exitAfterGateCheck(results.Results, s.MinSecurityScore, s.MaxAbsoluteRisk); err != nil {
+	if err := exitAfterGateCheck(results.Results, s.Heuristic.MinSecurityScore, s.Heuristic.MaxAbsoluteRisk); err != nil {
 		return err
 	}
-	if code := report.ExitCode(results.Results); code != 0 {
+	if code := report.ExitCode(results.Results, false); code != 0 {
 		return &exitError{code: code, err: fmt.Errorf("scan completed with findings")}
 	}
 	return nil
 }
 
 func setupScanner(f flags, logger *slog.Logger) (*scanner.Scanner, error) {
-	s := scanner.New()
-	s.ProjectDir = f.projectDir
-	s.NoCVEScan = f.noCVEScan
+	s := scanner.New(scanner.ScannerConfig{ProjectDir: f.projectDir})
+	s.CVE.Disabled = f.noCVEScan
 	if err := applyScoreConfig(s, f, logger); err != nil {
 		return nil, err
 	}
@@ -89,29 +88,29 @@ func setupScanner(f flags, logger *slog.Logger) (*scanner.Scanner, error) {
 	s.BlockHosts = splitCSV(f.blockHosts)
 	s.Probes = splitCSV(f.targets)
 	s.Transport = f.transport
-	s.AuthToken = firstNonEmpty(f.authToken, os.Getenv("MCP_AUTH_TOKEN"))
-	s.AuthHeaders = splitKeyValue(
+	s.Auth.Token = firstNonEmpty(f.authToken, os.Getenv("MCP_AUTH_TOKEN"))
+	s.Auth.Headers = splitKeyValue(
 		firstNonEmpty(f.authHeaders, os.Getenv("MCP_AUTH_HEADERS")),
 	)
-	s.TLSCertFile = firstNonEmpty(f.tlsCert, os.Getenv("MCP_TLS_CERT"))
-	s.TLSKeyFile = firstNonEmpty(f.tlsKey, os.Getenv("MCP_TLS_KEY"))
+	s.Auth.Cert = firstNonEmpty(f.tlsCert, os.Getenv("MCP_TLS_CERT"))
+	s.Auth.Key = firstNonEmpty(f.tlsKey, os.Getenv("MCP_TLS_KEY"))
 	s.ToolAnalysis = !f.noToolAnalysis
-	s.CrossServerAnalysis = !f.noCrossServerAnalysis
-	s.Adversarial = f.adversarial
-	s.AdversarialMaxProbes = f.adversarialMaxProbes
-	s.SnapshotDir = f.snapshotDir
-	s.NoSnapshot = f.noSnapshot
-	s.NoTrustOnFirstUse = f.noTrustOnFirstUse
-	s.ProbeDepth = f.probeDepth
-	s.CallbackPort = f.callbackPort
-	s.TargetsFile = f.targetsFile
-	s.TimeoutSecs = f.timeout
-	s.Concurrency = f.concurrency
+	s.CrossServer.Enabled = !f.noCrossServerAnalysis
+	s.Adversarial.Enabled = f.adversarial
+	s.Adversarial.MaxProbes = f.adversarialMaxProbes
+	s.Snapshot.Dir = f.snapshotDir
+	s.Snapshot.Disabled = f.noSnapshot
+	s.Snapshot.NoTrustOnFirstUse = f.noTrustOnFirstUse
+	s.Probe.Depth = f.probeDepth
+	s.Probe.CallbackPort = f.callbackPort
+	s.Probe.TargetsFile = f.targetsFile
+	s.Probe.TimeoutSecs = f.timeout
+	s.Probe.Concurrency = f.concurrency
 	if f.maxResponse < 0 {
 		logger.Error("--max-response must be >= 0", "got", f.maxResponse)
 		return nil, &exitError{code: 4, err: fmt.Errorf("--max-response must be >= 0, got %d", f.maxResponse)}
 	}
-	s.MaxResponseSize = min(f.maxResponse, 1048576)
+	s.Probe.MaxResponseSize = min(f.maxResponse, 1048576)
 	if err := s.SetTrustConfig(f.trustConfig); err != nil {
 		if f.trustConfig != "" {
 			logger.Error("trust config error", "error", err)
@@ -122,15 +121,15 @@ func setupScanner(f flags, logger *slog.Logger) (*scanner.Scanner, error) {
 }
 
 func applyScoreConfig(s *scanner.Scanner, f flags, logger *slog.Logger) error {
-	s.HeuristicEnabled = f.heuristic
+	s.Heuristic.Enabled = f.heuristic
 	if w, err := scanner.ParseWeights(f.scoreWeights); err != nil {
 		logger.Error("invalid score weights", "error", err)
 		return &exitError{code: 4, err: fmt.Errorf("invalid score weights: %w", err)}
 	} else {
-		s.ScoreWeights = w
+		s.Heuristic.ScoreWeights = w
 	}
-	s.MinSecurityScore = f.minSecurityScore
-	s.MaxAbsoluteRisk = f.maxAbsoluteRisk
+	s.Heuristic.MinSecurityScore = f.minSecurityScore
+	s.Heuristic.MaxAbsoluteRisk = f.maxAbsoluteRisk
 	return nil
 }
 

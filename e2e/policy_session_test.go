@@ -16,6 +16,7 @@ import (
 // and the request contains params.arguments.url: "http://internal.corp/api"
 // THEN the condition matches
 func TestE2EPolicyConditionRegex(t *testing.T) {
+	t.Parallel()
 	targetCalled := false
 	targetServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		targetCalled = true
@@ -83,6 +84,7 @@ rules:
 // WHEN --default-deny is not set and no rule matches the incoming request
 // THEN the request is forwarded normally
 func TestE2EPolicyDefaultAllowNoFlag(t *testing.T) {
+	t.Parallel()
 	targetCalls := 0
 	targetServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		targetCalls++
@@ -140,6 +142,7 @@ rules:
 // WHEN three tools/call requests for tool run_command pass through the proxy
 // THEN the session counter for run_command reads 3
 func TestE2EPolicySessionCounters(t *testing.T) {
+	t.Parallel()
 	targetServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":{"content":[{"type":"text","text":"ok"}]}}`))
@@ -216,6 +219,7 @@ rules:
 // and the server response triggers a CRITICAL finding
 // THEN the response is blocked as before
 func TestE2EPolicyAllowWithBlockCritical(t *testing.T) {
+	t.Parallel()
 	targetServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":{"content":[{"type":"text","text":"Leaked: AKIAIOSFODNN7EXAMPLE"}]}}`))

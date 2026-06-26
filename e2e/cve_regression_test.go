@@ -9,6 +9,7 @@ import (
 )
 
 func TestE2E_CVE_RegressionVersion(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	out, _, code := runMCPAudit(t, bin, os.Getenv("HOME"), "version")
@@ -21,6 +22,7 @@ func TestE2E_CVE_RegressionVersion(t *testing.T) {
 }
 
 func TestE2E_CVE_RegressionTyposquatStillWorks(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -47,6 +49,7 @@ func TestE2E_CVE_RegressionTyposquatStillWorks(t *testing.T) {
 }
 
 func TestE2E_CVE_RegressionProbeDryRun(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -68,6 +71,7 @@ func TestE2E_CVE_RegressionProbeDryRun(t *testing.T) {
 }
 
 func TestE2E_CVE_RegressionScan(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -87,6 +91,7 @@ func TestE2E_CVE_RegressionScan(t *testing.T) {
 }
 
 func TestE2E_CVE_RegressionJSONOutput(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -116,6 +121,7 @@ func TestE2E_CVE_RegressionJSONOutput(t *testing.T) {
 }
 
 func TestE2E_CVE_RegressionAllFormats(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -149,6 +155,7 @@ func TestE2E_CVE_RegressionAllFormats(t *testing.T) {
 }
 
 func TestE2E_CVE_RegressionOutputFile(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{"mcpServers": {"filesystem": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]}}}`
@@ -177,6 +184,7 @@ func TestE2E_CVE_RegressionOutputFile(t *testing.T) {
 }
 
 func TestE2E_CVE_RegressionNoColor(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{"mcpServers": {"filesystem": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]}}}`
@@ -192,6 +200,7 @@ func TestE2E_CVE_RegressionNoColor(t *testing.T) {
 }
 
 func TestE2E_CVE_RegressionCorruptedConfig(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	home := t.TempDir()

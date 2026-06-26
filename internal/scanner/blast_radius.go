@@ -222,7 +222,10 @@ func buildBlastNodes(results []Result) ([]blastRadiusNode, []blastRadiusNode, []
 		switch r.Type {
 		case "cve":
 			n.typ = "cve"
-			pkg := extractPackageFromFinding(r.Finding)
+			pkg := r.Package
+			if pkg == "" {
+				pkg = extractPackageFromFinding(r.Finding)
+			}
 			n.pkg = pkg
 			if pkg != "" {
 				serverToPackage[r.Server] = pkg

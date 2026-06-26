@@ -59,25 +59,21 @@ func analyzeProbeResult(result probeResult, srv config.ServerEntry) Result {
 		}
 	}
 
-	class := classifyResponse(result.body, result.contentType)
+	a := assessBody(result.body, result.contentType)
 
 	if result.status >= 200 && result.status < 300 {
-		score := scoreResponse(result.body)
-		ent := shannonEntropy(result.body)
-		band := entropyBand(ent)
-
-		if score > 0.7 {
-			if r := checkCriticalPatterns(result, srv); r != nil {
+		if a.score > 0.7 {
+			if r := checkCriticalFromAssessment(result, srv, a); r != nil {
 				return *r
 			}
 		}
 
-		if r, ok := classifyAnalysisPath(result, srv, score, class, ent, band); ok {
+		if r, ok := classifyAnalysisPath(result, srv, a); ok {
 			return r
 		}
 	}
 
-	if result.status >= 400 && class == ResponseError {
+	if result.status >= 400 && a.class == ResponseError {
 		return Result{
 			Severity: SevPass, Server: srv.Name, Type: "dynamic",
 			Finding: fmt.Sprintf("error response from %s (status %d, class=error)",
@@ -85,60 +81,56 @@ func analyzeProbeResult(result probeResult, srv config.ServerEntry) Result {
 		}
 	}
 
-	r := passResult(srv, result)
-	return r
+	return passResult(srv, result)
 }
 
-func classifyAnalysisPath(
-	result probeResult, srv config.ServerEntry,
-	score float64, class ResponseClass, ent float64, band string,
-) (Result, bool) {
-	if class == ResponseError {
+func classifyAnalysisPath(result probeResult, srv config.ServerEntry, a bodyAssessment) (Result, bool) {
+	if a.class == ResponseError {
 		return Result{
 			Severity: SevPass, Server: srv.Name, Type: "dynamic",
 			Finding: fmt.Sprintf("error response from %s (status %d, class=%s)",
-				result.target, result.status, class),
+				result.target, result.status, a.class),
 		}, true
 	}
 
-	if band == "suspicious" && score > 0.3 {
+	if a.band == "suspicious" && a.score > 0.3 {
 		return Result{
 			Severity: SevHigh, Server: srv.Name, Type: "dynamic",
 			Finding: fmt.Sprintf(
 				"low-entropy suspicious response via %s (entropy=%.2f, band=%s, score=%.2f)",
-				result.target, ent, band, score),
+				result.target, a.entropy, a.band, a.score),
 			Detail: redactDetail(result.body)}, true
 	}
 
-	if class == ResponseMetadata {
+	if a.class == ResponseMetadata {
 		return Result{
 			Severity: SevMedium, Server: srv.Name, Type: "dynamic",
 			Finding: fmt.Sprintf("metadata response via %s (class=%s, score=%.2f)",
-				result.target, class, score),
+				result.target, a.class, a.score),
 		}, true
 	}
 
-	if class == ResponseBinary {
+	if a.class == ResponseBinary {
 		return Result{
 			Severity: SevPass, Server: srv.Name, Type: "dynamic",
 			Finding: fmt.Sprintf("binary response from %s (status %d, entropy=%.2f)",
-				result.target, result.status, ent),
+				result.target, result.status, a.entropy),
 		}, true
 	}
 
-	if score < 0.3 {
+	if a.score < 0.3 {
 		return Result{
 			Severity: SevPass, Server: srv.Name, Type: "dynamic",
 			Finding: fmt.Sprintf("low-suspicion response from %s (status %d, score=%.2f)",
-				result.target, result.status, score),
+				result.target, result.status, a.score),
 		}, true
 	}
 
 	return Result{}, false
 }
 
-func checkCriticalPatterns(result probeResult, srv config.ServerEntry) *Result {
-	if AwsKeyPattern.MatchString(result.body) {
+func checkCriticalFromAssessment(result probeResult, srv config.ServerEntry, a bodyAssessment) *Result {
+	if a.containsAwsKey {
 		return &Result{
 			Severity: SevCritical,
 			Server:   srv.Name,
@@ -147,8 +139,7 @@ func checkCriticalPatterns(result probeResult, srv config.ServerEntry) *Result {
 			Detail:   redactDetail(result.body),
 		}
 	}
-
-	if GcpTokenPattern.MatchString(result.body) {
+	if a.containsGcpToken {
 		return &Result{
 			Severity: SevCritical,
 			Server:   srv.Name,
@@ -157,8 +148,7 @@ func checkCriticalPatterns(result probeResult, srv config.ServerEntry) *Result {
 			Detail:   redactDetail(result.body),
 		}
 	}
-
-	if MetadataPattern.MatchString(result.body) {
+	if a.containsMetadata {
 		return &Result{
 			Severity: SevCritical,
 			Server:   srv.Name,
@@ -167,8 +157,7 @@ func checkCriticalPatterns(result probeResult, srv config.ServerEntry) *Result {
 			Detail:   redactDetail(result.body),
 		}
 	}
-
-	if InternalBodyPattern.MatchString(result.body) {
+	if a.containsInternal {
 		return &Result{
 			Severity: SevHigh,
 			Server:   srv.Name,
@@ -179,7 +168,6 @@ func checkCriticalPatterns(result probeResult, srv config.ServerEntry) *Result {
 			),
 		}
 	}
-
 	return nil
 }
 

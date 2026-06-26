@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/mcheviron/mcp-audit/internal/config"
 	"github.com/mcheviron/mcp-audit/internal/mcp"
+	"golang.org/x/sync/errgroup"
 )
 
 func analyzeCallToolResponse(
@@ -45,66 +47,57 @@ func analyzeCallToolResponse(
 }
 
 func evalToolTextBlock(text, toolName, target string, worst *Result) {
-	score := scoreResponse(text)
+	a := assessBody(text, "")
 
-	if score > 0.7 {
-		checkCriticalToolPatterns(text, toolName, target, worst)
+	if a.score > 0.7 {
+		checkCriticalToolPatternsFromAssessment(a, toolName, target, worst)
 	}
 
-	ent := shannonEntropy(text)
-	band := entropyBand(ent)
-	if band == "suspicious" && score > 0.3 && worst.Severity < SevMedium {
+	if a.band == "suspicious" && a.score > 0.3 && worst.Severity < SevMedium {
 		*worst = Result{
 			Severity: SevMedium, Server: worst.Server, Type: "dynamic",
 			Finding: fmt.Sprintf("tool %q returned low-entropy response via probe to %s (entropy=%.2f)",
-				toolName, target, ent),
+				toolName, target, a.entropy),
 			Detail: redactDetail(text),
 		}
 	}
 
-	for i, p := range PromptInjectionPatterns {
-		if m := p.FindString(text); m != "" {
-			if worst.Severity < SevHigh {
-				*worst = Result{
-					Severity: SevHigh, Server: worst.Server, Type: "dynamic",
-					Finding: fmt.Sprintf(
-						"tool %q response contains prompt injection pattern %q (pattern #%d)",
-						toolName, m, i+1),
-					Detail: redactDetail(text),
-				}
-			}
-			return
+	if a.containsPromptInject && worst.Severity < SevHigh {
+		*worst = Result{
+			Severity: SevHigh, Server: worst.Server, Type: "dynamic",
+			Finding: fmt.Sprintf("tool %q response contains prompt injection pattern", toolName),
+			Detail:  redactDetail(text),
 		}
 	}
 }
 
-func checkCriticalToolPatterns(text, toolName, target string, worst *Result) {
-	if MetadataPattern.MatchString(text) && worst.Severity < SevCritical {
+func checkCriticalToolPatternsFromAssessment(a bodyAssessment, toolName, target string, worst *Result) {
+	if a.containsMetadata && worst.Severity < SevCritical {
 		*worst = Result{
 			Severity: SevCritical, Server: worst.Server, Type: "dynamic",
 			Finding: fmt.Sprintf("tool %q leaked metadata via probe to %s", toolName, target),
-			Detail:  redactDetail(text),
+			Detail:  redactDetail(a.text),
 		}
 	}
-	if AwsKeyPattern.MatchString(text) && worst.Severity < SevCritical {
+	if a.containsAwsKey && worst.Severity < SevCritical {
 		*worst = Result{
 			Severity: SevCritical, Server: worst.Server, Type: "dynamic",
 			Finding: fmt.Sprintf("tool %q returned AWS credentials via probe to %s", toolName, target),
-			Detail:  redactDetail(text),
+			Detail:  redactDetail(a.text),
 		}
 	}
-	if GcpTokenPattern.MatchString(text) && worst.Severity < SevCritical {
+	if a.containsGcpToken && worst.Severity < SevCritical {
 		*worst = Result{
 			Severity: SevCritical, Server: worst.Server, Type: "dynamic",
 			Finding: fmt.Sprintf("tool %q returned GCP token via probe to %s", toolName, target),
-			Detail:  redactDetail(text),
+			Detail:  redactDetail(a.text),
 		}
 	}
-	if InternalBodyPattern.MatchString(text) && worst.Severity < SevHigh {
+	if a.containsInternal && worst.Severity < SevHigh {
 		*worst = Result{
 			Severity: SevHigh, Server: worst.Server, Type: "dynamic",
 			Finding: fmt.Sprintf("tool %q returned internal content via probe to %s", toolName, target),
-			Detail:  redactDetail(text),
+			Detail:  redactDetail(a.text),
 		}
 	}
 }
@@ -194,55 +187,69 @@ func probeMCPTool(
 	depth ProbeDepth,
 	cl *CallbackListener,
 ) []Result {
-	var results []Result
-
-	for _, target := range targets {
-		callbackURL := ""
-		if depth >= DepthFull && cl != nil {
-			callbackURL = fmt.Sprintf("http://127.0.0.1:%d/callback", cl.Port)
-		}
-		args := buildProbeArgs(tool, target, callbackURL)
-		callResult, err := mcpClient.CallTool(ctx, tool.Name, args)
-		if err != nil {
-			results = append(results, Result{
-				Severity: SevMedium,
-				Server:   srv.Name,
-				Type:     "dynamic",
-				Finding:  fmt.Sprintf("tool %q probe to %s failed: %v", tool.Name, target, err),
-			})
-			continue
-		}
-
-		results = append(results, analyzeCallToolResponse(callResult, srv, tool.Name, target))
-
-		if depth >= DepthExtended {
-			for hk, hv := range probeHeaders {
-				hdrArgs := buildProbeArgs(tool, target, "")
-				injectHeaderArg(hdrArgs, hk, hv)
-				hdrResult, hdrErr := mcpClient.CallTool(ctx, tool.Name, hdrArgs)
-				if hdrErr != nil {
-					continue
-				}
-				r := analyzeCallToolResponse(hdrResult, srv, tool.Name, target)
-				r.Finding = fmt.Sprintf("[header:%s=%s] %s", hk, hv, r.Finding)
-				results = append(results, r)
-			}
-		}
+	callbackURL := ""
+	if depth >= DepthFull && cl != nil {
+		callbackURL = fmt.Sprintf("http://127.0.0.1:%d/callback", cl.Port)
 	}
 
-	return results
+	g, gctx := errgroup.WithContext(ctx)
+	var mu sync.Mutex
+	var collected []Result
+
+	for _, target := range targets {
+		g.Go(func() error {
+			probeOne := func(hdrKey, hdrVal string) Result {
+				args := buildProbeArgs(tool, target, callbackURL)
+				if hdrKey != "" {
+					injectHeaderArg(args, hdrKey, hdrVal)
+				}
+				res, err := mcpClient.CallTool(gctx, tool.Name, args)
+				if err != nil {
+					return Result{
+						Severity: SevMedium,
+						Server:   srv.Name,
+						Type:     "dynamic",
+						Finding:  fmt.Sprintf("tool %q probe to %s failed: %v", tool.Name, target, err),
+					}
+				}
+				r := analyzeCallToolResponse(res, srv, tool.Name, target)
+				if hdrKey != "" {
+					r.Finding = fmt.Sprintf("[header:%s=%s] %s", hdrKey, hdrVal, r.Finding)
+				}
+				return r
+			}
+
+			mu.Lock()
+			collected = append(collected, probeOne("", ""))
+			mu.Unlock()
+
+			if depth >= DepthExtended {
+				for hk, hv := range probeHeaders {
+					g.Go(func() error {
+						r := probeOne(hk, hv)
+						mu.Lock()
+						collected = append(collected, r)
+						mu.Unlock()
+						return nil
+					})
+				}
+			}
+			return nil
+		})
+	}
+	_ = g.Wait()
+	return collected
 }
 
 func injectHeaderArg(args map[string]any, key, value string) {
-	headerKey := "headers"
-	if _, ok := args[headerKey]; !ok {
-		headerKey = "header"
+	for _, hk := range []string{"headers", "header"} {
+		if existing, ok := args[hk].(map[string]string); ok {
+			existing[key] = value
+			args[hk] = existing
+			return
+		}
 	}
-	if _, ok := args[headerKey]; ok {
-		args[headerKey] = map[string]string{key: value}
-	} else {
-		args["extra_headers"] = map[string]string{key: value}
-	}
+	args["extra_headers"] = map[string]string{key: value}
 }
 
 var PromptInjectionPatterns = []*regexp.Regexp{
@@ -341,37 +348,44 @@ func collectDeobFindings(
 	return false
 }
 
+type capabilityPattern struct {
+	name     string
+	patterns []string
+}
+
+var capabilityPatterns = []capabilityPattern{
+	capabilityPattern{name: "filesystem", patterns: []string{"path", "file", "directory", "folder", "filename"}},
+	capabilityPattern{name: "network", patterns: []string{"url", "uri", "endpoint", "host", "hostname"}},
+	capabilityPattern{name: "shell", patterns: []string{"command", "cmd", "script", "exec", "shell"}},
+	capabilityPattern{name: "database", patterns: []string{"query", "sql", "collection", "table", "database"}},
+}
+
 func classifyToolCapabilities(schema map[string]any) []string {
 	props, _ := schema["properties"].(map[string]any)
 	if props == nil {
 		return nil
 	}
 
-	hasProp := func(keys []string) bool {
-		for key := range props {
-			lowKey := strings.ToLower(key)
-			for _, k := range keys {
-				if strings.Contains(lowKey, k) {
-					return true
-				}
-			}
-		}
-		return false
+	lowKeys := make([]string, 0, len(props))
+	for key := range props {
+		lowKeys = append(lowKeys, strings.ToLower(key))
 	}
 
 	var caps []string
-	if hasProp([]string{"path", "file", "directory", "folder", "filename"}) {
-		caps = append(caps, "filesystem")
+	for _, cap := range capabilityPatterns {
+		for _, lk := range lowKeys {
+			matched := false
+			for _, pat := range cap.patterns {
+				if strings.Contains(lk, pat) {
+					matched = true
+					break
+				}
+			}
+			if matched {
+				caps = append(caps, cap.name)
+				break
+			}
+		}
 	}
-	if hasProp([]string{"url", "uri", "endpoint", "host", "hostname"}) {
-		caps = append(caps, "network")
-	}
-	if hasProp([]string{"command", "cmd", "script", "exec", "shell"}) {
-		caps = append(caps, "shell")
-	}
-	if hasProp([]string{"query", "sql", "collection", "table", "database"}) {
-		caps = append(caps, "database")
-	}
-
 	return caps
 }

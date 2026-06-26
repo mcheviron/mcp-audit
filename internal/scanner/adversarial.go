@@ -7,10 +7,12 @@ import (
 	"log/slog"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/mcheviron/mcp-audit/internal/config"
 	"github.com/mcheviron/mcp-audit/internal/mcp"
+	"golang.org/x/sync/errgroup"
 )
 
 //go:embed probes.txt
@@ -68,8 +70,8 @@ func ProbesByCategory(cat string) []Probe {
 }
 
 type AdversarialResult struct {
-	TrustScore float64
-	Results    []Result
+	RiskScore float64
+	Results   []Result
 }
 
 const (
@@ -141,23 +143,25 @@ func pickTextTools(tools []mcp.Tool, maxN int) []mcp.Tool {
 	return selected
 }
 
-func buildProbeArg(tool mcp.Tool, probeText string) map[string]any {
+func firstStringPropKey(tool mcp.Tool) (string, bool) {
 	props, _ := tool.InputSchema["properties"].(map[string]any)
-	args := map[string]any{}
 	for key, val := range props {
 		pm, ok := val.(map[string]any)
 		if !ok {
 			continue
 		}
 		if pt, _ := pm["type"].(string); pt == "string" {
-			args[key] = probeText
-			break
+			return key, true
 		}
 	}
-	if len(args) == 0 {
-		args["input"] = probeText
+	return "", false
+}
+
+func buildProbeArg(tool mcp.Tool, probeText string) map[string]any {
+	if key, ok := firstStringPropKey(tool); ok {
+		return map[string]any{key: probeText}
 	}
-	return args
+	return map[string]any{"input": probeText}
 }
 
 func RunAdversarialProbes(
@@ -170,7 +174,7 @@ func RunAdversarialProbes(
 ) AdversarialResult {
 	mcpClient, err := handshakeServer(ctx, srv, transportFlag, auth)
 	if err != nil {
-		return AdversarialResult{TrustScore: -1, Results: []Result{{
+		return AdversarialResult{RiskScore: -1, Results: []Result{{
 			Severity: SevInfo, Server: srv.Name, Type: "adversarial",
 			Finding: fmt.Sprintf(
 				"adversarial probe handshake failed: %v", err,
@@ -196,7 +200,7 @@ func execProbes(
 ) AdversarialResult {
 	selectedTools := pickTextTools(tools, 3)
 	if len(selectedTools) == 0 {
-		return AdversarialResult{TrustScore: -1, Results: []Result{{
+		return AdversarialResult{RiskScore: -1, Results: []Result{{
 			Severity: SevInfo, Server: serverName, Type: "adversarial",
 			Finding: fmt.Sprintf(
 				"no text-accepting tools found on server %q", serverName,
@@ -214,7 +218,7 @@ func execProbes(
 		ctx, client, selectedTools, allProbes, serverName, configPath, scope,
 	)
 
-	trustScore, warn := computeTrustScore(sent, succeeded, errCount)
+	riskScore, warn := computeRiskScore(sent, succeeded, errCount)
 	if warn != "" {
 		results = append(results, Result{
 			Severity: SevInfo, Server: serverName, Type: "adversarial",
@@ -224,10 +228,10 @@ func execProbes(
 	}
 
 	for i := range results {
-		results[i].TrustScore = trustScore
+		results[i].RiskScore = riskScore
 	}
 
-	return AdversarialResult{TrustScore: trustScore, Results: results}
+	return AdversarialResult{RiskScore: riskScore, Results: results}
 }
 
 func execAdversarialProbes(
@@ -326,7 +330,7 @@ func formatAdversarialFinding(indicator string, probe Probe, toolName string) st
 	}
 }
 
-func computeTrustScore(sent, succeeded, errCount int) (float64, string) {
+func computeRiskScore(sent, succeeded, errCount int) (float64, string) {
 	if sent == 0 {
 		return -1, "server could not be adversarially tested (all probes errored)"
 	}
@@ -340,53 +344,69 @@ func RunAdversarialFromScanner(s *Scanner) []Result {
 		return nil
 	}
 
-	var results []Result
 	ctx := context.Background()
 	auth := s.authConfig()
 
+	eligible := make([]config.ServerEntry, 0, len(servers))
 	for _, srv := range servers {
-		if s.TrustConfig != nil {
-			scope := s.TrustConfig.ScopeFor(srv.Name, srv.Tool)
+		if s.Trust != nil {
+			scope := s.Trust.ScopeFor(srv.Name, srv.Tool)
 			if len(scope.Blocked) > 0 {
 				continue
 			}
 		}
-
-		probeCtx, cancel := context.WithTimeout(ctx, time.Duration(s.TimeoutSecs)*time.Second)
-		mcpClient, err := handshakeServer(probeCtx, srv, s.Transport, auth)
-		if err != nil {
-			cancel()
-			results = append(results, Result{
-				Severity: SevInfo, Server: srv.Name, Type: "adversarial",
-				Finding:    fmt.Sprintf("adversarial probe handshake failed for %q: %v", srv.Name, err),
-				ConfigPath: srv.ConfigPath, Scope: srv.Scope,
-			})
-			continue
-		}
-
-		tools, listErr := mcpClient.ListTools(probeCtx)
-		cancel()
-		if listErr != nil {
-			if cerr := mcpClient.Close(); cerr != nil {
-				slog.Debug("close adversarial client", "err", cerr)
-			}
-			results = append(results, Result{
-				Severity: SevInfo, Server: srv.Name, Type: "adversarial",
-				Finding:    fmt.Sprintf("adversarial probe tools/list failed for %q: %v", srv.Name, listErr),
-				ConfigPath: srv.ConfigPath, Scope: srv.Scope,
-			})
-			continue
-		}
-
-		advTimeout := time.Duration(s.TimeoutSecs*len(tools.Tools)*s.AdversarialMaxProbes+60) * time.Second
-		advCtx, advCancel := context.WithTimeout(ctx, advTimeout)
-		advResult := execProbes(advCtx, mcpClient, tools.Tools, srv.Name, srv.ConfigPath, srv.Scope, s.AdversarialMaxProbes)
-		advCancel()
-		if cerr := mcpClient.Close(); cerr != nil {
-			slog.Debug("close adversarial client", "err", cerr)
-		}
-		results = append(results, advResult.Results...)
+		eligible = append(eligible, srv)
 	}
 
+	g, gctx := errgroup.WithContext(ctx)
+	g.SetLimit(10)
+	var mu sync.Mutex
+	var results []Result
+
+	for _, srv := range eligible {
+		g.Go(func() error {
+			probeCtx, cancel := context.WithTimeout(gctx, time.Duration(s.Probe.TimeoutSecs)*time.Second)
+			defer cancel()
+			mcpClient, err := handshakeServer(probeCtx, srv, s.Transport, auth)
+			if err != nil {
+				mu.Lock()
+				results = append(results, Result{
+					Severity: SevInfo, Server: srv.Name, Type: "adversarial",
+					Finding:    fmt.Sprintf("adversarial probe handshake failed for %q: %v", srv.Name, err),
+					ConfigPath: srv.ConfigPath, Scope: srv.Scope,
+				})
+				mu.Unlock()
+				return nil
+			}
+			defer func() {
+				if cerr := mcpClient.Close(); cerr != nil {
+					slog.Debug("close adversarial client", "err", cerr)
+				}
+			}()
+
+			tools, listErr := mcpClient.ListTools(probeCtx)
+			if listErr != nil {
+				mu.Lock()
+				results = append(results, Result{
+					Severity: SevInfo, Server: srv.Name, Type: "adversarial",
+					Finding:    fmt.Sprintf("adversarial probe tools/list failed for %q: %v", srv.Name, listErr),
+					ConfigPath: srv.ConfigPath, Scope: srv.Scope,
+				})
+				mu.Unlock()
+				return nil
+			}
+
+			advTimeout := time.Duration(s.Probe.TimeoutSecs+60) * time.Second
+			advCtx, advCancel := context.WithTimeout(gctx, advTimeout)
+			defer advCancel()
+			advResult := execProbes(advCtx, mcpClient, tools.Tools, srv.Name, srv.ConfigPath, srv.Scope, s.Adversarial.MaxProbes)
+			mu.Lock()
+			results = append(results, advResult.Results...)
+			mu.Unlock()
+			return nil
+		})
+	}
+
+	_ = g.Wait()
 	return results
 }

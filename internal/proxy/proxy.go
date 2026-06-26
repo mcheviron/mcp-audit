@@ -14,8 +14,6 @@ import (
 	"net/url"
 	"os"
 	"time"
-
-	"github.com/mcheviron/mcp-audit/internal/scanner"
 )
 
 type Config struct {
@@ -85,8 +83,6 @@ func (p *Proxy) Handler() http.Handler {
 		}
 	}
 
-	var requestMethod string
-
 	director := func(req *http.Request) {
 		req.URL.Scheme = targetURL.Scheme
 		req.URL.Host = targetURL.Host
@@ -97,21 +93,14 @@ func (p *Proxy) Handler() http.Handler {
 		req.Host = targetURL.Host
 
 		if req.Body != nil && req.Body != http.NoBody {
-			var buf bytes.Buffer
-			limited := io.LimitReader(req.Body, 4096)
-			n, err := io.Copy(&buf, limited)
+			bodyBytes, err := io.ReadAll(req.Body)
 			if err != nil {
-				slog.Debug("read request body for method extraction", "err", err)
+				slog.Debug("read request body", "err", err)
 			}
-			bodyBytes := buf.Bytes()
-			requestMethod = extractMethodFromBody(bodyBytes)
+			requestMethod := extractMethodFromBody(bodyBytes)
 			p.inspectRequestFromBody(bodyBytes, requestMethod)
-			if n == 4096 {
-				rest, readErr := io.ReadAll(req.Body)
-				if readErr != nil {
-					slog.Debug("read remaining request body", "err", readErr)
-				}
-				bodyBytes = append(bodyBytes, rest...)
+			req.GetBody = func() (io.ReadCloser, error) {
+				return io.NopCloser(bytes.NewReader(bodyBytes)), nil
 			}
 			req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 		}
@@ -120,7 +109,8 @@ func (p *Proxy) Handler() http.Handler {
 	rp := &httputil.ReverseProxy{
 		Director: director,
 		ModifyResponse: func(resp *http.Response) error {
-			return p.inspectAndModify(resp, requestMethod)
+			method := readRequestMethod(resp.Request)
+			return p.inspectAndModify(resp, method)
 		},
 	}
 
@@ -305,7 +295,10 @@ func (p *Proxy) inspectAndModify(resp *http.Response, method string) error {
 	}
 
 	if p.config.BlockCritical && p.inspector.HasCritical() {
-		crit := p.latestCritical()
+		crit := p.inspector.LastCritical()
+		if crit == nil {
+			return nil
+		}
 		blockRes := map[string]any{
 			"jsonrpc": "2.0",
 			"error": map[string]any{
@@ -323,7 +316,10 @@ func (p *Proxy) inspectAndModify(resp *http.Response, method string) error {
 		resp.Header.Set("Content-Length", fmt.Sprintf("%d", len(blockBody)))
 		resp.Header.Set("Content-Type", "application/json")
 		resp.Header.Set("X-MCP-Audit-Blocked", "true")
-		resp.StatusCode = http.StatusOK
+		resp.Header.Set("X-MCP-Audit-Reason", crit.Message)
+		if resp.StatusCode < 400 {
+			resp.StatusCode = http.StatusForbidden
+		}
 
 		slog.Warn("blocked critical finding", "finding", crit.Message)
 		return nil
@@ -357,15 +353,6 @@ func (p *Proxy) inspectJSONBody(body []byte, method string) {
 	}
 }
 
-func (p *Proxy) latestCritical() *Finding {
-	for i := len(p.inspector.Findings) - 1; i >= 0; i-- {
-		if p.inspector.Findings[i].Severity == scanner.SevCritical {
-			return &p.inspector.Findings[i]
-		}
-	}
-	return nil
-}
-
 func extractRequestInfo(body []byte) (method, tool string, params map[string]any) {
 	var req struct {
 		Method string         `json:"method"`
@@ -392,4 +379,25 @@ func extractMethodFromBody(body []byte) string {
 		return "unknown"
 	}
 	return req.Method
+}
+
+func readRequestMethod(r *http.Request) string {
+	if r == nil {
+		return "unknown"
+	}
+	if r.GetBody == nil {
+		return "unknown"
+	}
+	body, err := r.GetBody()
+	if err != nil {
+		return "unknown"
+	}
+	defer func() {
+		_ = body.Close()
+	}()
+	data, err := io.ReadAll(body)
+	if err != nil {
+		return "unknown"
+	}
+	return extractMethodFromBody(data)
 }

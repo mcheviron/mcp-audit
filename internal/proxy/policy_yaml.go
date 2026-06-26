@@ -256,7 +256,7 @@ func convertScalar(s string) ([]byte, error) {
 		return []byte(s), nil
 	}
 	unquoted := s
-	if strings.HasPrefix(s, "\"") && strings.HasSuffix(s, "\"") {
+	if len(s) >= 2 && strings.HasPrefix(s, "\"") && strings.HasSuffix(s, "\"") {
 		inner := s[1 : len(s)-1]
 		var buf strings.Builder
 		buf.Grow(len(inner))
@@ -283,18 +283,25 @@ func convertScalar(s string) ([]byte, error) {
 			}
 		}
 		unquoted = buf.String()
-	} else if strings.HasPrefix(s, "'") && strings.HasSuffix(s, "'") {
+	} else if len(s) >= 2 && strings.HasPrefix(s, "'") && strings.HasSuffix(s, "'") {
 		unquoted = s[1 : len(s)-1]
 	}
-	escaped := strings.NewReplacer(
-		"\\", "\\\\",
-		"\"", "\\\"",
-		"\n", "\\n",
-		"\r", "\\r",
-		"\t", "\\t",
-	).Replace(unquoted)
+	escaped := yamlStringReplacer.Replace(unquoted)
 	return []byte(`"` + escaped + `"`), nil
 }
+
+var yamlStringReplacer = strings.NewReplacer(
+	"\\", "\\\\",
+	"\"", "\\\"",
+	"\n", "\\n",
+	"\r", "\\r",
+	"\t", "\\t",
+)
+
+var yamlKeyReplacer = strings.NewReplacer(
+	"\\", "\\\\",
+	"\"", "\\\"",
+)
 
 func convertMapping(m map[string]*yamlNode) ([]byte, error) {
 	if len(m) == 0 {
@@ -310,10 +317,7 @@ func convertMapping(m map[string]*yamlNode) ([]byte, error) {
 		}
 		first = false
 		buf.WriteByte('"')
-		buf.WriteString(strings.NewReplacer(
-			"\\", "\\\\",
-			"\"", "\\\"",
-		).Replace(k))
+		buf.WriteString(yamlKeyReplacer.Replace(k))
 		buf.WriteString("\":")
 		valBytes, err := yamlNodeToJSON(m[k])
 		if err != nil {

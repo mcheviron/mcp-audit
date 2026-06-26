@@ -103,6 +103,7 @@ func verifiableHMAC(entries []any, keyHex string) bool {
 }
 
 func TestE2E_EvidenceBundleStructure(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home, _ := setupTestConfig(t, "filesystem")
 
@@ -138,6 +139,7 @@ func TestE2E_EvidenceBundleStructure(t *testing.T) {
 }
 
 func TestE2E_HMACChainVerifiable(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home, _ := setupTestConfig(t, "filesystem")
 
@@ -176,6 +178,7 @@ func TestE2E_HMACChainVerifiable(t *testing.T) {
 }
 
 func TestE2E_HMACChainFailsWithWrongKey(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home, _ := setupTestConfig(t, "filesystem")
 
@@ -211,6 +214,7 @@ func TestE2E_HMACChainFailsWithWrongKey(t *testing.T) {
 }
 
 func TestE2E_NoCveFindingsProducesEmptyChains(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home, _ := setupTestConfig(t, "filesystem")
 
@@ -225,6 +229,7 @@ func TestE2E_NoCveFindingsProducesEmptyChains(t *testing.T) {
 }
 
 func TestE2E_BlastRadiusJSONStructure(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home, _ := setupTestConfig(t, "filesystem")
 
@@ -259,6 +264,7 @@ func TestE2E_BlastRadiusJSONStructure(t *testing.T) {
 }
 
 func TestE2E_BlastRadiusTableOutput(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home, _ := setupTestConfig(t, "filesystem")
 
@@ -274,6 +280,7 @@ func TestE2E_BlastRadiusTableOutput(t *testing.T) {
 }
 
 func TestE2E_BlastRadiusDepthTruncation(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home, _ := setupTestConfig(t, "filesystem")
 
@@ -300,6 +307,7 @@ func TestE2E_BlastRadiusDepthTruncation(t *testing.T) {
 }
 
 func TestE2E_ComplianceFrameworkFilterOWASPOnly(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home, _ := setupTestConfig(t, "filesystem")
 
@@ -326,6 +334,7 @@ func TestE2E_ComplianceFrameworkFilterOWASPOnly(t *testing.T) {
 }
 
 func TestE2E_ComplianceMultipleFrameworks(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home, _ := setupTestConfig(t, "filesystem")
 

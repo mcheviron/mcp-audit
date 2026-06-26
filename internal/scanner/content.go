@@ -31,8 +31,12 @@ func scoreResponse(body string) float64 {
 	}
 	lower := strings.ToLower(body)
 	var totalWeight float64
-	for keyword, weight := range keywordWeights {
-		totalWeight += weight * float64(strings.Count(lower, keyword))
+	for i := 0; i < len(lower); i++ {
+		for keyword, weight := range keywordWeights {
+			if i+len(keyword) <= len(lower) && lower[i:i+len(keyword)] == keyword {
+				totalWeight += weight
+			}
+		}
 	}
 	normFactor := float64(len(body)) / 100.0
 	if normFactor < 1 {
@@ -130,7 +134,8 @@ func isBinaryBody(body string) bool {
 		return false
 	}
 	nonPrintable := 0
-	for _, b := range []byte(body) {
+	for i := 0; i < len(body); i++ {
+		b := body[i]
 		if b < 0x20 && b != '\n' && b != '\r' && b != '\t' {
 			nonPrintable++
 		}

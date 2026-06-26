@@ -18,6 +18,7 @@ type Watcher struct {
 	Interval      time.Duration
 	OnFinding     string
 	ProjectDir    string
+	ctx           context.Context
 	lastModTimes  map[string]time.Time
 	lastFindings  []scanner.Result
 	cachedPaths   []string
@@ -25,10 +26,11 @@ type Watcher struct {
 	debounceCh    chan struct{}
 }
 
-func NewWatcher(interval time.Duration, onFinding string) *Watcher {
+func NewWatcher(ctx context.Context, interval time.Duration, onFinding string) *Watcher {
 	return &Watcher{
 		Interval:     interval,
 		OnFinding:    onFinding,
+		ctx:          ctx,
 		lastModTimes: make(map[string]time.Time),
 		debounceCh:   make(chan struct{}, 1),
 	}
@@ -63,17 +65,17 @@ func (w *Watcher) Watch(ctx context.Context) error {
 			return nil
 		case <-intervalTicker.C:
 			slog.Debug("periodic re-scan triggered")
-			w.runScan()
+			w.runScan(ctx)
 		case <-w.debounceCh:
 			slog.Debug("debounced re-scan triggered by fs change")
-			w.runScan()
+			w.runScan(ctx)
 		case <-pollTicker.C:
 			w.pollChanges()
 		}
 	}
 }
 
-func (w *Watcher) runScan() {
+func (w *Watcher) runScan(ctx context.Context) {
 	results := w.scan()
 	newFindings := w.diffFindings(results)
 	if len(newFindings) > 0 {
@@ -82,7 +84,7 @@ func (w *Watcher) runScan() {
 			slog.Warn("new finding", "severity", f.Severity, "server", f.Server, "finding", f.Finding)
 		}
 		if w.OnFinding != "" {
-			w.executeNotification(newFindings)
+			w.executeNotification(ctx, newFindings)
 		}
 	}
 	w.recordFindings(results)
@@ -117,8 +119,7 @@ func (w *Watcher) debounce() {
 }
 
 func (w *Watcher) scan() []scanner.Result {
-	s := scanner.New()
-	s.ProjectDir = w.ProjectDir
+	s := scanner.New(scanner.ScannerConfig{ProjectDir: w.ProjectDir})
 	results, err := s.Static()
 	if err != nil {
 		slog.Error("scan failed", "error", err)
@@ -155,7 +156,7 @@ func (w *Watcher) diffFindings(current []scanner.Result) []scanner.Result {
 	return newFindings
 }
 
-func (w *Watcher) executeNotification(findings []scanner.Result) {
+func (w *Watcher) executeNotification(ctx context.Context, findings []scanner.Result) {
 	counts := make(map[scanner.Severity]int)
 	for _, f := range findings {
 		counts[f.Severity]++
@@ -170,7 +171,7 @@ func (w *Watcher) executeNotification(findings []scanner.Result) {
 		}
 	}
 
-	cmd := exec.CommandContext(context.Background(), "sh", "-c", w.OnFinding) //nolint:gosec
+	cmd := exec.CommandContext(ctx, "sh", "-c", w.OnFinding) //nolint:gosec
 	cmd.Env = append(os.Environ(),
 		"MCP_AUDIT_FINDINGS="+summary,
 		"MCP_AUDIT_FINDING_COUNT="+strconv.Itoa(len(findings)),

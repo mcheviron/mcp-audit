@@ -34,7 +34,8 @@ type probeResult struct {
 }
 
 func probeTargetDirect(
-	ctx context.Context, method, target string, depth ProbeDepth, maxResp int64, headers ...string,
+	ctx context.Context, client *http.Client, method, target string,
+	depth ProbeDepth, maxResp int64, headers ...string,
 ) probeResult {
 	start := time.Now()
 	req, err := http.NewRequestWithContext(ctx, method, target, nil)
@@ -45,7 +46,6 @@ func probeTargetDirect(
 		req.Header.Set(headers[0], headers[1])
 	}
 
-	client := newProbeClient(5*time.Second, depth)
 	resp, err := client.Do(req)
 	if err != nil {
 		return probeResult{target: target, err: err, duration: time.Since(start)}
@@ -109,7 +109,8 @@ func newProbeClient(timeout time.Duration, depth ProbeDepth) *http.Client {
 	return client
 }
 
-func runDirectProbes( //nolint:funlen
+func runDirectProbes(
+	parentCtx context.Context,
 	httpServers []config.ServerEntry, targets []string, depth ProbeDepth, maxResp int64,
 	concurrency int,
 ) ([]Result, []probeTiming, error) {
@@ -117,63 +118,56 @@ func runDirectProbes( //nolint:funlen
 	var timings []probeTiming
 	var mu sync.Mutex
 
-	g, ctx := errgroup.WithContext(context.Background())
+	g, ctx := errgroup.WithContext(parentCtx)
 	g.SetLimit(concurrency)
+	client := newProbeClient(5*time.Second, depth)
 
 	for _, srv := range httpServers {
 		for _, target := range targets {
 			srv, target := srv, target
 			g.Go(func() error {
+				probeCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+				defer cancel()
 				for _, method := range probeMethods {
 					if method != http.MethodGet && depth < DepthExtended {
 						continue
 					}
+					headerVariants := [][]string{nil}
 					if depth >= DepthExtended {
 						for hk, hv := range probeHeaders {
-							var result probeResult
-							if err := retry(ctx, 3, func() error {
-								result = probeTargetDirect(ctx, method, target, depth, maxResp, hk, hv)
-								return result.err
-							}); err != nil {
-								slog.Debug("probe retry exhausted", "target", target, "err", err)
-							}
-							r := analyzeProbeResult(result, srv)
-							r.ConfigPath = srv.ConfigPath
-							r.Finding = fmt.Sprintf("[%s|%s:%s] %s", method, hk, hv, r.Finding)
-							mu.Lock()
-							results = append(results, r)
-							if result.duration > 0 {
-								timings = append(timings, probeTiming{
-									server: srv.Name, duration: result.duration, configPath: srv.ConfigPath,
-								})
-							}
-							mu.Unlock()
+							headerVariants = append(headerVariants, []string{hk, hv})
 						}
 					}
-					var result probeResult
-					if err := retry(ctx, 3, func() error {
-						result = probeTargetDirect(ctx, method, target, depth, maxResp)
-						return result.err
-					}); err != nil {
-						slog.Debug("probe retry exhausted", "target", target, "err", err)
+					for _, h := range headerVariants {
+						var result probeResult
+						if err := retry(probeCtx, 1, func() error {
+							result = probeTargetDirect(probeCtx, client, method, target, depth, maxResp, h...)
+							return result.err
+						}); err != nil {
+							slog.Debug("probe retry exhausted", "target", target, "err", err)
+						}
+						r := analyzeProbeResult(result, srv)
+						r.ConfigPath = srv.ConfigPath
+						if h != nil {
+							r.Finding = fmt.Sprintf("[%s|%s:%s] %s", method, h[0], h[1], r.Finding)
+						} else {
+							r.Scope = srv.Scope
+							if method != http.MethodGet {
+								r.Finding = fmt.Sprintf("[%s] %s", method, r.Finding)
+							}
+							if result.redirectHop > 0 {
+								r.Finding = fmt.Sprintf("redirect hop %d to %s: %s", result.redirectHop, result.redirect, r.Finding)
+							}
+						}
+						mu.Lock()
+						results = append(results, r)
+						if result.duration > 0 {
+							timings = append(timings, probeTiming{
+								server: srv.Name, duration: result.duration, configPath: srv.ConfigPath,
+							})
+						}
+						mu.Unlock()
 					}
-					r := analyzeProbeResult(result, srv)
-					r.ConfigPath = srv.ConfigPath
-					r.Scope = srv.Scope
-					if method != http.MethodGet {
-						r.Finding = fmt.Sprintf("[%s] %s", method, r.Finding)
-					}
-					if result.redirectHop > 0 {
-						r.Finding = fmt.Sprintf("redirect hop %d to %s: %s", result.redirectHop, result.redirect, r.Finding)
-					}
-					mu.Lock()
-					results = append(results, r)
-					if result.duration > 0 {
-						timings = append(timings, probeTiming{
-							server: srv.Name, duration: result.duration, configPath: srv.ConfigPath,
-						})
-					}
-					mu.Unlock()
 				}
 				return nil
 			})
@@ -292,12 +286,12 @@ func (s *Scanner) runProbes(
 	auth := s.authConfig()
 	allTools := make(map[string][]mcp.Tool)
 	driftCfg := driftConfig{
-		snapshotDir:       s.SnapshotDir,
-		noSnapshot:        s.NoSnapshot,
-		noTrustOnFirstUse: s.NoTrustOnFirstUse,
-		trustConfig:       s.TrustConfig,
+		snapshotDir:       s.Snapshot.Dir,
+		noSnapshot:        s.Snapshot.Disabled,
+		noTrustOnFirstUse: s.Snapshot.NoTrustOnFirstUse,
+		trustConfig:       s.Trust,
 	}
-	maxResp := int64(s.MaxResponseSize)
+	maxResp := int64(s.Probe.MaxResponseSize)
 
 	var directResults, mcpResults []Result
 	var directTimings []probeTiming
@@ -305,7 +299,7 @@ func (s *Scanner) runProbes(
 
 	g, gctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
-		directResults, directTimings, dirErr = runDirectProbes(httpServers, targets, depth, maxResp, concurrency)
+		directResults, directTimings, dirErr = runDirectProbes(gctx, httpServers, targets, depth, maxResp, concurrency)
 		return dirErr
 	})
 	g.Go(func() error {

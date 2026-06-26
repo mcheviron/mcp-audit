@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/mcheviron/mcp-audit/internal/config"
+	"github.com/mcheviron/mcp-audit/internal/types"
 	"github.com/mcheviron/mcp-audit/pkg/levenshtein"
 )
 
@@ -17,6 +18,7 @@ type FindingRef struct {
 type Result struct {
 	Severity    Severity
 	Server      string
+	Package     string
 	Type        string
 	Finding     string
 	Detail      string
@@ -24,7 +26,7 @@ type Result struct {
 	Remediation string
 	Scope       string
 	Score       float64
-	TrustScore  float64
+	RiskScore   float64
 	Factors     RiskFactors
 
 	RelatedFindings []FindingRef
@@ -36,53 +38,20 @@ type ComplianceTag struct {
 	Control   string `json:"control"`
 }
 
-type Severity int
+type Severity = types.Severity
 
 const (
-	SevPass Severity = iota
-	SevInfo
-	SevLow
-	SevMedium
-	SevHigh
-	SevCritical
+	SevPass     = types.SevPass
+	SevInfo     = types.SevInfo
+	SevLow      = types.SevLow
+	SevMedium   = types.SevMedium
+	SevHigh     = types.SevHigh
+	SevCritical = types.SevCritical
 )
 
-func (s Severity) String() string {
-	switch s {
-	case SevPass:
-		return "PASS"
-	case SevInfo:
-		return "INFO"
-	case SevLow:
-		return "LOW"
-	case SevMedium:
-		return "MEDIUM"
-	case SevHigh:
-		return "HIGH"
-	case SevCritical:
-		return "CRITICAL"
-	default:
-		return "UNKNOWN"
-	}
-}
-
 func ParseSeverity(s string) Severity {
-	switch s {
-	case "PASS":
-		return SevPass
-	case "INFO":
-		return SevInfo
-	case "LOW":
-		return SevLow
-	case "MEDIUM":
-		return SevMedium
-	case "HIGH":
-		return SevHigh
-	case "CRITICAL":
-		return SevCritical
-	default:
-		return SevPass
-	}
+	v, _ := types.ParseSeverity(s)
+	return v
 }
 
 type StaticResults struct {
@@ -112,7 +81,7 @@ func (s *Scanner) Static() (*StaticResults, error) {
 			continue
 		}
 		for _, srv := range cfg.Servers {
-			r := checkTyposquat(srv, s.TrustConfig)
+			r := checkTyposquat(srv, s.Trust)
 			for i := range r {
 				r[i].ConfigPath = srv.ConfigPath
 				r[i].Scope = srv.Scope

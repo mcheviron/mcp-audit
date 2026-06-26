@@ -9,6 +9,7 @@ import (
 )
 
 func TestE2E_Expand_ClaudeCodeProjectMCPJSON(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -35,6 +36,7 @@ func TestE2E_Expand_ClaudeCodeProjectMCPJSON(t *testing.T) {
 }
 
 func TestE2E_Expand_ClaudeCodeGlobalConfigFallback(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -57,6 +59,7 @@ func TestE2E_Expand_ClaudeCodeGlobalConfigFallback(t *testing.T) {
 }
 
 func TestE2E_Expand_ClaudeCodeBothProjectAndGlobal(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -90,6 +93,7 @@ func TestE2E_Expand_ClaudeCodeBothProjectAndGlobal(t *testing.T) {
 }
 
 func TestE2E_Expand_ClineConfigExists(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -126,6 +130,7 @@ func TestE2E_Expand_ClineConfigExists(t *testing.T) {
 }
 
 func TestE2E_Expand_ClineNotInstalled(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -148,6 +153,7 @@ func TestE2E_Expand_ClineNotInstalled(t *testing.T) {
 }
 
 func TestE2E_Expand_ClineMultipleServers(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -197,6 +203,7 @@ func TestE2E_Expand_ClineMultipleServers(t *testing.T) {
 }
 
 func TestE2E_Expand_CopilotCLIConfigExists(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -223,6 +230,7 @@ func TestE2E_Expand_CopilotCLIConfigExists(t *testing.T) {
 }
 
 func TestE2E_Expand_CopilotCLINotInstalled(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -245,6 +253,7 @@ func TestE2E_Expand_CopilotCLINotInstalled(t *testing.T) {
 }
 
 func TestE2E_Expand_CopilotMixedStdioHTTP(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -271,6 +280,7 @@ func TestE2E_Expand_CopilotMixedStdioHTTP(t *testing.T) {
 }
 
 func TestE2E_Expand_GeminiProjectConfig(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -297,6 +307,7 @@ func TestE2E_Expand_GeminiProjectConfig(t *testing.T) {
 }
 
 func TestE2E_Expand_GeminiGlobalSettings(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -323,6 +334,7 @@ func TestE2E_Expand_GeminiGlobalSettings(t *testing.T) {
 }
 
 func TestE2E_Expand_GeminiNotInstalled(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -340,6 +352,7 @@ func TestE2E_Expand_GeminiNotInstalled(t *testing.T) {
 }
 
 func TestE2E_Expand_GeminiNestedMcpServers(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -364,6 +377,7 @@ func TestE2E_Expand_GeminiNestedMcpServers(t *testing.T) {
 }
 
 func TestE2E_Expand_ZedUnderscoreKey(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -390,6 +404,7 @@ func TestE2E_Expand_ZedUnderscoreKey(t *testing.T) {
 }
 
 func TestE2E_Expand_ZedCamelCaseKey(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -412,6 +427,7 @@ func TestE2E_Expand_ZedCamelCaseKey(t *testing.T) {
 }
 
 func TestE2E_Expand_EmptyMcpServersInConfig(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -445,6 +461,7 @@ func TestE2E_Expand_EmptyMcpServersInConfig(t *testing.T) {
 }
 
 func TestE2E_Expand_ZedUnderscoreParsedIdentically(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home1 := t.TempDir()
 	home2 := t.TempDir()

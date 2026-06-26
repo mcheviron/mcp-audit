@@ -102,8 +102,8 @@ func NewSPDX(servers []DiscoveredServer, cves map[string][]CVEResult, ver string
 		SPDXVersion:       "SPDX-2.3",
 		DataLicense:       "CC0-1.0",
 		SPDXID:            "SPDXRef-DOCUMENT",
-		Name:              fmt.Sprintf("mcp-audit-sbom-%s", time.Now().Format("20060102")),
-		DocumentNamespace: fmt.Sprintf("https://mcp-audit.dev/sbom/%s", time.Now().Format("20060102")),
+		Name:              sbomName(),
+		DocumentNamespace: sbomNamespace(),
 		CreationInfo: CreationInfo{
 			Created:  time.Now().UTC().Format(time.RFC3339),
 			Creators: []string{fmt.Sprintf("Tool: mcp-audit-%s", ver)},
@@ -115,6 +115,14 @@ func NewSPDX(servers []DiscoveredServer, cves map[string][]CVEResult, ver string
 
 func (d Document) ToJSON() ([]byte, error) {
 	return json.MarshalIndent(d, "", "  ")
+}
+
+func sbomName() string {
+	return fmt.Sprintf("mcp-audit-sbom-%s-%d", time.Now().Format("20060102"), time.Now().UnixNano()%1000000)
+}
+
+func sbomNamespace() string {
+	return fmt.Sprintf("https://mcp-audit.dev/sbom/%s-%d", time.Now().Format("20060102"), time.Now().UnixNano()%1000000)
 }
 
 func (d Document) ToTagValue() ([]byte, error) {

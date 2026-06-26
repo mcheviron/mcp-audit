@@ -10,6 +10,7 @@ import (
 )
 
 func TestE2E_CVE_NoCVEScanFlag(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -36,6 +37,7 @@ func TestE2E_CVE_NoCVEScanFlag(t *testing.T) {
 }
 
 func TestE2E_CVE_ScanRunsByDefault(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -72,6 +74,7 @@ func TestE2E_CVE_ScanRunsByDefault(t *testing.T) {
 }
 
 func TestE2E_CVE_CacheDirAndTTL(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -129,6 +132,7 @@ func TestE2E_CVE_CacheDirAndTTL(t *testing.T) {
 }
 
 func TestE2E_CVE_CacheDirDefault(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -159,6 +163,7 @@ func TestE2E_CVE_CacheDirDefault(t *testing.T) {
 }
 
 func TestE2E_CVE_JSONOutputStructure(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -203,6 +208,7 @@ func TestE2E_CVE_JSONOutputStructure(t *testing.T) {
 }
 
 func TestE2E_CVE_TableOutputHasCVE(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -226,6 +232,7 @@ func TestE2E_CVE_TableOutputHasCVE(t *testing.T) {
 }
 
 func TestE2E_CVE_SARIFOutputHasCVERules(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -261,6 +268,7 @@ func TestE2E_CVE_SARIFOutputHasCVERules(t *testing.T) {
 }
 
 func TestE2E_CVE_EmptyConfig(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -282,6 +290,7 @@ func TestE2E_CVE_EmptyConfig(t *testing.T) {
 }
 
 func TestE2E_CVE_ConfigWithoutPackages(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -309,6 +318,7 @@ func TestE2E_CVE_ConfigWithoutPackages(t *testing.T) {
 }
 
 func TestE2E_CVE_MultiplePackages(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -346,6 +356,7 @@ func TestE2E_CVE_MultiplePackages(t *testing.T) {
 }
 
 func TestE2E_CVE_HelpShowsCVEflags(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	out, err := exec.Command(bin, "help").Output()
@@ -367,6 +378,7 @@ func TestE2E_CVE_HelpShowsCVEflags(t *testing.T) {
 }
 
 func TestE2E_CVE_ConfigFileDefaults(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -405,6 +417,7 @@ func TestE2E_CVE_ConfigFileDefaults(t *testing.T) {
 }
 
 func TestE2E_CVE_ConfigFileNoCVEScan(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -445,6 +458,7 @@ func TestE2E_CVE_ConfigFileNoCVEScan(t *testing.T) {
 }
 
 func TestE2E_CVE_scanSubcommandIncludesCVE(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{

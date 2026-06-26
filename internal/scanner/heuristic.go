@@ -3,6 +3,8 @@ package scanner
 import (
 	"fmt"
 	"math"
+	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/hashicorp/go-set"
@@ -166,41 +168,6 @@ type resultCounts struct {
 	highSevNetwork   bool
 }
 
-func countFindingsForServer(results []Result, server string) resultCounts {
-	rc := resultCounts{minTyposquatDist: 100}
-	for _, r := range results {
-		if r.Server != server {
-			continue
-		}
-		switch r.Type {
-		case "static":
-			if r.Severity == SevInfo && containsPattern(r.Finding, "typosquat", "distance") {
-				rc.typosquatCount++
-				if d := extractDistance(r.Finding); d > 0 && d < rc.minTyposquatDist {
-					rc.minTyposquatDist = d
-				}
-			}
-			if containsPattern(r.Finding, "shell") {
-				rc.hasShell = true
-			}
-			if containsPattern(r.Finding, "capabilities:") {
-				rc.capCount++
-			}
-		case "cve":
-			rc.cveCount++
-			if r.Severity >= SevHigh {
-				rc.cveHighCount++
-			}
-		case "dynamic":
-			if r.Severity >= SevHigh && containsPattern(r.Finding,
-				"redirect", "internal", "metadata", "leaked", "exposed") {
-				rc.highSevNetwork = true
-			}
-		}
-	}
-	return rc
-}
-
 func computeTyposquatFactor(rc resultCounts) float64 {
 	if rc.typosquatCount == 0 {
 		return 100
@@ -254,20 +221,49 @@ func computeNetworkFactor(rc resultCounts) float64 {
 func extractRiskFactors(results []Result, allTools map[string][]mcp.Tool) map[string]RiskFactors {
 	factors := map[string]RiskFactors{}
 
+	counts := map[string]*resultCounts{}
 	servers := set.New[string](0)
 	for _, r := range results {
-		servers.Insert(r.Server)
+		s := r.Server
+		if !servers.Contains(s) {
+			servers.Insert(s)
+			counts[s] = &resultCounts{minTyposquatDist: 100}
+		}
+		rc := counts[s]
+		switch r.Type {
+		case "static":
+			if r.Severity == SevInfo && containsPattern(r.Finding, "typosquat", "distance") {
+				rc.typosquatCount++
+				if d := extractDistance(r.Finding); d > 0 && d < rc.minTyposquatDist {
+					rc.minTyposquatDist = d
+				}
+			}
+			if containsPattern(r.Finding, "shell") {
+				rc.hasShell = true
+			}
+			if containsPattern(r.Finding, "capabilities:") {
+				rc.capCount++
+			}
+		case "cve":
+			rc.cveCount++
+			if r.Severity >= SevHigh {
+				rc.cveHighCount++
+			}
+		case "dynamic":
+			if r.Severity >= SevHigh && containsPattern(r.Finding,
+				"redirect", "internal", "metadata", "leaked", "exposed") {
+				rc.highSevNetwork = true
+			}
+		}
 	}
 
-	for _, server := range servers.Slice() {
-		rc := countFindingsForServer(results, server)
-
+	for server, rc := range counts {
 		rf := RiskFactors{
-			TyposquatDistance:  computeTyposquatFactor(rc),
-			CVECount:           computeCVEFactor(rc),
-			CapabilityBreadth:  computeCapabilityFactor(rc),
+			TyposquatDistance:  computeTyposquatFactor(*rc),
+			CVECount:           computeCVEFactor(*rc),
+			CapabilityBreadth:  computeCapabilityFactor(*rc),
 			DescriptionQuality: 100,
-			NetworkExposure:    computeNetworkFactor(rc),
+			NetworkExposure:    computeNetworkFactor(*rc),
 		}
 
 		if tools, ok := allTools[server]; ok {
@@ -298,19 +294,17 @@ func containsPattern(s string, patterns ...string) bool {
 	return false
 }
 
+var distanceDigitsRE = regexp.MustCompile(`distance\s+(\d+)`)
+
 func extractDistance(finding string) int {
 	idx := strings.Index(strings.ToLower(finding), "distance")
 	if idx < 0 {
 		return 0
 	}
-	rest := finding[idx+8:]
-	digits := 0
-	for _, c := range rest {
-		if c >= '0' && c <= '9' {
-			digits = digits*10 + int(c-'0')
-		} else if digits > 0 {
-			break
-		}
+	match := distanceDigitsRE.FindStringSubmatch(finding[idx:])
+	if len(match) < 2 {
+		return 0
 	}
+	digits, _ := strconv.Atoi(match[1])
 	return digits
 }

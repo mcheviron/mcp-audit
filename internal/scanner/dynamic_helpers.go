@@ -80,8 +80,8 @@ func runToolAnalysis(tools *mcp.ListToolsResult, srv config.ServerEntry, results
 
 func (s *Scanner) partitionServers() (httpServers, mcpServers []config.ServerEntry) {
 	for _, srv := range s.collectServers() {
-		if s.TrustConfig != nil {
-			scope := s.TrustConfig.ScopeFor(srv.Name, srv.Tool)
+		if s.Trust != nil {
+			scope := s.Trust.ScopeFor(srv.Name, srv.Tool)
 			if len(scope.Blocked) > 0 {
 				continue
 			}
@@ -99,8 +99,8 @@ func (s *Scanner) resolveTargets(depth ProbeDepth) []string {
 		return filterTargets(s.Probes, s.AllowHosts, s.BlockHosts)
 	}
 	probeURLs := getProbeTargets(depth)
-	if s.TargetsFile != "" {
-		if loaded := loadTargetsFile(s.TargetsFile); len(loaded) > 0 {
+	if s.Probe.TargetsFile != "" {
+		if loaded := loadTargetsFile(s.Probe.TargetsFile); len(loaded) > 0 {
 			probeURLs = loaded
 		}
 	}
@@ -128,25 +128,25 @@ func dryRunResults(mcpServers []config.ServerEntry, targets []string, depth Prob
 	return results
 }
 
-func (s *Scanner) Probe(dryRun bool) []Result {
+func (s *Scanner) RunProbe(dryRun bool) []Result {
 	httpServers, mcpServers := s.partitionServers()
-	depth := s.ProbeDepth
+	depth := s.Probe.Depth
 	targets := s.resolveTargets(depth)
 
 	if dryRun {
 		return dryRunResults(mcpServers, targets, depth)
 	}
 
-	concurrency := s.Concurrency
+	concurrency := s.Probe.Concurrency
 	if concurrency <= 0 {
 		concurrency = 10
 	}
-	timeoutSecs := s.TimeoutSecs
+	timeoutSecs := s.Probe.TimeoutSecs
 	if timeoutSecs <= 0 {
 		timeoutSecs = 30
 	}
 
-	overallTimeout := time.Duration(timeoutSecs*concurrency+30) * time.Second
+	overallTimeout := time.Duration(timeoutSecs+30) * time.Second
 	ctx, cancel := context.WithTimeout(context.Background(), overallTimeout)
 	defer cancel()
 
@@ -169,7 +169,7 @@ func (s *Scanner) setupCallbackListener(depth ProbeDepth) *CallbackListener {
 	if depth < DepthFull {
 		return nil
 	}
-	cl, err := startCallbackListener(s.CallbackPort)
+	cl, err := startCallbackListener(s.Probe.CallbackPort)
 	if err != nil {
 		slog.Warn("callback listener could not bind, blind SSRF detection disabled", "err", err)
 	}
@@ -182,7 +182,7 @@ func (s *Scanner) analyzeCollectedTools(allTools map[string][]mcp.Tool, results 
 		results = append(results, shadowResults...)
 	}
 
-	if s.CrossServerAnalysis && len(allTools) > 1 {
+	if s.CrossServer.Enabled && len(allTools) > 1 {
 		crossResults := runCrossServerAnalysis(allTools)
 		results = append(results, crossResults...)
 	}

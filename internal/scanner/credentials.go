@@ -9,7 +9,7 @@ import (
 )
 
 func (s *Scanner) checkCredentials(cfg config.Config) []Result {
-	if s.NoSecretScan {
+	if s.Snapshot.NoSecretScan {
 		return nil
 	}
 	var results []Result

@@ -39,8 +39,8 @@ func init() {
 	rootCmd.Version = version
 }
 
-func runPersistentPre(_ *cobra.Command, _ []string) error {
-	return validateAndApply(&f)
+func runPersistentPre(cmd *cobra.Command, _ []string) error {
+	return validateAndApply(cmd, &f)
 }
 
 func setupRootFlags(pf *pflag.FlagSet) {
@@ -95,78 +95,7 @@ func setupRootFlags(pf *pflag.FlagSet) {
 	pf.StringVar(&f.evidenceKey, "evidence-key", "", "HMAC key for evidence bundle (hex)")
 }
 
-func parseFlags(args []string) (flags, error) { //nolint:unused // called by tests
-	tmp := &cobra.Command{DisableFlagParsing: false}
-	setupRootFlags(tmp.PersistentFlags())
-	tmp.PersistentPreRunE = func(_ *cobra.Command, _ []string) error {
-		return nil
-	}
-	tmp.SetArgs(args)
-	if err := tmp.Execute(); err != nil {
-		return flags{}, err
-	}
-	result := extractFlagValues(tmp.PersistentFlags())
-	if err := validateAndApply(&result); err != nil {
-		return result, err
-	}
-	return result, nil
-}
-
-func extractFlagValues(pf *pflag.FlagSet) flags { //nolint:unused // called by parseFlags which is used by tests
-	var r flags
-	r.formatRaw, _ = pf.GetString("format")
-	r.dryRun, _ = pf.GetBool("dry-run")
-	r.allowHosts, _ = pf.GetString("allow-hosts")
-	r.blockHosts, _ = pf.GetString("block-hosts")
-	r.targets, _ = pf.GetString("targets")
-	r.trustConfig, _ = pf.GetString("trust-config")
-	r.transport, _ = pf.GetString("transport")
-	r.authToken, _ = pf.GetString("auth-token")
-	r.authHeaders, _ = pf.GetString("auth-headers")
-	r.tlsCert, _ = pf.GetString("tls-cert")
-	r.tlsKey, _ = pf.GetString("tls-key")
-	r.noToolAnalysis, _ = pf.GetBool("no-tool-analysis")
-	r.snapshotDir, _ = pf.GetString("snapshot-dir")
-	r.noSnapshot, _ = pf.GetBool("no-snapshot")
-	r.noTrustOnFirstUse, _ = pf.GetBool("no-trust-on-first-use")
-	r.noSecretScan, _ = pf.GetBool("no-secret-scan")
-	r.probeDepthRaw, _ = pf.GetString("probe-depth")
-	r.callbackPort, _ = pf.GetInt("callback-port")
-	r.targetsFile, _ = pf.GetString("targets-file")
-	r.maxResponse, _ = pf.GetInt("max-response")
-	r.verbose, _ = pf.GetBool("verbose")
-	r.quiet, _ = pf.GetBool("quiet")
-	r.debug, _ = pf.GetBool("debug")
-	r.severityMinRaw, _ = pf.GetString("severity-min")
-	r.outputFile, _ = pf.GetString("output-file")
-	r.timeout, _ = pf.GetInt("timeout")
-	r.concurrency, _ = pf.GetInt("concurrency")
-	r.noColor, _ = pf.GetBool("no-color")
-	r.noCrossServerAnalysis, _ = pf.GetBool("no-cross-server-analysis")
-	r.toolsConfig, _ = pf.GetString("tools-config")
-	r.projectDir, _ = pf.GetString("project-dir")
-	r.noProject, _ = pf.GetBool("no-project-config")
-	r.noCVEScan, _ = pf.GetBool("no-cve-scan")
-	r.cveCacheDir, _ = pf.GetString("cve-cache-dir")
-	r.cveCacheTTL, _ = pf.GetInt("cve-cache-ttl")
-	r.ci, _ = pf.GetBool("ci")
-	r.ciSummaryFile, _ = pf.GetString("ci-summary-file")
-	r.heuristic, _ = pf.GetBool("heuristic")
-	r.scoreWeights, _ = pf.GetString("score-weights")
-	r.minSecurityScore, _ = pf.GetFloat64("min-security-score")
-	r.maxAbsoluteRisk, _ = pf.GetFloat64("max-absolute-risk")
-	r.llmEndpoint, _ = pf.GetString("llm-endpoint")
-	r.adversarial, _ = pf.GetBool("adversarial")
-	r.adversarialMaxProbes, _ = pf.GetInt("adversarial-max-probes")
-	r.blastRadius, _ = pf.GetBool("blast-radius")
-	r.blastRadiusDepth, _ = pf.GetInt("blast-radius-depth")
-	r.complianceFramework, _ = pf.GetString("compliance-framework")
-	r.exportEvidence, _ = pf.GetString("export-evidence")
-	r.evidenceKey, _ = pf.GetString("evidence-key")
-	return r
-}
-
-func validateAndApply(f *flags) error {
+func validateAndApply(cmd *cobra.Command, f *flags) error {
 	if f.noProject {
 		f.projectDir = ""
 	} else if f.projectDir == "" {
@@ -197,7 +126,7 @@ func validateAndApply(f *flags) error {
 			Enabled:   true,
 		}
 	}
-	applyConfigDefaults(f)
+	applyConfigDefaults(cmd, f)
 	return nil
 }
 
@@ -274,7 +203,7 @@ func newLogger(verbose, quiet, debug bool) *slog.Logger {
 	return logger
 }
 
-func applyConfigDefaults(f *flags) {
+func applyConfigDefaults(cmd *cobra.Command, f *flags) {
 	cfg := configfile.Load()
 	if cfg.Format != "" && f.format == report.FormatTable {
 		f.format = report.ResolveFormat(cfg.Format)
@@ -291,33 +220,40 @@ func applyConfigDefaults(f *flags) {
 	if cfg.BlockHosts != "" && f.blockHosts == "" {
 		f.blockHosts = cfg.BlockHosts
 	}
-	if cfg.Timeout != 0 && f.timeout == 30 {
+	if cfg.Timeout != 0 && !flagChanged(cmd, "timeout") {
 		f.timeout = cfg.Timeout
 	}
-	if cfg.Concurrency != 0 && f.concurrency == 10 {
+	if cfg.Concurrency != 0 && !flagChanged(cmd, "concurrency") {
 		f.concurrency = cfg.Concurrency
 	}
-	if cfg.ProbeDepth != "" && f.probeDepth == scanner.DepthBasic {
+	if cfg.ProbeDepth != "" && !flagChanged(cmd, "probe-depth") {
 		f.probeDepth = scanner.ParseProbeDepth(cfg.ProbeDepth)
 	}
-	if cfg.MaxResponse != 0 && f.maxResponse == 65536 {
+	if cfg.MaxResponse != 0 && !flagChanged(cmd, "max-response") {
 		f.maxResponse = cfg.MaxResponse
 	}
-	if cfg.NoColor && !f.noColor {
+	if cfg.NoColor && !flagChanged(cmd, "no-color") {
 		f.noColor = cfg.NoColor
 	}
-	if cfg.SnapshotDir != "" && f.snapshotDir == "" {
+	if cfg.SnapshotDir != "" && !flagChanged(cmd, "snapshot-dir") {
 		f.snapshotDir = cfg.SnapshotDir
 	}
-	if cfg.NoCVEScan && !f.noCVEScan {
+	if cfg.NoCVEScan && !flagChanged(cmd, "no-cve-scan") {
 		f.noCVEScan = cfg.NoCVEScan
 	}
-	if cfg.CVECacheDir != "" && f.cveCacheDir == "" {
+	if cfg.CVECacheDir != "" && !flagChanged(cmd, "cve-cache-dir") {
 		f.cveCacheDir = cfg.CVECacheDir
 	}
-	if cfg.CVECacheTTL != 0 && f.cveCacheTTL == 24 {
+	if cfg.CVECacheTTL != 0 && !flagChanged(cmd, "cve-cache-ttl") {
 		f.cveCacheTTL = cfg.CVECacheTTL
 	}
+}
+
+func flagChanged(cmd *cobra.Command, name string) bool {
+	if cmd == nil {
+		return false
+	}
+	return cmd.PersistentFlags().Changed(name)
 }
 
 func defaultCVECacheDir() string {
@@ -329,11 +265,11 @@ func defaultCVECacheDir() string {
 }
 
 func applyCVECacheDefaults(s *scanner.Scanner, cacheDir string, cacheTTL int) {
-	s.CVECacheDir = cacheDir
-	s.CVECacheTTLHours = cacheTTL
-	if s.CVECacheDir == "" {
+	s.CVE.CacheDir = cacheDir
+	s.CVE.CacheTTLHrs = cacheTTL
+	if s.CVE.CacheDir == "" {
 		if dir := defaultCVECacheDir(); dir != "" {
-			s.CVECacheDir = dir
+			s.CVE.CacheDir = dir
 		}
 	}
 }

@@ -53,6 +53,7 @@ func writeCustomToolsJSON(t *testing.T, dir string, tools []map[string]any) stri
 }
 
 func TestE2E_AllBuiltinToolsConfigured(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -105,6 +106,7 @@ func TestE2E_AllBuiltinToolsConfigured(t *testing.T) {
 }
 
 func TestE2E_UserDefinedToolDiscovered(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -141,6 +143,7 @@ func TestE2E_UserDefinedToolDiscovered(t *testing.T) {
 }
 
 func TestE2E_NoConfigsFound(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -159,6 +162,7 @@ func TestE2E_NoConfigsFound(t *testing.T) {
 }
 
 func TestE2E_PartialConfigOneToolMissing(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -185,6 +189,7 @@ func TestE2E_PartialConfigOneToolMissing(t *testing.T) {
 }
 
 func TestE2E_TOMLFormatToolDiscovered(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -237,6 +242,7 @@ args = ["server.js"]
 }
 
 func TestE2E_UserToolsMergeBeforeDiscovery(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -269,6 +275,7 @@ func TestE2E_UserToolsMergeBeforeDiscovery(t *testing.T) {
 }
 
 func TestE2E_TOMLStdioServer(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -312,6 +319,7 @@ args = ["-y", "@scope/pkg"]
 }
 
 func TestE2E_TOMLStreamableHTTPServer(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -379,6 +387,7 @@ bearer_token_env_var = "E2E_AUTH_TOKEN"
 }
 
 func TestE2E_TOMLServerWithCustomHeaders(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -406,6 +415,7 @@ http_headers = { X-Custom = "val123" }
 }
 
 func TestE2E_TOMLServerWithEnvVars(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -433,6 +443,7 @@ env = { NODE_ENV = "production", PORT = "3000" }
 }
 
 func TestE2E_TOMLMalformedConfig(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -459,6 +470,7 @@ func TestE2E_TOMLMalformedConfig(t *testing.T) {
 }
 
 func TestE2E_TOMLEmptyConfig(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -477,6 +489,7 @@ func TestE2E_TOMLEmptyConfig(t *testing.T) {
 }
 
 func TestE2E_CodexMacOSPath(t *testing.T) {
+	t.Parallel()
 	if runtime.GOOS != "darwin" {
 		t.Skip("macOS-specific test")
 	}
@@ -508,6 +521,7 @@ args = ["-y", "@scope/macos-pkg"]
 }
 
 func TestE2E_UserAddsNewTool(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -543,6 +557,7 @@ func TestE2E_UserAddsNewTool(t *testing.T) {
 }
 
 func TestE2E_UserOverridesBuiltinTool(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -582,6 +597,7 @@ func TestE2E_UserOverridesBuiltinTool(t *testing.T) {
 }
 
 func TestE2E_MalformedToolsJSON(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -609,6 +625,7 @@ func TestE2E_MalformedToolsJSON(t *testing.T) {
 }
 
 func TestE2E_MissingToolsJSON(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -631,6 +648,7 @@ func TestE2E_MissingToolsJSON(t *testing.T) {
 }
 
 func TestE2E_CustomToolsConfigPath(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -667,6 +685,7 @@ func TestE2E_CustomToolsConfigPath(t *testing.T) {
 }
 
 func TestE2E_UserToolOverridesBuiltinWithWarning(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -746,6 +765,7 @@ env = { DEBUG = "1" }
 }
 
 func TestE2E_RegressionBuiltinToolsStillWork(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -767,6 +787,7 @@ func TestE2E_RegressionBuiltinToolsStillWork(t *testing.T) {
 }
 
 func TestE2E_RegressionVersionWorks(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := os.Getenv("HOME")
 	out, _, code := runMCPAudit(t, bin, home, "version")
@@ -779,6 +800,7 @@ func TestE2E_RegressionVersionWorks(t *testing.T) {
 }
 
 func TestE2E_RegressionScanDryRun(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -795,6 +817,7 @@ func TestE2E_RegressionScanDryRun(t *testing.T) {
 }
 
 func TestE2E_RegressionJSONOutput(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -819,6 +842,7 @@ func TestE2E_RegressionJSONOutput(t *testing.T) {
 }
 
 func TestE2E_RegressionTOMLNoCrashOnNoCodexDir(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -840,6 +864,7 @@ func TestE2E_RegressionTOMLNoCrashOnNoCodexDir(t *testing.T) {
 }
 
 func TestE2E_RegressionSARIFOutputWorks(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -859,6 +884,7 @@ func TestE2E_RegressionSARIFOutputWorks(t *testing.T) {
 }
 
 func TestE2E_TildePathExpansion(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -890,6 +916,7 @@ func TestE2E_TildePathExpansion(t *testing.T) {
 }
 
 func TestE2E_EmptyToolsArray(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -912,6 +939,7 @@ func TestE2E_EmptyToolsArray(t *testing.T) {
 }
 
 func TestE2E_UserToolWithoutFormatDefaultsToJSON(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -941,6 +969,7 @@ func TestE2E_UserToolWithoutFormatDefaultsToJSON(t *testing.T) {
 }
 
 func TestE2E_ProbeStillDiscoversCodexServers(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -966,6 +995,7 @@ url = "http://127.0.0.1:19999"
 }
 
 func TestE2E_TOMLUnknownFormatFallsBack(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -996,6 +1026,7 @@ command = "echo"
 }
 
 func TestE2E_TOMLSectionWithNeitherCommandNorURL(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -1022,6 +1053,7 @@ env = { FOO = "bar" }
 }
 
 func TestE2E_MultipleServersInTOML(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -1058,6 +1090,7 @@ args = ["server.js"]
 }
 
 func TestE2E_NonExistentUserToolPath(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -1077,6 +1110,7 @@ func TestE2E_NonExistentUserToolPath(t *testing.T) {
 }
 
 func TestE2E_UserToolWithBlankNameSkipped(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -1096,6 +1130,7 @@ func TestE2E_UserToolWithBlankNameSkipped(t *testing.T) {
 }
 
 func TestE2E_RegressionTableOutputWorks(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 

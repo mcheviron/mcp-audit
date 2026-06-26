@@ -170,7 +170,7 @@ func TestCVESeverityMapping(t *testing.T) {
 		{4.0, SevMedium},
 		{3.9, SevLow},
 		{0.1, SevLow},
-		{0.0, SevMedium},
+		{0.0, SevInfo},
 	}
 	for _, tc := range tests {
 		got := cveSeverity(tc.score)
@@ -243,7 +243,7 @@ func TestGuessEcosystem(t *testing.T) {
 	}{
 		{"@scope/server", "npm"},
 		{"github.com/foo/bar", "go"},
-		{"simple-package", "npm"},
+		{"simple-package", "pypi"},
 		{"example.com/module", "go"},
 	}
 	for _, tc := range tests {

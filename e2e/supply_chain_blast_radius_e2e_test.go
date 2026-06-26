@@ -26,6 +26,7 @@ func runStaticJSONWithCVE(t *testing.T, bin, home string, extraArgs ...string) m
 }
 
 func TestE2E_SCBR_RelatedFindingsCVECredential(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -96,6 +97,7 @@ func TestE2E_SCBR_RelatedFindingsCVECredential(t *testing.T) {
 }
 
 func TestE2E_SCBR_NoRelatedFindingsIsolatedCVE(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -142,6 +144,7 @@ func TestE2E_SCBR_NoRelatedFindingsIsolatedCVE(t *testing.T) {
 }
 
 func TestE2E_SCBR_BlastRadiusChainsStructure(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -215,6 +218,7 @@ func TestE2E_SCBR_BlastRadiusChainsStructure(t *testing.T) {
 }
 
 func TestE2E_SCBR_DepthTruncationWithCVEs(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -253,6 +257,7 @@ func TestE2E_SCBR_DepthTruncationWithCVEs(t *testing.T) {
 }
 
 func TestE2E_SCBR_ComplianceFrameworkAll(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -283,6 +288,7 @@ func TestE2E_SCBR_ComplianceFrameworkAll(t *testing.T) {
 }
 
 func TestE2E_SCBR_ComplianceFrameworkMultiple(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -327,6 +333,7 @@ func TestE2E_SCBR_ComplianceFrameworkMultiple(t *testing.T) {
 }
 
 func TestE2E_SCBR_ComplianceFrameworkInvalid(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -348,6 +355,7 @@ func TestE2E_SCBR_ComplianceFrameworkInvalid(t *testing.T) {
 }
 
 func TestE2E_SCBR_TableOutputShowsBlastRadius(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -376,6 +384,7 @@ func TestE2E_SCBR_TableOutputShowsBlastRadius(t *testing.T) {
 }
 
 func TestE2E_SCBR_EvidenceBundleComprehensive(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{

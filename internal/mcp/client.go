@@ -171,7 +171,15 @@ func toMap(v any) map[string]any {
 	return m
 }
 
-func NewStdioClient(ctx context.Context, command string, args []string, _ time.Duration) Client {
+func NewStdioClient(ctx context.Context, command string, args []string, timeout time.Duration) Client {
+	if timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+		go func() {
+			<-ctx.Done()
+			cancel()
+		}()
+	}
 	cmd := exec.CommandContext(ctx, command, args...)
 	tr := &sdkmcp.CommandTransport{Command: cmd}
 	return &stdioClient{transport: tr, cmd: cmd}

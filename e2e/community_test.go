@@ -18,6 +18,7 @@ import (
 // =============================================================================
 
 func TestE2E_EmbeddedDefaultsUsed_NoUserTrustConfig(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -45,6 +46,7 @@ func TestE2E_EmbeddedDefaultsUsed_NoUserTrustConfig(t *testing.T) {
 
 // Regression: scan still works with embedded defaults and finds typosquats
 func TestE2E_EmbeddedDefaultsUsed_TyposquatStillDetected(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -76,6 +78,7 @@ func TestE2E_EmbeddedDefaultsUsed_TyposquatStillDetected(t *testing.T) {
 // =============================================================================
 
 func TestE2E_UserConfigOverridesEmbedded(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	// User config trusts only @google/ — NOT @modelcontextprotocol/
@@ -111,6 +114,7 @@ func TestE2E_UserConfigOverridesEmbedded(t *testing.T) {
 // =============================================================================
 
 func TestE2E_TrustExport_OutputsValidJSON(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	home := t.TempDir()
@@ -141,6 +145,7 @@ func TestE2E_TrustExport_OutputsValidJSON(t *testing.T) {
 
 // Regression: export after import reflects merged config
 func TestE2E_TrustExport_AfterImportShowsMerge(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	home := t.TempDir()
@@ -187,6 +192,7 @@ func TestE2E_TrustExport_AfterImportShowsMerge(t *testing.T) {
 // =============================================================================
 
 func TestE2E_TrustImport_MergesIntoLocal(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	home := t.TempDir()
@@ -231,6 +237,7 @@ func TestE2E_TrustImport_MergesIntoLocal(t *testing.T) {
 
 // Edge case: import a malformed file
 func TestE2E_TrustImport_MalformedFile(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	home := t.TempDir()
@@ -248,6 +255,7 @@ func TestE2E_TrustImport_MalformedFile(t *testing.T) {
 
 // Edge case: import with missing argument
 func TestE2E_TrustImport_MissingArg(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	home := t.TempDir()
@@ -264,6 +272,7 @@ func TestE2E_TrustImport_MissingArg(t *testing.T) {
 // =============================================================================
 
 func TestE2E_TrustUpdate_SubcommandWiredUp(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	home := t.TempDir()
@@ -296,6 +305,7 @@ func TestE2E_TrustUpdate_SubcommandWiredUp(t *testing.T) {
 
 // Scenario: Update preserves local changes — prompt when local differs
 func TestE2E_TrustUpdate_PromptsBeforeOverwrite(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 

@@ -41,10 +41,9 @@ var watchCmd = &cobra.Command{
 		}
 
 		_ = newLogger(false, false, false)
-		w := daemon.NewWatcher(time.Duration(watchInterval)*time.Second, onFinding)
-		w.ProjectDir = pDir
-
 		return withSignalContext(func(ctx context.Context) error {
+			w := daemon.NewWatcher(ctx, time.Duration(watchInterval)*time.Second, onFinding)
+			w.ProjectDir = pDir
 			return w.Watch(ctx)
 		})
 	},

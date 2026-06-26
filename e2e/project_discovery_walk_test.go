@@ -99,6 +99,7 @@ func runMCPAuditWithCwd(t *testing.T, bin, home, cwd string, args ...string) (st
 }
 
 func TestE2EProjectDiscoveryConfigAtCwd(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	home := setupHomeWithClaudeDesktop(t, `{"mcpServers":{}}`)
@@ -129,6 +130,7 @@ func TestE2EProjectDiscoveryConfigAtCwd(t *testing.T) {
 }
 
 func TestE2EProjectDiscoveryConfigOneLevelUp(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	home := setupHomeWithClaudeDesktop(t, `{"mcpServers":{}}`)
@@ -164,6 +166,7 @@ func TestE2EProjectDiscoveryConfigOneLevelUp(t *testing.T) {
 }
 
 func TestE2EProjectDiscoveryNoProjectConfigFallsBackToGlobal(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	home := setupHomeWithClaudeDesktop(t, `{"mcpServers":{"global-srv":{"command":"echo","args":["global"]}}}`)
@@ -190,6 +193,7 @@ func TestE2EProjectDiscoveryNoProjectConfigFallsBackToGlobal(t *testing.T) {
 }
 
 func TestE2EProjectDiscoveryNoProjectFlag(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	home := setupHomeWithClaudeDesktop(t, `{"mcpServers":{"global-srv":{"command":"echo","args":["global"]}}}`)
@@ -227,6 +231,7 @@ func TestE2EProjectDiscoveryNoProjectFlag(t *testing.T) {
 }
 
 func TestE2EProjectDiscoveryProjectDirFlag(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	home := setupHomeWithClaudeDesktop(t, `{"mcpServers":{}}`)
@@ -258,6 +263,7 @@ func TestE2EProjectDiscoveryProjectDirFlag(t *testing.T) {
 }
 
 func TestE2EProjectDiscoveryNoConfigsFound(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	home := t.TempDir()
@@ -280,6 +286,7 @@ func TestE2EProjectDiscoveryNoConfigsFound(t *testing.T) {
 }
 
 func TestE2EProjectDiscoveryCorruptProjectConfig(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	home := setupHomeWithClaudeDesktop(t, `{"mcpServers":{"ok-srv":{"command":"echo","args":["ok"]}}}`)
@@ -316,6 +323,7 @@ func TestE2EProjectDiscoveryCorruptProjectConfig(t *testing.T) {
 }
 
 func TestE2EProjectDiscoveryAllToolsConfigured(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	home := setupHomeWithClaudeDesktop(t, `{"mcpServers":{"a":{"command":"echo","args":["a"]}}}`)

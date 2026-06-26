@@ -2,7 +2,6 @@ package proxy
 
 import (
 	"cmp"
-	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -12,7 +11,6 @@ import (
 	"slices"
 	"strings"
 	"sync"
-	"time"
 )
 
 type PolicyCondition struct {
@@ -131,19 +129,11 @@ func (e *PolicyEngine) evaluateCondition(cond PolicyConditionOp, actual string) 
 		if cond.compiledRegex == nil {
 			return false
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-		defer cancel()
-		done := make(chan bool, 1)
-		go func() {
-			done <- cond.compiledRegex.MatchString(actual)
-		}()
-		select {
-		case result := <-done:
-			return result
-		case <-ctx.Done():
-			slog.Warn("regex evaluation timed out", "pattern", cond.Value)
+		if len(actual) > 64*1024 {
+			slog.Warn("regex input exceeds cap; skipping", "pattern", cond.Value)
 			return false
 		}
+		return cond.compiledRegex.MatchString(actual)
 	default:
 		return false
 	}

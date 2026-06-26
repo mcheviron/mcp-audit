@@ -135,7 +135,7 @@ func writeTable(w io.Writer, results []scanner.Result, chains []scanner.Chain) e
 	if err := writeScoreSection(w, results); err != nil {
 		return err
 	}
-	if err := writeTrustScoreSection(w, results); err != nil {
+	if err := writeRiskScoreSection(w, results); err != nil {
 		return err
 	}
 	writeComplianceSummary(w, results)
@@ -230,16 +230,16 @@ type jsonEntry struct {
 	Remediation     string                  `json:"remediation,omitempty"`
 	Scope           string                  `json:"scope,omitempty"`
 	Score           float64                 `json:"score,omitempty"`
-	TrustScore      float64                 `json:"trust_score,omitempty"`
+	RiskScore       float64                 `json:"risk_score,omitempty"`
 	RelatedFindings []scanner.FindingRef    `json:"related_findings,omitempty"`
 	Compliance      []scanner.ComplianceTag `json:"compliance,omitempty"`
 }
 
 type jsonScore struct {
-	Server     string              `json:"server"`
-	Score      float64             `json:"score"`
-	TrustScore float64             `json:"trust_score,omitempty"`
-	Factors    scanner.RiskFactors `json:"riskFactors"`
+	Server    string              `json:"server"`
+	Score     float64             `json:"score"`
+	RiskScore float64             `json:"risk_score,omitempty"`
+	Factors   scanner.RiskFactors `json:"riskFactors"`
 }
 
 func writeJSON(w io.Writer, results []scanner.Result, chains []scanner.Chain) error {
@@ -258,16 +258,16 @@ func writeJSON(w io.Writer, results []scanner.Result, chains []scanner.Chain) er
 			Remediation:     r.Remediation,
 			Scope:           r.Scope,
 			Score:           r.Score,
-			TrustScore:      r.TrustScore,
+			RiskScore:       r.RiskScore,
 			RelatedFindings: r.RelatedFindings,
 			Compliance:      r.Compliance,
 		}
 	}
 
 	type serverInfo struct {
-		score      float64
-		trustScore float64
-		factors    scanner.RiskFactors
+		score     float64
+		riskScore float64
+		factors   scanner.RiskFactors
 	}
 	serverMap := map[string]serverInfo{}
 	for _, r := range results {
@@ -275,8 +275,8 @@ func writeJSON(w io.Writer, results []scanner.Result, chains []scanner.Chain) er
 		if r.Score > 0 {
 			info.score = r.Score
 		}
-		if r.TrustScore != 0 {
-			info.trustScore = r.TrustScore
+		if r.RiskScore != 0 {
+			info.riskScore = r.RiskScore
 		}
 		if r.Score > 0 || r.Factors.TyposquatDistance > 0 {
 			info.factors = r.Factors
@@ -288,7 +288,7 @@ func writeJSON(w io.Writer, results []scanner.Result, chains []scanner.Chain) er
 		if info, ok := serverMap[srv]; ok {
 			scores = append(scores, jsonScore{
 				Server: srv, Score: info.score,
-				TrustScore: info.trustScore, Factors: info.factors,
+				RiskScore: info.riskScore, Factors: info.factors,
 			})
 		}
 	}
@@ -339,24 +339,14 @@ func buildJSONOutput(counts map[scanner.Severity]int, servers []string, entries 
 	}
 }
 
-func ExitCode(results []scanner.Result) int {
-	hasHigh := false
-	hasMedium := false
-	for _, r := range results {
-		switch r.Severity {
-		case scanner.SevCritical:
-			return 1
-		case scanner.SevHigh:
-			hasHigh = true
-		case scanner.SevMedium:
-			hasMedium = true
-		}
-	}
-	if hasHigh {
+func ExitCode(results []scanner.Result, scanErrored bool) int {
+	if scanErrored {
 		return 2
 	}
-	if hasMedium {
-		return 3
+	for _, r := range results {
+		if r.Severity == scanner.SevCritical || r.Severity == scanner.SevHigh {
+			return 1
+		}
 	}
 	return 0
 }
@@ -397,17 +387,17 @@ func groupBySeverity(results []scanner.Result) map[scanner.Severity][]scanner.Re
 	return groups
 }
 
-func writeTrustScoreSection(w io.Writer, results []scanner.Result) error {
+func writeRiskScoreSection(w io.Writer, results []scanner.Result) error {
 	scores := collectScores(results, func(r scanner.Result) (float64, bool) {
-		if r.TrustScore == 0 {
+		if r.RiskScore == 0 {
 			return 0, false
 		}
-		if r.TrustScore == -1 {
+		if r.RiskScore == -1 {
 			return -1, true
 		}
-		return r.TrustScore, true
+		return r.RiskScore, true
 	})
-	return writeScoreTable(w, "── Adversarial Trust Scores ──", scores, func(score float64) string {
+	return writeScoreTable(w, "── Adversarial Risk Scores ──", scores, func(score float64) string {
 		if score == -1 {
 			return "untestable"
 		}

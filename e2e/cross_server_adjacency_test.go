@@ -7,6 +7,7 @@ import (
 )
 
 func TestE2E_CrossServer_AdjacencyElevatedRisk(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	fsServer := newMCPMockWithTools(t, "fs-server", []map[string]any{
@@ -83,6 +84,7 @@ func TestE2E_CrossServer_AdjacencyElevatedRisk(t *testing.T) {
 }
 
 func TestE2E_CrossServer_SingleServerNoAnalysis(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	loneServer := newMCPMockWithTools(t, "lonely-server", []map[string]any{
@@ -120,6 +122,7 @@ func TestE2E_CrossServer_SingleServerNoAnalysis(t *testing.T) {
 }
 
 func TestE2E_CrossServer_NoCrossServerAnalysisFlag(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	fsServer := newMCPMockWithTools(t, "fs-server", []map[string]any{
@@ -173,6 +176,7 @@ func TestE2E_CrossServer_NoCrossServerAnalysisFlag(t *testing.T) {
 }
 
 func TestE2E_CrossServer_InvalidSchemaSafe(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	badServer := newMCPMockWithTools(t, "bad-server", []map[string]any{
@@ -218,6 +222,7 @@ func TestE2E_CrossServer_InvalidSchemaSafe(t *testing.T) {
 }
 
 func TestE2E_CrossServer_RegressionStaticStillWorks(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -244,6 +249,7 @@ func TestE2E_CrossServer_RegressionStaticStillWorks(t *testing.T) {
 }
 
 func TestE2E_CrossServer_RegressionProbeDryRunStillWorks(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -265,6 +271,7 @@ func TestE2E_CrossServer_RegressionProbeDryRunStillWorks(t *testing.T) {
 }
 
 func TestE2E_CrossServer_RegressionVersionStillWorks(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	out, _, code := runMCPAudit(t, bin, os.Getenv("HOME"), "version")
 	if code != 0 {
@@ -276,6 +283,7 @@ func TestE2E_CrossServer_RegressionVersionStillWorks(t *testing.T) {
 }
 
 func TestE2E_CrossServer_ToolDescriptionAnalysisWithKeywords(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	proxyServer := newMCPMockWithTools(t, "proxy-server", []map[string]any{
@@ -333,6 +341,7 @@ func TestE2E_CrossServer_ToolDescriptionAnalysisWithKeywords(t *testing.T) {
 }
 
 func TestE2E_CrossServer_ScanSubcommandFlagDefault(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -359,6 +368,7 @@ func TestE2E_CrossServer_ScanSubcommandFlagDefault(t *testing.T) {
 }
 
 func TestE2E_CrossServer_HelpShowsFlag(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	out, _, code := runMCPAudit(t, bin, os.Getenv("HOME"), "help")
 	if code != 0 {

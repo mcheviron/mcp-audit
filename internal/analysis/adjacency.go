@@ -177,6 +177,11 @@ func computeAdjacencyScores(g *toolGraph) []Finding {
 
 	servers := serverNames.Slice()
 
+	serverToNodes := make(map[string][]int, len(g.nodes))
+	for i, n := range g.nodes {
+		serverToNodes[n.server] = append(serverToNodes[n.server], i)
+	}
+
 	var results []Finding
 	for i, srvA := range servers {
 		neighborScore := 0
@@ -185,7 +190,7 @@ func computeAdjacencyScores(g *toolGraph) []Finding {
 			if i == j {
 				continue
 			}
-			if !serversAdjacent(g, srvA, srvB) {
+			if !serversAdjacentIndexed(g, serverToNodes, srvA, srvB) {
 				continue
 			}
 			csB := serverCaps[srvB]
@@ -209,11 +214,8 @@ func computeAdjacencyScores(g *toolGraph) []Finding {
 	return results
 }
 
-func serversAdjacent(g *toolGraph, a, b string) bool {
-	for i := range g.nodes {
-		if g.nodes[i].server != a {
-			continue
-		}
+func serversAdjacentIndexed(g *toolGraph, idx map[string][]int, a, b string) bool {
+	for _, i := range idx[a] {
 		for _, j := range g.edges[i] {
 			if g.nodes[j].server == b {
 				return true

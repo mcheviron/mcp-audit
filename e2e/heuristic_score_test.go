@@ -7,6 +7,7 @@ import (
 )
 
 func TestE2EJsonOutputIncludesScore(t *testing.T) {
+	t.Parallel()
 	srv := newE2EMockMCPServer(t)
 	defer srv.Close()
 
@@ -67,6 +68,7 @@ func TestE2EJsonOutputIncludesScore(t *testing.T) {
 }
 
 func TestE2EMinSecurityScoreExitCode(t *testing.T) {
+	t.Parallel()
 	srv := newE2EMockMCPServer(t)
 	defer srv.Close()
 
@@ -82,7 +84,7 @@ func TestE2EMinSecurityScoreExitCode(t *testing.T) {
 
 	home := setupHomeDir(t, claudeCfg)
 
-	_, _, codeHigh := runMCPAudit(t, bin, home, "probe", "--format", "json", "--heuristic=false", "--min-security-score", "100")
+	_, _, codeHigh := runMCPAudit(t, bin, home, "probe", "--format", "json", "--heuristic", "--min-security-score", "100")
 	if codeHigh == 0 {
 		t.Errorf("expected non-zero exit when min-security-score=100 and scores are lower, got %d", codeHigh)
 	}
@@ -94,6 +96,7 @@ func TestE2EMinSecurityScoreExitCode(t *testing.T) {
 }
 
 func TestE2EScoreWeightsFlag(t *testing.T) {
+	t.Parallel()
 	srv := newE2EMockMCPServer(t)
 	defer srv.Close()
 
@@ -135,6 +138,7 @@ func TestE2EScoreWeightsFlag(t *testing.T) {
 }
 
 func TestE2EInvalidScoreWeights(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{

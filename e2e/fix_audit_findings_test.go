@@ -14,6 +14,7 @@ import (
 )
 
 func TestE2E_Report_WriteErrorPropagated(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -36,6 +37,7 @@ func TestE2E_Report_WriteErrorPropagated(t *testing.T) {
 }
 
 func TestE2E_Report_TableFormatHasColumns(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -58,6 +60,7 @@ func TestE2E_Report_TableFormatHasColumns(t *testing.T) {
 }
 
 func TestE2E_Report_JSONOutputContainsServer(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -80,6 +83,7 @@ func TestE2E_Report_JSONOutputContainsServer(t *testing.T) {
 }
 
 func TestE2E_Report_JSONSummaryCounts(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -117,6 +121,7 @@ func TestE2E_Report_JSONSummaryCounts(t *testing.T) {
 }
 
 func TestE2E_Probe_ScanCompletesWithinTimeout(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	srv := newE2EMockMCPServer(t)
@@ -141,6 +146,7 @@ func TestE2E_Probe_ScanCompletesWithinTimeout(t *testing.T) {
 }
 
 func TestE2E_Probe_PartialResultsWithErrors(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	goodSrv := newE2EMockMCPServer(t)
@@ -183,6 +189,7 @@ func TestE2E_Probe_PartialResultsWithErrors(t *testing.T) {
 }
 
 func TestE2E_Probe_ExtendedDepthOutputsJSON(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	srv := newE2EMockMCPServer(t)
@@ -212,6 +219,7 @@ func TestE2E_Probe_ExtendedDepthOutputsJSON(t *testing.T) {
 }
 
 func TestE2E_Watch_SignalShutdown(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -255,6 +263,7 @@ func TestE2E_Watch_SignalShutdown(t *testing.T) {
 }
 
 func TestE2E_Watch_SecondSignalForceExit(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -299,6 +308,7 @@ func TestE2E_Watch_SecondSignalForceExit(t *testing.T) {
 }
 
 func TestE2E_OutputFile_FlagWorks(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -327,6 +337,7 @@ func TestE2E_OutputFile_FlagWorks(t *testing.T) {
 }
 
 func TestE2E_Scan_SubcommandWorks(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -349,6 +360,7 @@ func TestE2E_Scan_SubcommandWorks(t *testing.T) {
 }
 
 func TestE2E_Help_ShowsAllSubcommands(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	out, _, code := runMCPAudit(t, bin, os.Getenv("HOME"), "help")
@@ -365,6 +377,7 @@ func TestE2E_Help_ShowsAllSubcommands(t *testing.T) {
 }
 
 func TestE2E_Regression_StaticBlockedStillWorks(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -391,6 +404,7 @@ func TestE2E_Regression_StaticBlockedStillWorks(t *testing.T) {
 }
 
 func TestE2E_Regression_ProbeDryRunStillWorks2(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -412,6 +426,7 @@ func TestE2E_Regression_ProbeDryRunStillWorks2(t *testing.T) {
 }
 
 func TestE2E_Regression_VersionStillWorks2(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	out, _, code := runMCPAudit(t, bin, os.Getenv("HOME"), "version")
 	if code != 0 {

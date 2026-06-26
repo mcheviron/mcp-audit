@@ -6,6 +6,7 @@ import (
 )
 
 func TestE2E_CrossServer_GraphBuiltFromToolSchemas_NoEdge(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	srvA := newMCPMockWithTools(t, "text-server", []map[string]any{
@@ -57,6 +58,7 @@ func TestE2E_CrossServer_GraphBuiltFromToolSchemas_NoEdge(t *testing.T) {
 }
 
 func TestE2E_CrossServer_FilesystemToNetworkChain(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	fsServer := newMCPMockWithTools(t, "fs-server", []map[string]any{
@@ -118,6 +120,7 @@ func TestE2E_CrossServer_FilesystemToNetworkChain(t *testing.T) {
 }
 
 func TestE2E_CrossServer_NoChainSafeConfig(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	echoServer := newMCPMockWithTools(t, "echo-server", []map[string]any{
@@ -170,6 +173,7 @@ func TestE2E_CrossServer_NoChainSafeConfig(t *testing.T) {
 }
 
 func TestE2E_CrossServer_NoChainReadonlyMiddle(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	readonlyServer := newMCPMockWithTools(t, "readonly-server", []map[string]any{
@@ -221,6 +225,7 @@ func TestE2E_CrossServer_NoChainReadonlyMiddle(t *testing.T) {
 }
 
 func TestE2E_CrossServer_ConfusedDeputyDetected(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	proxyServer := newMCPMockWithTools(t, "proxy-server", []map[string]any{
@@ -286,6 +291,7 @@ func TestE2E_CrossServer_ConfusedDeputyDetected(t *testing.T) {
 }
 
 func TestE2E_CrossServer_ConfusedDeputyNoForwardingKeywords(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	inputServer := newMCPMockWithTools(t, "input-server", []map[string]any{

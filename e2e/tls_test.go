@@ -21,6 +21,7 @@ import (
 )
 
 func TestE2E_Proxy_UpstreamTLS_DefaultTransport(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	targetServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -67,6 +68,7 @@ func TestE2E_Proxy_UpstreamTLS_DefaultTransport(t *testing.T) {
 }
 
 func TestE2E_Proxy_UpstreamTLS_CAConfigured(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	certDir := t.TempDir()
@@ -106,6 +108,7 @@ func TestE2E_Proxy_UpstreamTLS_CAConfigured(t *testing.T) {
 }
 
 func TestE2E_Proxy_UpstreamTLS_mTLSConfigured(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	certDir := t.TempDir()

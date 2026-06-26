@@ -40,6 +40,7 @@ func waitForListen(t *testing.T, addr string, timeout time.Duration) bool {
 }
 
 func TestE2E_Proxy_GracefulShutdown_SIGTERM(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	targetServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -88,6 +89,7 @@ func TestE2E_Proxy_GracefulShutdown_SIGTERM(t *testing.T) {
 }
 
 func TestE2E_Proxy_GracefulShutdown_InflightRequestCompletes(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	targetServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -144,6 +146,7 @@ func TestE2E_Proxy_GracefulShutdown_InflightRequestCompletes(t *testing.T) {
 }
 
 func TestE2E_Proxy_SecondSignalExits(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	targetServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

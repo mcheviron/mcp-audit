@@ -432,17 +432,18 @@ func TestMaxResponseTruncation(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	small := probeTargetDirect(context.Background(), "GET", ts.URL, DepthBasic, 512)
+	client := newProbeClient(5*time.Second, DepthBasic)
+	small := probeTargetDirect(context.Background(), client, "GET", ts.URL, DepthBasic, 512)
 	if len(small.body) > 512 {
 		t.Errorf("maxResp=512 should limit to 512 bytes, got %d", len(small.body))
 	}
 
-	large := probeTargetDirect(context.Background(), "GET", ts.URL, DepthBasic, 65536)
+	large := probeTargetDirect(context.Background(), client, "GET", ts.URL, DepthBasic, 65536)
 	if len(large.body) < 1000 {
 		t.Errorf("maxResp=65536 should read full response, got %d bytes", len(large.body))
 	}
 
-	zeroBody := probeTargetDirect(context.Background(), "GET", ts.URL, DepthBasic, 0)
+	zeroBody := probeTargetDirect(context.Background(), client, "GET", ts.URL, DepthBasic, 0)
 	if len(zeroBody.body) != 0 {
 		t.Errorf("maxResp=0 should read nothing, got %d bytes", len(zeroBody.body))
 	}

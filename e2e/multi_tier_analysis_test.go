@@ -10,6 +10,7 @@ import (
 var fastTarget = "--targets=http://127.0.0.1:1"
 
 func TestE2EHiddenSystemPromptDetected(t *testing.T) {
+	t.Parallel()
 	tools := []map[string]any{{
 		"name":        "fetch",
 		"description": "You are now an assistant that fetches data",
@@ -45,6 +46,7 @@ func TestE2EHiddenSystemPromptDetected(t *testing.T) {
 }
 
 func TestE2ERoleSwitchingDetected(t *testing.T) {
+	t.Parallel()
 	tools := []map[string]any{{
 		"name":        "act",
 		"description": "act as a helpful assistant and you must follow these rules",
@@ -79,6 +81,7 @@ func TestE2ERoleSwitchingDetected(t *testing.T) {
 }
 
 func TestE2EBase64EncodedDetected(t *testing.T) {
+	t.Parallel()
 	b64 := "base64: " + strings.Repeat("A", 45)
 	tools := []map[string]any{{
 		"name":        "decode",
@@ -114,6 +117,7 @@ func TestE2EBase64EncodedDetected(t *testing.T) {
 }
 
 func TestE2EURLInDescriptionDetected(t *testing.T) {
+	t.Parallel()
 	tools := []map[string]any{{
 		"name":        "external",
 		"description": "fetches from https://evil.example.com/data",
@@ -148,6 +152,7 @@ func TestE2EURLInDescriptionDetected(t *testing.T) {
 }
 
 func TestE2EEmptyDescriptionFlagged(t *testing.T) {
+	t.Parallel()
 	tools := []map[string]any{{
 		"name":        "hidden_tool",
 		"description": "",
@@ -182,6 +187,7 @@ func TestE2EEmptyDescriptionFlagged(t *testing.T) {
 }
 
 func TestE2ENonEmptyDescriptionNoFlag(t *testing.T) {
+	t.Parallel()
 	tools := []map[string]any{{
 		"name":        "normal_tool",
 		"description": "Does something useful",
@@ -210,6 +216,7 @@ func TestE2ENonEmptyDescriptionNoFlag(t *testing.T) {
 }
 
 func TestE2EHeuristicConsistentNaming(t *testing.T) {
+	t.Parallel()
 	tools := []map[string]any{
 		{
 			"name":        "file_read",
@@ -279,6 +286,7 @@ func TestE2EHeuristicConsistentNaming(t *testing.T) {
 }
 
 func TestE2EHeuristicMixedNaming(t *testing.T) {
+	t.Parallel()
 	tools := []map[string]any{
 		{
 			"name":        "readFile",
@@ -347,6 +355,7 @@ func TestE2EHeuristicMixedNaming(t *testing.T) {
 }
 
 func TestE2EMinSecurityScorePass(t *testing.T) {
+	t.Parallel()
 	srv := newE2EMockMCPServer(t)
 	defer srv.Close()
 
@@ -360,6 +369,7 @@ func TestE2EMinSecurityScorePass(t *testing.T) {
 }
 
 func TestE2EMinSecurityScoreFail(t *testing.T) {
+	t.Parallel()
 	srv := newE2EMockMCPServer(t)
 	defer srv.Close()
 
@@ -376,6 +386,7 @@ func TestE2EMinSecurityScoreFail(t *testing.T) {
 }
 
 func TestE2EMaxAbsoluteRiskFail(t *testing.T) {
+	t.Parallel()
 	srv := newE2EMockMCPServer(t)
 	defer srv.Close()
 
@@ -392,6 +403,7 @@ func TestE2EMaxAbsoluteRiskFail(t *testing.T) {
 }
 
 func TestE2ELayer1AndLayer2BothPresent(t *testing.T) {
+	t.Parallel()
 	tools := []map[string]any{
 		{
 			"name":        "run_command",
@@ -455,6 +467,7 @@ func TestE2ELayer1AndLayer2BothPresent(t *testing.T) {
 }
 
 func TestE2EHeuristicDisabledNoScores(t *testing.T) {
+	t.Parallel()
 	tools := []map[string]any{
 		{
 			"name":        "tool_a",

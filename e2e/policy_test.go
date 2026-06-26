@@ -23,6 +23,7 @@ func writePolicyFile(t *testing.T, content string) string {
 }
 
 func TestE2EPolicyDenyRuleBlocksRequest(t *testing.T) {
+	t.Parallel()
 	targetServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Error("target server should not be called for denied request")
 		w.Header().Set("Content-Type", "application/json")
@@ -87,6 +88,7 @@ rules:
 }
 
 func TestE2EPolicyAuditRuleForwardsRequest(t *testing.T) {
+	t.Parallel()
 	targetCalled := false
 	targetServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		targetCalled = true
@@ -154,6 +156,7 @@ rules:
 }
 
 func TestE2EPolicyDefaultDenyBlocksAll(t *testing.T) {
+	t.Parallel()
 	targetServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":{"content":[{"type":"text","text":"ok"}]}}`))
@@ -221,6 +224,7 @@ rules:
 }
 
 func TestE2EPolicyAllowRuleForwardsRequest(t *testing.T) {
+	t.Parallel()
 	targetCalled := false
 	targetServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		targetCalled = true

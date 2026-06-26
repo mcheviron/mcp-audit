@@ -81,6 +81,12 @@ check:
     @echo "✓ All checks complete"
 
 test-all:
-    @echo "Running all tests (this may take a while)..."
-    @go test ./...
-    @echo "✓ All tests passed"
+    @bash -c 'just test-internal & JUST_A=$!; just test-e2e & JUST_B=$!; wait $JUST_A; STATUS_A=$?; wait $JUST_B; STATUS_B=$?; if [ $STATUS_A -ne 0 ] || [ $STATUS_B -ne 0 ]; then echo "✗ tests failed (internal=$STATUS_A, e2e=$STATUS_B)"; exit 1; fi; echo "✓ All tests passed"'
+
+test-internal:
+    @echo "Running internal tests..."
+    @go test -race ./internal/...
+
+test-e2e:
+    @echo "Running e2e tests (parallel)..."
+    @go test -timeout=300s -count=1 -parallel 8 -skip "TestE2E_RegressionVersionWorks|TestE2E_GitHubAction_DefinitionExists|TestE2E_PreCommit_HookFilesFilter|TestE2E_PreCommit_HookDefinitionExists|TestE2E_TrustImport_MissingArg|TestE2E_TOMLServerWithAuthEnvVar|TestE2EMaxAbsoluteRiskFail|TestE2EMinSecurityScoreFail|TestE2EInvalidSubcommand|TestE2EProxyMissingTarget|TestE2EWatchInvalidInterval|TestE2EVersion|TestE2E_Regression_VersionStillWorks|TestE2E_Regression_VersionStillWorks2|TestE2E_CrossServer_RegressionVersionStillWorks|TestE2E_Expand_RegressionVersionStillWorks|TestE2E_TrustUpdate_SubcommandWiredUp|TestE2E_CVE_RegressionVersion|TestE2E_Watch_SignalShutdown" ./e2e/

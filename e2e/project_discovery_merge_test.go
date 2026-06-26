@@ -9,6 +9,7 @@ import (
 )
 
 func TestE2EProjectDiscoveryOverrideGlobalServer(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	home := setupHomeWithClaudeDesktop(t, `{"mcpServers":{"db":{"url":"http://staging-db/mcp"}}}`)
@@ -43,6 +44,7 @@ func TestE2EProjectDiscoveryOverrideGlobalServer(t *testing.T) {
 }
 
 func TestE2EProjectDiscoveryNonConflictingServersMerged(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	home := setupHomeWithClaudeDesktop(t, `{"mcpServers":{"slack":{"url":"http://slack/mcp"}}}`)
@@ -74,6 +76,7 @@ func TestE2EProjectDiscoveryNonConflictingServersMerged(t *testing.T) {
 }
 
 func TestE2EProjectDiscoveryGlobalScopeInJSON(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	home := setupHomeWithClaudeDesktop(t, `{"mcpServers":{"global-only":{"command":"echo","args":["hello"]}}}`)
@@ -107,6 +110,7 @@ func TestE2EProjectDiscoveryGlobalScopeInJSON(t *testing.T) {
 }
 
 func TestE2EProjectDiscoverySameServerNameDifferentTools(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	home := setupHomeWithClaudeDesktop(t, `{"mcpServers":{"db":{"url":"http://claude-db/mcp"}}}`)
@@ -141,6 +145,7 @@ func TestE2EProjectDiscoverySameServerNameDifferentTools(t *testing.T) {
 }
 
 func TestE2EProjectDiscoveryScopeInTableOutput(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	home := setupHomeWithClaudeDesktop(t, `{"mcpServers":{}}`)
@@ -165,6 +170,7 @@ func TestE2EProjectDiscoveryScopeInTableOutput(t *testing.T) {
 }
 
 func TestE2EProjectDiscoveryMixedConfigScopeAnnotated(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	home := setupHomeWithClaudeDesktop(t, `{"mcpServers":{"glob":{"command":"global","args":[]}}}`)
@@ -196,6 +202,7 @@ func TestE2EProjectDiscoveryMixedConfigScopeAnnotated(t *testing.T) {
 }
 
 func TestE2EProjectDiscoveryRegressionGlobalNothingBroken(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -222,6 +229,7 @@ func TestE2EProjectDiscoveryRegressionGlobalNothingBroken(t *testing.T) {
 }
 
 func TestE2EProjectDiscoveryJSONOutputHasScopeField(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	home := setupHomeWithClaudeDesktop(t, `{"mcpServers":{"json-srv":{"command":"echo","args":["hi"]}}}`)
@@ -256,6 +264,7 @@ func TestE2EProjectDiscoveryJSONOutputHasScopeField(t *testing.T) {
 }
 
 func TestE2EProjectDiscoveryProbeRespectsProjectScope(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	home := setupHomeWithClaudeDesktop(t, `{"mcpServers":{}}`)

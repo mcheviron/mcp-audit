@@ -40,7 +40,7 @@ func TestCheckCredentialsReportsCritical(t *testing.T) {
 }
 
 func TestCheckCredentialsNoSecretScanSuppresses(t *testing.T) {
-	s := &Scanner{NoSecretScan: true}
+	s := &Scanner{ScannerConfig: ScannerConfig{Snapshot: SnapshotConfig{NoSecretScan: true}}}
 	results := s.checkCredentials(credConfig())
 	if len(results) != 0 {
 		t.Fatalf("expected no findings when NoSecretScan, got %v", results)

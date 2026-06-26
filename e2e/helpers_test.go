@@ -2,6 +2,7 @@ package e2e_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func buildBinary(t *testing.T) string {
@@ -50,9 +52,13 @@ func writeTrustConfig(t *testing.T, dir, content string) string {
 	return path
 }
 
+const subprocessTimeout = 60 * time.Second
+
 func runMCPAudit(t *testing.T, bin, home string, args ...string) (string, string, int) {
 	t.Helper()
-	cmd := exec.Command(bin, args...)
+	ctx, cancel := context.WithTimeout(context.Background(), subprocessTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, bin, args...)
 	cmd.Dir = home
 	cmd.Env = append(os.Environ(), "HOME="+home)
 
@@ -63,6 +69,9 @@ func runMCPAudit(t *testing.T, bin, home string, args ...string) (string, string
 	err := cmd.Run()
 	code := 0
 	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			t.Fatalf("subprocess timed out after %s\nstdout:\n%s\nstderr:\n%s", subprocessTimeout, stdout.String(), stderr.String())
+		}
 		if ee, ok := err.(*exec.ExitError); ok {
 			code = ee.ExitCode()
 		} else {
@@ -208,6 +217,7 @@ func parseJSONFindings(t *testing.T, out string) []map[string]any {
 }
 
 func TestE2EStaticTrustedPackage(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -234,6 +244,7 @@ func TestE2EStaticTrustedPackage(t *testing.T) {
 }
 
 func TestE2EStaticTyposquatDetected(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -260,6 +271,7 @@ func TestE2EStaticTyposquatDetected(t *testing.T) {
 }
 
 func TestE2EStaticBlockedPackage(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -286,6 +298,7 @@ func TestE2EStaticBlockedPackage(t *testing.T) {
 }
 
 func TestE2EStaticNoTrustConfig(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -308,6 +321,7 @@ func TestE2EStaticNoTrustConfig(t *testing.T) {
 }
 
 func TestE2EStaticPerToolScope(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -338,6 +352,7 @@ func TestE2EStaticPerToolScope(t *testing.T) {
 }
 
 func TestE2EProbeBasic(t *testing.T) {
+	t.Parallel()
 	srv := newE2EMockMCPServer(t)
 	defer srv.Close()
 
@@ -363,6 +378,7 @@ func TestE2EProbeBasic(t *testing.T) {
 }
 
 func TestE2EProbeDryRun(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -385,6 +401,7 @@ func TestE2EProbeDryRun(t *testing.T) {
 }
 
 func TestE2EProbeOutputFormats(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -416,6 +433,7 @@ func TestE2EProbeOutputFormats(t *testing.T) {
 }
 
 func TestE2EProbeBlockHosts(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -433,6 +451,7 @@ func TestE2EProbeBlockHosts(t *testing.T) {
 }
 
 func TestE2EVersion(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	out, _, code := runMCPAudit(t, bin, os.Getenv("HOME"), "version")
 	if code != 0 {
@@ -444,6 +463,7 @@ func TestE2EVersion(t *testing.T) {
 }
 
 func TestE2EScan(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{

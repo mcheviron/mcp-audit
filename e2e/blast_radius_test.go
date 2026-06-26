@@ -8,6 +8,7 @@ import (
 )
 
 func TestE2E_BlastRadius_RelatedFindingsInJSON(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -59,6 +60,7 @@ func TestE2E_BlastRadius_RelatedFindingsInJSON(t *testing.T) {
 }
 
 func TestE2E_BlastRadius_ChainOutput(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -98,6 +100,7 @@ func TestE2E_BlastRadius_ChainOutput(t *testing.T) {
 }
 
 func TestE2E_BlastRadius_ComplianceFrameworkFilter(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -130,6 +133,7 @@ func TestE2E_BlastRadius_ComplianceFrameworkFilter(t *testing.T) {
 }
 
 func TestE2E_BlastRadius_ExportEvidence(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{

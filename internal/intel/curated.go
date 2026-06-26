@@ -38,7 +38,11 @@ func (tf *TrustFile) Age() time.Duration {
 	if err != nil {
 		return 0
 	}
-	return time.Since(t)
+	age := time.Since(t)
+	if age < 0 {
+		return 0
+	}
+	return age
 }
 
 func (tf *TrustFile) IsStale(maxAge time.Duration) bool {

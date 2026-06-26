@@ -19,6 +19,7 @@ import (
 // =============================================================================
 
 func TestE2E_Upload_DisplaysAnonymizedDataAndPrompts(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -82,6 +83,7 @@ func TestE2E_Upload_DisplaysAnonymizedDataAndPrompts(t *testing.T) {
 
 // Edge case: upload with no findings (clean config)
 func TestE2E_Upload_NoFindings(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{"mcpServers": {}}`
@@ -105,6 +107,7 @@ func TestE2E_Upload_NoFindings(t *testing.T) {
 // =============================================================================
 
 func TestE2E_MCPShieldSchemaCompatibility(t *testing.T) {
+	t.Parallel()
 	vuln := map[string]any{
 		"name":              "CVE-2024-1234",
 		"cve":               "CVE-2024-1234",
@@ -147,6 +150,7 @@ func TestE2E_MCPShieldSchemaCompatibility(t *testing.T) {
 // =============================================================================
 
 func TestE2E_Regression_StaticScanWorksNormally(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -170,6 +174,7 @@ func TestE2E_Regression_StaticScanWorksNormally(t *testing.T) {
 }
 
 func TestE2E_Regression_VersionStillWorks(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	out, _, code := runMCPAudit(t, bin, os.Getenv("HOME"), "version")
 	if code != 0 {
@@ -181,6 +186,7 @@ func TestE2E_Regression_VersionStillWorks(t *testing.T) {
 }
 
 func TestE2E_Regression_ProbeDryRunStillWorks(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -203,6 +209,7 @@ func TestE2E_Regression_ProbeDryRunStillWorks(t *testing.T) {
 }
 
 func TestE2E_Regression_SARIFOutputStillWorks(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{

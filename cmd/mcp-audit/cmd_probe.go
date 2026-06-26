@@ -29,14 +29,14 @@ var probeCmd = &cobra.Command{
 		}
 
 		sp := startSpinner("Probing servers...")
-		dynResults := s.Probe(f.dryRun)
+		dynResults := s.RunProbe(f.dryRun)
 		sp.clear()
 
-		if s.HeuristicEnabled {
-			dynResults = scanner.ComputeServerScores(dynResults, s.LastProbeTools, s.ScoreWeights)
+		if s.Heuristic.Enabled {
+			dynResults = scanner.ComputeServerScores(dynResults, s.LastProbeTools, s.Heuristic.ScoreWeights)
 		}
 
-		if s.Adversarial {
+		if s.Adversarial.Enabled {
 			logger.Info("running adversarial probes")
 			advResults := scanner.RunAdversarialFromScanner(s)
 			dynResults = append(dynResults, advResults...)
@@ -54,10 +54,10 @@ var probeCmd = &cobra.Command{
 		}
 
 		report.PrintSummary(dynResults, report.UniqueServerCount(dynResults))
-		if err := exitAfterGateCheck(dynResults, s.MinSecurityScore, s.MaxAbsoluteRisk); err != nil {
+		if err := exitAfterGateCheck(dynResults, s.Heuristic.MinSecurityScore, s.Heuristic.MaxAbsoluteRisk); err != nil {
 			return err
 		}
-		if code := report.ExitCode(dynResults); code != 0 {
+		if code := report.ExitCode(dynResults, false); code != 0 {
 			return &exitError{code: code, err: fmt.Errorf("probe completed with findings")}
 		}
 		return nil

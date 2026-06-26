@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"os"
 	"strings"
+
+	"github.com/mcheviron/mcp-audit/internal/hostutil"
 )
 
 var baseTargets = []string{
@@ -71,7 +73,7 @@ func filterTargets(targets, allowHosts, blockHosts []string) []string {
 
 func hostMatchesAny(target string, hosts []string) bool {
 	for _, h := range hosts {
-		if strings.Contains(target, h) {
+		if hostutil.Matches(target, h) {
 			return true
 		}
 	}

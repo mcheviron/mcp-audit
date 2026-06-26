@@ -9,6 +9,7 @@ import (
 )
 
 func TestE2ESBOMCycloneDXJSONDefault(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := setupHomeDir(t, `{"mcpServers":{"fs":{"command":"npx","args":["-y","@modelcontextprotocol/server-filesystem","/tmp"]}}}`)
 
@@ -30,6 +31,7 @@ func TestE2ESBOMCycloneDXJSONDefault(t *testing.T) {
 }
 
 func TestE2ESBOMSPDXTagValue(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := setupHomeDir(t, `{"mcpServers":{"fs":{"command":"npx","args":["-y","@modelcontextprotocol/server-filesystem","/tmp"]}}}`)
 
@@ -47,6 +49,7 @@ func TestE2ESBOMSPDXTagValue(t *testing.T) {
 }
 
 func TestE2ESBOMOutputFile(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := setupHomeDir(t, `{"mcpServers":{"fs":{"command":"npx","args":["-y","@modelcontextprotocol/server-filesystem","/tmp"]}}}`)
 
@@ -71,6 +74,7 @@ func TestE2ESBOMOutputFile(t *testing.T) {
 }
 
 func TestE2ESBOMCycloneDXXML(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := setupHomeDir(t, `{"mcpServers":{"fs":{"command":"npx","args":["-y","@modelcontextprotocol/server-filesystem","/tmp"]}}}`)
 
@@ -88,6 +92,7 @@ func TestE2ESBOMCycloneDXXML(t *testing.T) {
 }
 
 func TestE2ESBOMSPDXJSON(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := setupHomeDir(t, `{"mcpServers":{"fs":{"command":"npx","args":["-y","@modelcontextprotocol/server-filesystem","/tmp"]}}}`)
 
@@ -109,6 +114,7 @@ func TestE2ESBOMSPDXJSON(t *testing.T) {
 }
 
 func TestE2ESBOMWithCVEs(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := setupHomeDir(t, `{"mcpServers":{"fs":{"command":"npx","args":["-y","@modelcontextprotocol/server-filesystem","/tmp"]}}}`)
 
@@ -147,6 +153,7 @@ func TestE2ESBOMWithCVEs(t *testing.T) {
 }
 
 func TestE2ESBOMEmptyConfig(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := setupHomeDir(t, `{"mcpServers":{}}`)
 

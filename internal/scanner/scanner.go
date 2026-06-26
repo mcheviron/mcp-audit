@@ -58,64 +58,75 @@ type CallbackListener struct {
 	done     chan struct{}
 }
 
-type Scanner struct {
-	TrustConfig  *config.TrustConfig
-	Probes       []string
-	AllowHosts   []string
-	BlockHosts   []string
-	Transport    string
-	AuthToken    string
-	AuthHeaders  map[string]string
-	TLSCertFile  string
-	TLSKeyFile   string
-	ToolAnalysis bool
-
-	SnapshotDir       string
-	NoSnapshot        bool
+type SnapshotConfig struct {
+	Dir               string
+	Disabled          bool
 	NoTrustOnFirstUse bool
 	NoSecretScan      bool
+}
 
-	ProbeDepth      ProbeDepth
+type ProbeConfig struct {
+	Depth           ProbeDepth
 	CallbackPort    int
 	TargetsFile     string
 	MaxResponseSize int
 	TimeoutSecs     int
 	Concurrency     int
+}
 
-	CrossServerAnalysis bool
+type CVEConfig struct {
+	Disabled    bool
+	CacheDir    string
+	CacheTTLHrs int
+}
 
-	NoCVEScan        bool
-	CVECacheDir      string
-	CVECacheTTLHours int
-
-	ProjectDir string
-
-	HeuristicEnabled bool
+type HeuristicConfig struct {
+	Enabled          bool
 	ScoreWeights     Weights
 	MinSecurityScore float64
 	MaxAbsoluteRisk  float64
+}
 
-	Adversarial          bool
-	AdversarialMaxProbes int
+type AdversarialConfig struct {
+	Enabled   bool
+	MaxProbes int
+}
 
+type CrossServerConfig struct {
+	Enabled bool
+}
+
+type ScannerConfig struct {
+	Trust        *config.TrustConfig
+	Probes       []string
+	AllowHosts   []string
+	BlockHosts   []string
+	Transport    string
+	Auth         AuthConfig
+	ToolAnalysis bool
+	Snapshot     SnapshotConfig
+	Probe        ProbeConfig
+	CrossServer  CrossServerConfig
+	CVE          CVEConfig
+	ProjectDir   string
+	Heuristic    HeuristicConfig
+	Adversarial  AdversarialConfig
+}
+
+type Scanner struct {
+	ScannerConfig
 	LastProbeTools map[string][]mcp.Tool
-
-	TestConfigs []config.Config
+	TestConfigs    []config.Config
 }
 
 const embeddedTrustStaleness = 90 * 24 * time.Hour
 
-func New() *Scanner {
-	return &Scanner{ToolAnalysis: true, CrossServerAnalysis: true, MaxResponseSize: 65536}
+func New(cfg ScannerConfig) *Scanner {
+	return &Scanner{ScannerConfig: cfg, LastProbeTools: map[string][]mcp.Tool{}}
 }
 
 func (s *Scanner) authConfig() AuthConfig {
-	return AuthConfig{
-		Token:   s.AuthToken,
-		Headers: s.AuthHeaders,
-		Cert:    s.TLSCertFile,
-		Key:     s.TLSKeyFile,
-	}
+	return s.Auth
 }
 
 func (s *Scanner) discoverConfigs() []config.Config {
@@ -141,7 +152,7 @@ func (s *Scanner) SetTrustConfig(path string) error {
 		slog.Debug("no user trust config, falling back to embedded defaults", "error", err)
 		return s.loadEmbeddedDefaults()
 	}
-	s.TrustConfig = tc
+	s.Trust = tc
 	return nil
 }
 
@@ -150,7 +161,7 @@ func (s *Scanner) loadEmbeddedDefaults() error {
 	if err != nil {
 		return err
 	}
-	s.TrustConfig = &config.TrustConfig{
+	s.Trust = &config.TrustConfig{
 		TrustScope: config.TrustScope{
 			Trusted: tf.Trusted,
 			Blocked: tf.Blocked,
@@ -160,12 +171,12 @@ func (s *Scanner) loadEmbeddedDefaults() error {
 		PinnedTools: make(map[string]string),
 	}
 	for k, v := range tf.Servers {
-		s.TrustConfig.Servers[k] = config.TrustScope{Trusted: v.Trusted, Blocked: v.Blocked}
+		s.Trust.Servers[k] = config.TrustScope{Trusted: v.Trusted, Blocked: v.Blocked}
 	}
 	for k, v := range tf.Tools {
-		s.TrustConfig.Tools[k] = config.TrustScope{Trusted: v.Trusted, Blocked: v.Blocked}
+		s.Trust.Tools[k] = config.TrustScope{Trusted: v.Trusted, Blocked: v.Blocked}
 	}
-	maps.Copy(s.TrustConfig.PinnedTools, tf.PinnedTools)
+	maps.Copy(s.Trust.PinnedTools, tf.PinnedTools)
 	if tf.IsStale(embeddedTrustStaleness) {
 		slog.Warn("embedded trust config is over 90 days old, consider running 'mcp-audit trust update'",
 			"age", tf.Age().String())

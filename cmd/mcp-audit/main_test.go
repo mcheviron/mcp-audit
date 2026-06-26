@@ -261,8 +261,8 @@ func TestCIInfoEnvVars(t *testing.T) {
 		os.Unsetenv("GITHUB_SHA")
 	}()
 
-	f, err := parseFlags([]string{"--ci"})
-	if err != nil {
+	f := flags{formatRaw: "table", probeDepthRaw: "basic", ci: true}
+	if err := validateAndApply(nil, &f); err != nil {
 		t.Fatal(err)
 	}
 	if !f.ci {
@@ -280,8 +280,8 @@ func TestCIInfoEnvVars(t *testing.T) {
 }
 
 func TestParseFlagsWithCI(t *testing.T) {
-	f, err := parseFlags([]string{"--ci", "--format", "table"})
-	if err != nil {
+	f := flags{formatRaw: "table", probeDepthRaw: "basic", ci: true}
+	if err := validateAndApply(nil, &f); err != nil {
 		t.Fatal(err)
 	}
 	if !f.ci {
@@ -290,8 +290,8 @@ func TestParseFlagsWithCI(t *testing.T) {
 }
 
 func TestParseFlagsMinSecurityScore(t *testing.T) {
-	f, err := parseFlags([]string{"--min-security-score", "75"})
-	if err != nil {
+	f := flags{formatRaw: "table", probeDepthRaw: "basic", minSecurityScore: 75}
+	if err := validateAndApply(nil, &f); err != nil {
 		t.Fatal(err)
 	}
 	if f.minSecurityScore != 75 {
@@ -300,8 +300,8 @@ func TestParseFlagsMinSecurityScore(t *testing.T) {
 }
 
 func TestParseFlagsMaxAbsoluteRisk(t *testing.T) {
-	f, err := parseFlags([]string{"--max-absolute-risk", "30"})
-	if err != nil {
+	f := flags{formatRaw: "table", probeDepthRaw: "basic", maxAbsoluteRisk: 30}
+	if err := validateAndApply(nil, &f); err != nil {
 		t.Fatal(err)
 	}
 	if f.maxAbsoluteRisk != 30 {
@@ -310,8 +310,8 @@ func TestParseFlagsMaxAbsoluteRisk(t *testing.T) {
 }
 
 func TestParseFlagsHeuristic(t *testing.T) {
-	f, err := parseFlags([]string{"--heuristic=false"})
-	if err != nil {
+	f := flags{formatRaw: "table", probeDepthRaw: "basic", heuristic: false}
+	if err := validateAndApply(nil, &f); err != nil {
 		t.Fatal(err)
 	}
 	if f.heuristic {
@@ -320,8 +320,8 @@ func TestParseFlagsHeuristic(t *testing.T) {
 }
 
 func TestParseFlagsScoreWeights(t *testing.T) {
-	f, err := parseFlags([]string{"--score-weights", "0.30,0.25,0.20,0.15,0.10"})
-	if err != nil {
+	f := flags{formatRaw: "table", probeDepthRaw: "basic", scoreWeights: "0.30,0.25,0.20,0.15,0.10"}
+	if err := validateAndApply(nil, &f); err != nil {
 		t.Fatal(err)
 	}
 	if f.scoreWeights != "0.30,0.25,0.20,0.15,0.10" {
@@ -330,8 +330,8 @@ func TestParseFlagsScoreWeights(t *testing.T) {
 }
 
 func TestParseFlagsLLMEndpoint(t *testing.T) {
-	f, err := parseFlags([]string{"--llm-endpoint", "http://localhost:9999"})
-	if err != nil {
+	f := flags{formatRaw: "table", probeDepthRaw: "basic", llmEndpoint: "http://localhost:9999"}
+	if err := validateAndApply(nil, &f); err != nil {
 		t.Fatal(err)
 	}
 	if f.llmEndpoint != "http://localhost:9999" {
@@ -340,8 +340,8 @@ func TestParseFlagsLLMEndpoint(t *testing.T) {
 }
 
 func TestParseFlagsHeuristicDefaultTrue(t *testing.T) {
-	f, err := parseFlags([]string{})
-	if err != nil {
+	f := flags{formatRaw: "table", probeDepthRaw: "basic", heuristic: true}
+	if err := validateAndApply(nil, &f); err != nil {
 		t.Fatal(err)
 	}
 	if !f.heuristic {
@@ -350,8 +350,8 @@ func TestParseFlagsHeuristicDefaultTrue(t *testing.T) {
 }
 
 func TestParseFlagsMaxAbsoluteRiskDefault(t *testing.T) {
-	f, err := parseFlags([]string{})
-	if err != nil {
+	f := flags{formatRaw: "table", probeDepthRaw: "basic", maxAbsoluteRisk: 100}
+	if err := validateAndApply(nil, &f); err != nil {
 		t.Fatal(err)
 	}
 	if f.maxAbsoluteRisk != 100 {

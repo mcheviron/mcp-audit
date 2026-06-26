@@ -85,8 +85,8 @@ func init() {
 }
 
 func collectCVEsFromScan(cfgs []config.Config) map[string][]sbom.CVEResult {
-	s := scanner.New()
-	s.NoCVEScan = false
+	s := scanner.New(scanner.ScannerConfig{ProjectDir: ""})
+	s.CVE.Disabled = false
 	res, err := s.Static()
 	if err != nil {
 		return nil

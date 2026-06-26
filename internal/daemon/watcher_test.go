@@ -1,6 +1,7 @@
 package daemon
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -10,7 +11,7 @@ import (
 )
 
 func TestWatcherDebounce(t *testing.T) {
-	w := NewWatcher(5*time.Minute, "")
+	w := NewWatcher(context.Background(), 5*time.Minute, "")
 
 	count := 0
 	done := make(chan struct{})
@@ -41,7 +42,7 @@ func TestWatcherDebounce(t *testing.T) {
 }
 
 func TestDiffFindings(t *testing.T) {
-	w := NewWatcher(5*time.Minute, "")
+	w := NewWatcher(context.Background(), 5*time.Minute, "")
 
 	w.recordFindings([]scanner.Result{
 		{Server: "a", Finding: "f1"},
@@ -64,7 +65,7 @@ func TestDiffFindings(t *testing.T) {
 }
 
 func TestDiffFindingsNone(t *testing.T) {
-	w := NewWatcher(5*time.Minute, "")
+	w := NewWatcher(context.Background(), 5*time.Minute, "")
 
 	current := []scanner.Result{
 		{Server: "a", Finding: "f1"},
@@ -79,7 +80,7 @@ func TestDiffFindingsNone(t *testing.T) {
 }
 
 func TestPollChangesNoConfig(t *testing.T) {
-	w := NewWatcher(5*time.Minute, "")
+	w := NewWatcher(context.Background(), 5*time.Minute, "")
 
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "not-a-config.json")

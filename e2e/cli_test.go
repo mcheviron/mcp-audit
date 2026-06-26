@@ -13,6 +13,7 @@ import (
 )
 
 func TestE2EWatchSubcommandExists(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	cmd := exec.Command(bin, "watch", "-watch-interval=5")
@@ -36,6 +37,7 @@ func TestE2EWatchSubcommandExists(t *testing.T) {
 }
 
 func TestE2EWatchInvalidInterval(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	cmd := exec.Command(bin, "watch", "-watch-interval=1")
@@ -56,6 +58,7 @@ func TestE2EWatchInvalidInterval(t *testing.T) {
 }
 
 func TestE2EProxyMissingTarget(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	cmd := exec.Command(bin, "proxy")
@@ -75,6 +78,7 @@ func TestE2EProxyMissingTarget(t *testing.T) {
 }
 
 func TestE2EProxySubcommandStarts(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	targetServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -101,6 +105,7 @@ func TestE2EProxySubcommandStarts(t *testing.T) {
 }
 
 func TestE2EHelpShowsWatchProxy(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	cmd := exec.Command(bin, "help")
@@ -119,6 +124,7 @@ func TestE2EHelpShowsWatchProxy(t *testing.T) {
 }
 
 func TestE2ENoArgsShowsHelp(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	cmd := exec.Command(bin)
@@ -132,6 +138,7 @@ func TestE2ENoArgsShowsHelp(t *testing.T) {
 }
 
 func TestE2EInvalidSubcommand(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	cmd := exec.Command(bin, "nonexistent")
@@ -149,6 +156,7 @@ func TestE2EInvalidSubcommand(t *testing.T) {
 }
 
 func TestE2EStaticJSONOutput(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{

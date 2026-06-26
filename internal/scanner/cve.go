@@ -238,16 +238,30 @@ func cveSeverity(cvssScore float64) Severity {
 	case cvssScore > 0:
 		return SevLow
 	default:
-		return SevMedium
+		return SevInfo
 	}
 }
 
+var ecosystemByPattern = []struct {
+	prefix string
+	eco    string
+}{
+	{"@", "npm"},
+	{"github.com/", "go"},
+	{"pypi-", "pypi"},
+}
+
 func guessEcosystem(packageName string) string {
-	if strings.HasPrefix(packageName, "@") {
-		return "npm"
+	for _, e := range ecosystemByPattern {
+		if strings.HasPrefix(packageName, e.prefix) {
+			return e.eco
+		}
 	}
 	if strings.Count(packageName, "/") >= 1 {
 		return "go"
+	}
+	if strings.Contains(packageName, "-") && !strings.Contains(packageName, "_") {
+		return "pypi"
 	}
 	return "npm"
 }

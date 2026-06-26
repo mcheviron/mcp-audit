@@ -9,6 +9,7 @@ import (
 )
 
 func TestE2E_Expand_ZedNotInstalled(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -26,6 +27,7 @@ func TestE2E_Expand_ZedNotInstalled(t *testing.T) {
 }
 
 func TestE2E_Expand_AllToolsConfigured(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -79,6 +81,7 @@ func TestE2E_Expand_AllToolsConfigured(t *testing.T) {
 }
 
 func TestE2E_Expand_NoConfigsFound(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -94,6 +97,7 @@ func TestE2E_Expand_NoConfigsFound(t *testing.T) {
 }
 
 func TestE2E_Expand_PartialConfigOneToolMissing(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -114,6 +118,7 @@ func TestE2E_Expand_PartialConfigOneToolMissing(t *testing.T) {
 }
 
 func TestE2E_Expand_CodexTOMLDiscovered(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -136,6 +141,7 @@ args = ["-y", "@scope/codex-pkg"]
 }
 
 func TestE2E_Expand_MalformedConfigDoesNotCrash(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -152,6 +158,7 @@ func TestE2E_Expand_MalformedConfigDoesNotCrash(t *testing.T) {
 }
 
 func TestE2E_Expand_RegressionStaticScanStillWorks(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -176,6 +183,7 @@ func TestE2E_Expand_RegressionStaticScanStillWorks(t *testing.T) {
 }
 
 func TestE2E_Expand_RegressionProbeDryRunStillWorks(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -192,6 +200,7 @@ func TestE2E_Expand_RegressionProbeDryRunStillWorks(t *testing.T) {
 }
 
 func TestE2E_Expand_RegressionVersionStillWorks(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	out, _, code := runMCPAudit(t, bin, os.Getenv("HOME"), "version")
 	if code != 0 {
@@ -203,6 +212,7 @@ func TestE2E_Expand_RegressionVersionStillWorks(t *testing.T) {
 }
 
 func TestE2E_Expand_RegressionSARIFOutputWorks(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -222,6 +232,7 @@ func TestE2E_Expand_RegressionSARIFOutputWorks(t *testing.T) {
 }
 
 func TestE2E_Expand_CorruptedGeminiSettingsDoesNotCrash(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -243,6 +254,7 @@ func TestE2E_Expand_CorruptedGeminiSettingsDoesNotCrash(t *testing.T) {
 }
 
 func TestE2E_Expand_CorruptedZedSettingsDoesNotCrash(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -264,6 +276,7 @@ func TestE2E_Expand_CorruptedZedSettingsDoesNotCrash(t *testing.T) {
 }
 
 func TestE2E_Expand_CorruptedClineSettingsDoesNotCrash(t *testing.T) {
+	t.Parallel()
 	if runtime.GOOS != "darwin" && runtime.GOOS != "linux" {
 		t.Skip("platform-specific Cline path test")
 	}
@@ -299,6 +312,7 @@ func TestE2E_Expand_CorruptedClineSettingsDoesNotCrash(t *testing.T) {
 }
 
 func TestE2E_Expand_GeminiTopLevelWinsOverNested(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -330,6 +344,7 @@ func TestE2E_Expand_GeminiTopLevelWinsOverNested(t *testing.T) {
 }
 
 func TestE2E_Expand_ZedUnderscoreSameAsCamelCaseOutput(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	homeU := t.TempDir()
 	homeC := t.TempDir()
@@ -388,6 +403,7 @@ func TestE2E_Expand_ZedUnderscoreSameAsCamelCaseOutput(t *testing.T) {
 }
 
 func TestE2E_Expand_MixedAllNewToolsRegression(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 
@@ -449,6 +465,7 @@ args = ["-y", "@scope/codex-pkg"]
 }
 
 func TestE2E_Expand_ConfigPathValidation(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	home := t.TempDir()
 

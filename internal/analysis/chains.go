@@ -23,10 +23,16 @@ func detectCompositionChains(g *toolGraph) []Finding {
 			if !g.nodes[last].netAccess {
 				continue
 			}
+			servers := uniqueServers(g, chain)
+			if len(servers) < 2 {
+				continue
+			}
 			chainLen := len(chain)
 			sev := "MEDIUM"
-			if chainLen > 3 {
-				sev = "INFO"
+			if chainLen > 5 {
+				sev = "CRITICAL"
+			} else if chainLen > 3 {
+				sev = "HIGH"
 			}
 			path := formatChainPath(g, chain)
 			finding := fmt.Sprintf("potential data exfiltration chain: %s", path)
@@ -43,6 +49,19 @@ func detectCompositionChains(g *toolGraph) []Finding {
 	}
 
 	return results
+}
+
+func uniqueServers(g *toolGraph, chain []int) []string {
+	seen := set.New[string](0)
+	var out []string
+	for _, idx := range chain {
+		srv := g.nodes[idx].server
+		if srv != "" && !seen.Contains(srv) {
+			seen.Insert(srv)
+			out = append(out, srv)
+		}
+	}
+	return out
 }
 
 func findPaths(g *toolGraph, from int, depth int, visited *set.Set[int]) [][]int {

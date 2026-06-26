@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/mcheviron/mcp-audit/internal/config"
+	"github.com/mcheviron/mcp-audit/internal/scanner"
 )
 
 type Bom struct {
@@ -124,7 +125,7 @@ func NewCycloneDX(servers []DiscoveredServer, cves map[string][]CVEResult, ver s
 				},
 				Ratings: []VulnRating{{
 					Score:    cve.CVSSScore,
-					Severity: cvssToSeverity(cve.CVSSScore),
+					Severity: cvssSeverityLower(cvssToSeverity(cve.CVSSScore)),
 					Method:   "CVSSv3",
 				}},
 				Affects: []Affect{{Ref: fmt.Sprintf("pkg:npm/%s", pkg)}},
@@ -180,17 +181,21 @@ func NewDiscoveredServers(cfgs []config.Config) []DiscoveredServer {
 	return servers
 }
 
-func cvssToSeverity(score float64) string {
+func cvssToSeverity(score float64) scanner.Severity {
 	switch {
 	case score >= 9.0:
-		return "critical"
+		return scanner.SevCritical
 	case score >= 7.0:
-		return "high"
+		return scanner.SevHigh
 	case score >= 4.0:
-		return "medium"
+		return scanner.SevMedium
 	default:
-		return "low"
+		return scanner.SevLow
 	}
+}
+
+func cvssSeverityLower(sev scanner.Severity) string {
+	return sev.StringLower()
 }
 
 func newUUID() string {

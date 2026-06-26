@@ -14,6 +14,7 @@ import (
 // WHEN a tools/call request arrives and a rule specifies method: tools/*
 // THEN the rule matches
 func TestE2EPolicyGlobMethodMatch(t *testing.T) {
+	t.Parallel()
 	targetCalled := false
 	targetServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		targetCalled = true
@@ -78,6 +79,7 @@ rules:
 // WHEN a tools/call for tool read_file arrives and a rule specifies tool: read_*
 // THEN the rule matches
 func TestE2EPolicyGlobToolNameMatch(t *testing.T) {
+	t.Parallel()
 	targetCalled := false
 	targetServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		targetCalled = true
@@ -141,6 +143,7 @@ rules:
 // WHEN a initialize request arrives and a rule specifies method: tools/list
 // THEN the rule does not match
 func TestE2EPolicyMethodMismatch(t *testing.T) {
+	t.Parallel()
 	targetCalls := 0
 	targetServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		targetCalls++
@@ -189,6 +192,7 @@ rules:
 // and the request contains params.arguments.path: "/etc/passwd"
 // THEN the condition matches
 func TestE2EPolicyConditionContains(t *testing.T) {
+	t.Parallel()
 	targetCalled := false
 	targetServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		targetCalled = true
@@ -256,6 +260,7 @@ rules:
 // WHEN a rule has two conditions and only one is satisfied
 // THEN the rule does not match
 func TestE2EPolicyConditionANDLogic(t *testing.T) {
+	t.Parallel()
 	targetCalls := 0
 	targetServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		targetCalls++

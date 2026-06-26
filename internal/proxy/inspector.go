@@ -8,11 +8,12 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/mcheviron/mcp-audit/internal/hostutil"
 	"github.com/mcheviron/mcp-audit/internal/scanner"
 )
 
-var internalHostPattern = regexp.MustCompile(
-	`(?i)(localhost|127\.0\.0\.1|192\.168\.|10\.\d+\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.)`,
+var internalCIDRPattern = regexp.MustCompile(
+	`(?i)(127\.0\.0\.1|192\.168\.|10\.\d+\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.)`,
 )
 
 type Finding struct {
@@ -45,6 +46,18 @@ func (ins *Inspector) HasCritical() bool {
 		}
 	}
 	return false
+}
+
+func (ins *Inspector) LastCritical() *Finding {
+	ins.mu.Lock()
+	defer ins.mu.Unlock()
+	for i := len(ins.Findings) - 1; i >= 0; i-- {
+		if ins.Findings[i].Severity == scanner.SevCritical {
+			f := ins.Findings[i]
+			return &f
+		}
+	}
+	return nil
 }
 
 func (ins *Inspector) InspectRequest(method string, params any) {
@@ -212,7 +225,19 @@ func scanForSSRFIndicator(key, val string) []string {
 }
 
 func isInternalHost(target string) bool {
-	return internalHostPattern.MatchString(target)
+	for _, p := range internalHostPatterns {
+		if hostutil.Matches(target, p) {
+			return true
+		}
+	}
+	return internalCIDRPattern.MatchString(target)
+}
+
+var internalHostPatterns = []string{
+	"localhost",
+	"127.0.0.1",
+	"169.254.169.254",
+	"metadata.google.internal",
 }
 
 func redactURL(u string) string {

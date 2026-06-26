@@ -10,6 +10,7 @@ import (
 )
 
 func TestE2E_SCBR_EvidenceWithRandomKeyWritesKeyFile(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -62,6 +63,7 @@ func TestE2E_SCBR_EvidenceWithRandomKeyWritesKeyFile(t *testing.T) {
 }
 
 func TestE2E_SCBR_EvidenceFileCorruptedDoesNotCrash(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -106,6 +108,7 @@ func TestE2E_SCBR_EvidenceFileCorruptedDoesNotCrash(t *testing.T) {
 }
 
 func TestE2E_SCBR_ComplianceSummaryHasFrameworkStructure(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -153,6 +156,7 @@ func TestE2E_SCBR_ComplianceSummaryHasFrameworkStructure(t *testing.T) {
 }
 
 func TestE2E_SCBR_AllFlagsFunctional(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -179,6 +183,7 @@ func TestE2E_SCBR_AllFlagsFunctional(t *testing.T) {
 }
 
 func TestE2E_SCBR_RegressionStaticScanWithBlastFlags(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -206,6 +211,7 @@ func TestE2E_SCBR_RegressionStaticScanWithBlastFlags(t *testing.T) {
 }
 
 func TestE2E_SCBR_RegressionAllOutputFormatsWithBlastRadius(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -243,6 +249,7 @@ func TestE2E_SCBR_RegressionAllOutputFormatsWithBlastRadius(t *testing.T) {
 }
 
 func TestE2E_SCBR_EvidenceEmptyFindings(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{"mcpServers": {}}`
@@ -277,6 +284,7 @@ func TestE2E_SCBR_EvidenceEmptyFindings(t *testing.T) {
 }
 
 func TestE2E_SCBR_NoCveScanWithBlastRadius(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
@@ -300,6 +308,7 @@ func TestE2E_SCBR_NoCveScanWithBlastRadius(t *testing.T) {
 }
 
 func TestE2E_SCBR_SCBRExportEvidenceKeyFile(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	claudeCfg := `{
