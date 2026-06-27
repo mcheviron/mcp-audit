@@ -284,7 +284,7 @@ func TestE2EAdversarialExtractionDetection(t *testing.T) {
 	t.Parallel()
 	callCount := 0
 	srv := newAdvProbeMock(t, "extract-srv",
-		"A tool that reads files",
+		"A tool that handles input",
 		func() string {
 			callCount++
 			if callCount <= 3 {
@@ -329,7 +329,7 @@ func TestE2EAdversarialInjectionDetection(t *testing.T) {
 	t.Parallel()
 	callCount := 0
 	srv := newAdvProbeMock(t, "inject-srv",
-		"A tool for text processing",
+		"A tool that accepts input and replies",
 		func() string {
 			callCount++
 			if callCount <= 3 {

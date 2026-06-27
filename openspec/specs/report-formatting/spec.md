@@ -158,7 +158,7 @@ The terminal table SHALL be rendered with a single column-alignment pass across 
 - **THEN** the `Remediation:` text starts at the same column offset in both groups
 
 ### Requirement: Vertical table layout with per-file sub-headers
-The terminal table SHALL group rows within each severity tier by `ConfigPath`. Each distinct config file SHALL be preceded by a sub-header line containing the file path (and `Scope` when set). Rows within a file SHALL print with the format `<SEVERITY>  <server-padded>  <finding>`, where `<server-padded>` is right-padded with spaces to the longest server name in the visible severity group. Remediation text SHALL print on its own line, indented to align with the finding text, prefixed with `↳ Remediation:`. Detail text (if present) SHALL print on its own line, indented like remediation but without a prefix. When a row has no `ConfigPath`, no sub-header SHALL be printed for it.
+The terminal table SHALL group rows within each severity tier by `ConfigPath`. Each distinct config file SHALL be preceded by a sub-header line containing the file path (and `Scope` when set). Rows within a file SHALL print with the finding text word-wrapped to fit the terminal width: the first line SHALL be `<SEVERITY>  <server-padded>  <finding-first-line>`, and continuation lines of the finding SHALL be indented to align with the finding column (same offset as the first line's finding text). `<server-padded>` is right-padded with spaces to the longest server name in the visible severity group. Remediation text SHALL print on its own line, indented to align with the finding text, prefixed with `↳ Remediation:`, and word-wrapped with the same continuation indent. Detail text (if present) SHALL print on its own line, indented like remediation but without a prefix, and word-wrapped with the same continuation indent. When a row has no `ConfigPath`, no sub-header SHALL be printed for it.
 
 #### Scenario: Per-file sub-headers emitted
 - **WHEN** 3 PASS findings span 2 different `ConfigPath` values
@@ -175,4 +175,14 @@ The terminal table SHALL group rows within each severity tier by `ConfigPath`. E
 #### Scenario: No sub-header for empty config path
 - **WHEN** a row has no `ConfigPath`
 - **THEN** no sub-header line is printed for that row; the row prints directly under its severity group heading
+
+#### Scenario: Long finding text word-wraps
+- **WHEN** a finding's text exceeds the available content width (terminal width minus severity and server columns)
+- **THEN** the finding text wraps to continuation lines indented to align with the finding column start
+- **AND** words are not split mid-word; wrapping occurs at word boundaries
+- **AND** if a single token (URL, hash, base64 blob, etc.) exceeds the content width on its own, the token is broken mid-character across continuation lines rather than truncated, so column alignment is preserved and no information is lost
+
+#### Scenario: Short finding text stays on one line
+- **WHEN** a finding's text fits within the available content width
+- **THEN** the finding prints on a single line with no wrapping (same behavior as today)
 

@@ -265,6 +265,104 @@ func TestRunWithMultipleServers(t *testing.T) {
 	}
 }
 
+func TestChainDetectionGroupedByServerSequence(t *testing.T) {
+	allTools := map[string][]mcp.Tool{
+		"fs-srv": {
+			makeTool("read_file", "read a file returning text", map[string]any{
+				"path": map[string]any{"type": "string", "description": "file path to read"},
+			}),
+			makeTool("list_files", "list files returning text", map[string]any{
+				"dir": map[string]any{"type": "string", "description": "directory path"},
+			}),
+		},
+		"net-srv": {
+			makeTool("download", "download content from a URL", map[string]any{
+				"url": map[string]any{"type": "string", "description": "target URL"},
+			}),
+		},
+	}
+	g := buildGraph(allTools)
+	chains := detectCompositionChains(g)
+	if len(chains) != 1 {
+		t.Fatalf("expected 1 grouped finding for server sequence fs-srv -> net-srv, got %d", len(chains))
+	}
+	c := chains[0]
+	if c.Severity != "INFO" {
+		t.Errorf("expected INFO severity for short theoretical chain, got %s", c.Severity)
+	}
+	if c.Detail == "" {
+		t.Error("expected Detail to contain example tool-level paths")
+	}
+}
+
+func TestChainDetectionMultipleSequences(t *testing.T) {
+	allTools := map[string][]mcp.Tool{
+		"fs-srv": {
+			makeTool("read_file", "read a file returning text", map[string]any{
+				"path": map[string]any{"type": "string", "description": "file path to read"},
+			}),
+		},
+		"net-srv": {
+			makeTool("download", "download content from a URL", map[string]any{
+				"url": map[string]any{"type": "string", "description": "target URL"},
+			}),
+		},
+		"db-srv": {
+			makeTool("query", "run a database query returning json", map[string]any{
+				"sql": map[string]any{"type": "string", "description": "SQL query"},
+			}),
+		},
+	}
+	g := buildGraph(allTools)
+	chains := detectCompositionChains(g)
+	if len(chains) < 2 {
+		t.Fatalf("expected at least 2 server sequences, got %d", len(chains))
+	}
+	seqs := map[string]bool{}
+	for _, c := range chains {
+		seqs[c.Description] = true
+	}
+	if len(seqs) != len(chains) {
+		t.Error("each finding should have a unique server sequence")
+	}
+}
+
+func TestChainDetectionMixedLengthGroup(t *testing.T) {
+	allTools := map[string][]mcp.Tool{
+		"fs": {
+			makeTool("read", "read file returning text", map[string]any{
+				"file": map[string]any{"type": "string"},
+			}),
+		},
+		"proxy": {
+			makeTool("transform", "transform text output", map[string]any{
+				"text": map[string]any{"type": "string"},
+			}),
+		},
+		"net": {
+			makeTool("fetch", "fetch a URL returning text", map[string]any{
+				"url": map[string]any{"type": "string"},
+			}),
+		},
+	}
+	g := buildGraph(allTools)
+	chains := detectCompositionChains(g)
+	if len(chains) == 0 {
+		t.Fatal("expected chains")
+	}
+	for _, c := range chains {
+		if c.Server == "" {
+			t.Error("chain finding has empty server")
+		}
+		if c.Severity != "INFO" && c.Severity != "MEDIUM" {
+			t.Errorf("unexpected severity: %s", c.Severity)
+		}
+		if c.Type != "cross-server" {
+			t.Errorf("unexpected type: %s", c.Type)
+		}
+	}
+}
+
 func TestEveryChainHasValidContent(t *testing.T) {
 	allTools := map[string][]mcp.Tool{
 		"fs": {

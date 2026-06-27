@@ -1,0 +1,1560 @@
+Summary: 0 CRITICAL  44 HIGH  95 MEDIUM  0 LOW  25 INFO  69 PASS
+
+── Security Scores ──
+auth0                 100/100
+clickhouse-dev        100/100
+clickhouse-prod       100/100
+cloud-run             100/100
+datagouv              89/100
+deepwiki              99/100
+firebase              100/100
+gcloud                100/100
+gh_grep               85/100
+glanceable-analytics  100/100
+marker-io             100/100
+mongodb-dev           100/100
+mongodb-prod          100/100
+observability         100/100
+openaiDeveloperDocs   89/100
+prospector            100/100
+storage               100/100
+
+── HIGH ──
+  /Users/mostafaelataby-cheviron/.config/opencode/opencode.json (project)
+HIGH  deepwiki             tool "read_wiki_contents" response contains prompt injection pattern
+                           Invalid repoName format: "http://127.0.0.1:8080/".
+                           Expected format is "owner/repo", e.g. "facebook/react".
+                           For custom domains you must include the host, e.g.,
+                           "git.mydomain.com/facebook/react".; Invalid repoName
+                           format: "http://127.0.0.1/". Expected format is
+                           "owner/repo", e.g. "facebook/react". For custom domains
+                           you must include the host, e.g.,
+                           "git.mydomain.com/facebook/react".; Invalid repoName
+                           format: "http://127.0.0.1:80/". Expected format is
+                           "owner/repo", e.g. "facebook/react". For custom domains
+                           you must include the host, e.g.,
+                           "git.mydomain.com/facebook/react".
+                           ↳ Remediation: Review the MCP server's response handling. Implement
+                           output sanitization to prevent leakage of internal
+                           content.
+HIGH  deepwiki             tool "read_wiki_structure" response contains prompt injection pattern
+                           Invalid repoName format: "http://127.0.0.1:8080/".
+                           Expected format is "owner/repo", e.g. "facebook/react".
+                           For custom domains you must include the host, e.g.,
+                           "git.mydomain.com/facebook/react".; Invalid repoName
+                           format: "http://127.0.0.1/". Expected format is
+                           "owner/repo", e.g. "facebook/react". For custom domains
+                           you must include the host, e.g.,
+                           "git.mydomain.com/facebook/react".; Invalid repoName
+                           format: "http://127.0.0.1:80/". Expected format is
+                           "owner/repo", e.g. "facebook/react". For custom domains
+                           you must include the host, e.g.,
+                           "git.mydomain.com/facebook/react".
+                           ↳ Remediation: Review the MCP server's response handling. Implement
+                           output sanitization to prevent leakage of internal
+                           content.
+HIGH  openaiDeveloperDocs  tool "search_openai_docs" response contains prompt injection pattern
+                           {
+                           "hits": [
+                           {
+                           "url":
+                           "https://developers.openai.com/cookbook/examples/agents_
+                           sdk/deployment_manager/readme#tracing",
+                           "url_without_anchor":
+                           "https://developers.openai.com/cookbook/exa...
+                           ↳ Remediation: Review the MCP server's response handling. Implement
+                           output sanitization to prevent leakage of internal
+                           content.
+  /Users/mostafaelataby-cheviron/.cursor/mcp.json (project)
+HIGH  gh_grep              tool "searchGitHub" returned internal content via probe to
+                           http://127.0.0.1:80/
+                           Repository: appwrite/appwrite
+                           Path: tests/benchmarks/bulk-operations/utils.js
+                           URL:
+                           https://github.com/appwrite/appwrite/blob/1.9.x/tests/be
+                           nchmarks/bulk-operations/utils.js
+                           License: BSD-3-Clause
+
+                           Snip...
+                           ↳ Remediation: Review the MCP server's response handling. Implement
+                           output sanitization to prevent leakage of internal
+                           content.
+HIGH  datagouv             long composition chain (5 hops): datagouv -> openaiDeveloperDocs ->
+                           gh_grep (1276 tool-level paths found)
+                           datagouv/search_datasets ->
+                           openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/search_organizations -> gh_grep/searchGitHub ->
+                           datagouv/search_dataservices; datagouv/search_datasets
+                           -> openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/search_organizations -> gh_grep/searchGitHub ->
+                           datagouv/get_dataservice_info; datagouv/search_datasets
+                           -> openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/search_organizations -> gh_grep/searchGitHub ->
+                           datagouv/get_dataservice_openapi_spec; ... (1276 total)
+                           ↳ Remediation: Review the finding and take appropriate action based on
+                           your security policies.
+HIGH  datagouv             long composition chain (5 hops): datagouv -> openaiDeveloperDocs ->
+                           deepwiki -> gh_grep (264 tool-level paths found)
+                           datagouv/search_datasets ->
+                           openaiDeveloperDocs/search_openai_docs ->
+                           deepwiki/read_wiki_structure -> gh_grep/searchGitHub ->
+                           datagouv/search_dataservices; datagouv/search_datasets
+                           -> openaiDeveloperDocs/search_openai_docs ->
+                           deepwiki/read_wiki_structure -> gh_grep/searchGitHub ->
+                           datagouv/get_dataservice_info; datagouv/search_datasets
+                           -> openaiDeveloperDocs/search_openai_docs ->
+                           deepwiki/read_wiki_structure -> gh_grep/searchGitHub ->
+                           datagouv/get_dataservice_openapi_spec; ... (264 total)
+                           ↳ Remediation: Review the finding and take appropriate action based on
+                           your security policies.
+HIGH  datagouv             long composition chain (5 hops): datagouv -> gh_grep -> deepwiki ->
+                           openaiDeveloperDocs (552 tool-level paths found)
+                           datagouv/search_datasets -> gh_grep/searchGitHub ->
+                           datagouv/search_organizations ->
+                           deepwiki/read_wiki_structure ->
+                           openaiDeveloperDocs/fetch_openai_doc;
+                           datagouv/search_datasets -> gh_grep/searchGitHub ->
+                           datagouv/search_organizations ->
+                           deepwiki/read_wiki_structure ->
+                           openaiDeveloperDocs/get_openapi_spec;
+                           datagouv/search_datasets -> gh_grep/searchGitHub ->
+                           datagouv/search_organizations ->
+                           deepwiki/read_wiki_contents ->
+                           openaiDeveloperDocs/fetch_openai_doc; ... (552 total)
+                           ↳ Remediation: Review the finding and take appropriate action based on
+                           your security policies.
+HIGH  datagouv             long composition chain (5 hops): datagouv -> openaiDeveloperDocs ->
+                           deepwiki (3828 tool-level paths found)
+                           datagouv/search_datasets ->
+                           openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/search_organizations ->
+                           deepwiki/read_wiki_structure ->
+                           datagouv/search_dataservices; datagouv/search_datasets
+                           -> openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/search_organizations ->
+                           deepwiki/read_wiki_structure ->
+                           datagouv/get_dataservice_info; datagouv/search_datasets
+                           -> openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/search_organizations ->
+                           deepwiki/read_wiki_structure ->
+                           datagouv/get_dataservice_openapi_spec; ... (3828 total)
+                           ↳ Remediation: Review the finding and take appropriate action based on
+                           your security policies.
+HIGH  datagouv             long composition chain (5 hops): datagouv -> deepwiki -> gh_grep ->
+                           openaiDeveloperDocs (588 tool-level paths found)
+                           datagouv/search_datasets -> deepwiki/read_wiki_structure
+                           -> datagouv/search_organizations -> gh_grep/searchGitHub
+                           -> openaiDeveloperDocs/fetch_openai_doc;
+                           datagouv/search_datasets -> deepwiki/read_wiki_structure
+                           -> datagouv/search_organizations -> gh_grep/searchGitHub
+                           -> openaiDeveloperDocs/get_openapi_spec;
+                           datagouv/search_datasets -> deepwiki/read_wiki_structure
+                           -> datagouv/search_dataservices -> gh_grep/searchGitHub
+                           -> openaiDeveloperDocs/fetch_openai_doc; ... (588 total)
+                           ↳ Remediation: Review the finding and take appropriate action based on
+                           your security policies.
+HIGH  datagouv             long composition chain (5 hops): datagouv -> gh_grep -> deepwiki (378
+                           tool-level paths found)
+                           datagouv/search_datasets -> gh_grep/searchGitHub ->
+                           datagouv/search_organizations ->
+                           deepwiki/read_wiki_structure ->
+                           datagouv/search_dataservices; datagouv/search_datasets
+                           -> gh_grep/searchGitHub -> datagouv/search_organizations
+                           -> deepwiki/read_wiki_structure ->
+                           datagouv/get_dataservice_info; datagouv/search_datasets
+                           -> gh_grep/searchGitHub -> datagouv/search_organizations
+                           -> deepwiki/read_wiki_structure ->
+                           datagouv/get_dataservice_openapi_spec; ... (378 total)
+                           ↳ Remediation: Review the finding and take appropriate action based on
+                           your security policies.
+HIGH  datagouv             long composition chain (5 hops): datagouv -> deepwiki ->
+                           openaiDeveloperDocs (3450 tool-level paths found)
+                           datagouv/search_datasets -> deepwiki/read_wiki_structure
+                           -> datagouv/search_organizations ->
+                           openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/search_dataservices; datagouv/search_datasets
+                           -> deepwiki/read_wiki_structure ->
+                           datagouv/search_organizations ->
+                           openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/get_dataservice_info; datagouv/search_datasets
+                           -> deepwiki/read_wiki_structure ->
+                           datagouv/search_organizations ->
+                           openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/get_dataservice_openapi_spec; ... (3450 total)
+                           ↳ Remediation: Review the finding and take appropriate action based on
+                           your security policies.
+HIGH  datagouv             long composition chain (5 hops): datagouv -> gh_grep ->
+                           openaiDeveloperDocs (854 tool-level paths found)
+                           datagouv/search_datasets -> gh_grep/searchGitHub ->
+                           datagouv/search_organizations ->
+                           openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/search_dataservices; datagouv/search_datasets
+                           -> gh_grep/searchGitHub -> datagouv/search_organizations
+                           -> openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/get_dataservice_info; datagouv/search_datasets
+                           -> gh_grep/searchGitHub -> datagouv/search_organizations
+                           -> openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/get_dataservice_openapi_spec; ... (854 total)
+                           ↳ Remediation: Review the finding and take appropriate action based on
+                           your security policies.
+HIGH  datagouv             long composition chain (5 hops): datagouv -> deepwiki -> gh_grep (462
+                           tool-level paths found)
+                           datagouv/search_datasets -> deepwiki/read_wiki_structure
+                           -> datagouv/search_organizations -> gh_grep/searchGitHub
+                           -> datagouv/search_dataservices;
+                           datagouv/search_datasets -> deepwiki/read_wiki_structure
+                           -> datagouv/search_organizations -> gh_grep/searchGitHub
+                           -> datagouv/get_dataservice_info;
+                           datagouv/search_datasets -> deepwiki/read_wiki_structure
+                           -> datagouv/search_organizations -> gh_grep/searchGitHub
+                           -> datagouv/get_dataservice_openapi_spec; ... (462
+                           total)
+                           ↳ Remediation: Review the finding and take appropriate action based on
+                           your security policies.
+HIGH  datagouv             long composition chain (5 hops): datagouv -> deepwiki (714 tool-level
+                           paths found)
+                           datagouv/search_datasets -> deepwiki/read_wiki_structure
+                           -> datagouv/search_organizations ->
+                           deepwiki/read_wiki_contents ->
+                           datagouv/search_dataservices; datagouv/search_datasets
+                           -> deepwiki/read_wiki_structure ->
+                           datagouv/search_organizations ->
+                           deepwiki/read_wiki_contents ->
+                           datagouv/get_dataservice_info; datagouv/search_datasets
+                           -> deepwiki/read_wiki_structure ->
+                           datagouv/search_organizations ->
+                           deepwiki/read_wiki_contents ->
+                           datagouv/get_dataservice_openapi_spec; ... (714 total)
+                           ↳ Remediation: Review the finding and take appropriate action based on
+                           your security policies.
+HIGH  datagouv             long composition chain (5 hops): datagouv -> openaiDeveloperDocs ->
+                           gh_grep -> deepwiki (264 tool-level paths found)
+                           datagouv/search_datasets ->
+                           openaiDeveloperDocs/search_openai_docs ->
+                           gh_grep/searchGitHub -> deepwiki/read_wiki_structure ->
+                           datagouv/search_dataservices; datagouv/search_datasets
+                           -> openaiDeveloperDocs/search_openai_docs ->
+                           gh_grep/searchGitHub -> deepwiki/read_wiki_structure ->
+                           datagouv/get_dataservice_info; datagouv/search_datasets
+                           -> openaiDeveloperDocs/search_openai_docs ->
+                           gh_grep/searchGitHub -> deepwiki/read_wiki_structure ->
+                           datagouv/get_dataservice_openapi_spec; ... (264 total)
+                           ↳ Remediation: Review the finding and take appropriate action based on
+                           your security policies.
+HIGH  datagouv             long composition chain (5 hops): datagouv -> deepwiki ->
+                           openaiDeveloperDocs -> gh_grep (282 tool-level paths found)
+                           datagouv/search_datasets -> deepwiki/read_wiki_structure
+                           -> openaiDeveloperDocs/search_openai_docs ->
+                           gh_grep/searchGitHub -> datagouv/search_dataservices;
+                           datagouv/search_datasets -> deepwiki/read_wiki_structure
+                           -> openaiDeveloperDocs/search_openai_docs ->
+                           gh_grep/searchGitHub -> datagouv/get_dataservice_info;
+                           datagouv/search_datasets -> deepwiki/read_wiki_structure
+                           -> openaiDeveloperDocs/search_openai_docs ->
+                           gh_grep/searchGitHub ->
+                           datagouv/get_dataservice_openapi_spec; ... (282 total)
+                           ↳ Remediation: Review the finding and take appropriate action based on
+                           your security policies.
+HIGH  datagouv             long composition chain (5 hops): datagouv -> gh_grep ->
+                           openaiDeveloperDocs -> deepwiki (282 tool-level paths found)
+                           datagouv/search_datasets -> gh_grep/searchGitHub ->
+                           openaiDeveloperDocs/search_openai_docs ->
+                           deepwiki/read_wiki_structure ->
+                           datagouv/search_dataservices; datagouv/search_datasets
+                           -> gh_grep/searchGitHub ->
+                           openaiDeveloperDocs/search_openai_docs ->
+                           deepwiki/read_wiki_structure ->
+                           datagouv/get_dataservice_info; datagouv/search_datasets
+                           -> gh_grep/searchGitHub ->
+                           openaiDeveloperDocs/search_openai_docs ->
+                           deepwiki/read_wiki_structure ->
+                           datagouv/get_dataservice_openapi_spec; ... (282 total)
+                           ↳ Remediation: Review the finding and take appropriate action based on
+                           your security policies.
+HIGH  datagouv             long composition chain (5 hops): datagouv -> openaiDeveloperDocs (2174
+                           tool-level paths found)
+                           datagouv/search_datasets ->
+                           openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/search_organizations ->
+                           openaiDeveloperDocs/list_openai_docs ->
+                           datagouv/search_dataservices; datagouv/search_datasets
+                           -> openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/search_organizations ->
+                           openaiDeveloperDocs/list_openai_docs ->
+                           datagouv/get_dataservice_info; datagouv/search_datasets
+                           -> openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/search_organizations ->
+                           openaiDeveloperDocs/list_openai_docs ->
+                           datagouv/get_dataservice_openapi_spec; ... (2174 total)
+                           ↳ Remediation: Review the finding and take appropriate action based on
+                           your security policies.
+HIGH  gh_grep              long composition chain (5 hops): gh_grep -> datagouv -> deepwiki ->
+                           openaiDeveloperDocs (1275 tool-level paths found)
+                           gh_grep/searchGitHub -> datagouv/search_datasets ->
+                           deepwiki/read_wiki_structure ->
+                           datagouv/search_organizations ->
+                           openaiDeveloperDocs/fetch_openai_doc;
+                           gh_grep/searchGitHub -> datagouv/search_datasets ->
+                           deepwiki/read_wiki_structure ->
+                           datagouv/search_organizations ->
+                           openaiDeveloperDocs/get_openapi_spec;
+                           gh_grep/searchGitHub -> datagouv/search_datasets ->
+                           deepwiki/read_wiki_structure ->
+                           datagouv/search_dataservices ->
+                           openaiDeveloperDocs/fetch_openai_doc; ... (1275 total)
+                           ↳ Remediation: Review the finding and take appropriate action based on
+                           your security policies.
+HIGH  gh_grep              long composition chain (4 hops): gh_grep -> datagouv -> deepwiki (135
+                           tool-level paths found)
+                           gh_grep/searchGitHub -> datagouv/search_datasets ->
+                           deepwiki/read_wiki_structure ->
+                           datagouv/search_dataservices; gh_grep/searchGitHub ->
+                           datagouv/search_datasets -> deepwiki/read_wiki_structure
+                           -> datagouv/get_dataservice_info; gh_grep/searchGitHub
+                           -> datagouv/search_datasets ->
+                           deepwiki/read_wiki_structure ->
+                           datagouv/get_dataservice_openapi_spec; ... (135 total)
+                           ↳ Remediation: Review the finding and take appropriate action based on
+                           your security policies.
+HIGH  gh_grep              long composition chain (5 hops): gh_grep -> deepwiki ->
+                           openaiDeveloperDocs -> datagouv (465 tool-level paths found)
+                           gh_grep/searchGitHub -> deepwiki/read_wiki_structure ->
+                           openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/search_datasets ->
+                           openaiDeveloperDocs/fetch_openai_doc;
+                           gh_grep/searchGitHub -> deepwiki/read_wiki_structure ->
+                           openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/search_datasets ->
+                           openaiDeveloperDocs/get_openapi_spec;
+                           gh_grep/searchGitHub -> deepwiki/read_wiki_structure ->
+                           openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/search_organizations ->
+                           openaiDeveloperDocs/fetch_openai_doc; ... (465 total)
+                           ↳ Remediation: Review the finding and take appropriate action based on
+                           your security policies.
+HIGH  gh_grep              long composition chain (5 hops): gh_grep -> datagouv ->
+                           openaiDeveloperDocs -> deepwiki (825 tool-level paths found)
+                           gh_grep/searchGitHub -> datagouv/search_datasets ->
+                           openaiDeveloperDocs/search_openai_docs ->
+                           deepwiki/read_wiki_structure ->
+                           datagouv/search_dataservices; gh_grep/searchGitHub ->
+                           datagouv/search_datasets ->
+                           openaiDeveloperDocs/search_openai_docs ->
+                           deepwiki/read_wiki_structure ->
+                           datagouv/get_dataservice_info; gh_grep/searchGitHub ->
+                           datagouv/search_datasets ->
+                           openaiDeveloperDocs/search_openai_docs ->
+                           deepwiki/read_wiki_structure ->
+                           datagouv/get_dataservice_openapi_spec; ... (825 total)
+                           ↳ Remediation: Review the finding and take appropriate action based on
+                           your security policies.
+HIGH  gh_grep              long composition chain (5 hops): gh_grep -> datagouv ->
+                           openaiDeveloperDocs (855 tool-level paths found)
+                           gh_grep/searchGitHub -> datagouv/search_datasets ->
+                           openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/search_organizations ->
+                           openaiDeveloperDocs/fetch_openai_doc;
+                           gh_grep/searchGitHub -> datagouv/search_datasets ->
+                           openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/search_organizations ->
+                           openaiDeveloperDocs/get_openapi_spec;
+                           gh_grep/searchGitHub -> datagouv/search_datasets ->
+                           openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/search_dataservices; ... (855 total)
+                           ↳ Remediation: Review the finding and take appropriate action based on
+                           your security policies.
+HIGH  gh_grep              long composition chain (4 hops): gh_grep -> openaiDeveloperDocs ->
+                           deepwiki (24 tool-level paths found)
+                           gh_grep/searchGitHub ->
+                           openaiDeveloperDocs/search_openai_docs ->
+                           deepwiki/read_wiki_structure ->
+                           openaiDeveloperDocs/fetch_openai_doc;
+                           gh_grep/searchGitHub ->
+                           openaiDeveloperDocs/search_openai_docs ->
+                           deepwiki/read_wiki_structure ->
+                           openaiDeveloperDocs/get_openapi_spec;
+                           gh_grep/searchGitHub ->
+                           openaiDeveloperDocs/search_openai_docs ->
+                           deepwiki/read_wiki_contents ->
+                           openaiDeveloperDocs/fetch_openai_doc; ... (24 total)
+                           ↳ Remediation: Review the finding and take appropriate action based on
+                           your security policies.
+HIGH  gh_grep              long composition chain (5 hops): gh_grep -> deepwiki ->
+                           openaiDeveloperDocs (54 tool-level paths found)
+                           gh_grep/searchGitHub -> deepwiki/read_wiki_structure ->
+                           openaiDeveloperDocs/search_openai_docs ->
+                           deepwiki/read_wiki_contents ->
+                           openaiDeveloperDocs/fetch_openai_doc;
+                           gh_grep/searchGitHub -> deepwiki/read_wiki_structure ->
+                           openaiDeveloperDocs/search_openai_docs ->
+                           deepwiki/read_wiki_contents ->
+                           openaiDeveloperDocs/get_openapi_spec;
+                           gh_grep/searchGitHub -> deepwiki/read_wiki_structure ->
+                           openaiDeveloperDocs/search_openai_docs ->
+                           deepwiki/ask_question ->
+                           openaiDeveloperDocs/fetch_openai_doc; ... (54 total)
+                           ↳ Remediation: Review the finding and take appropriate action based on
+                           your security policies.
+HIGH  gh_grep              long composition chain (5 hops): gh_grep -> openaiDeveloperDocs ->
+                           deepwiki -> datagouv (615 tool-level paths found)
+                           gh_grep/searchGitHub ->
+                           openaiDeveloperDocs/search_openai_docs ->
+                           deepwiki/read_wiki_structure -> datagouv/search_datasets
+                           -> openaiDeveloperDocs/fetch_openai_doc;
+                           gh_grep/searchGitHub ->
+                           openaiDeveloperDocs/search_openai_docs ->
+                           deepwiki/read_wiki_structure -> datagouv/search_datasets
+                           -> openaiDeveloperDocs/get_openapi_spec;
+                           gh_grep/searchGitHub ->
+                           openaiDeveloperDocs/search_openai_docs ->
+                           deepwiki/read_wiki_structure ->
+                           datagouv/search_organizations ->
+                           openaiDeveloperDocs/fetch_openai_doc; ... (615 total)
+                           ↳ Remediation: Review the finding and take appropriate action based on
+                           your security policies.
+HIGH  gh_grep              long composition chain (5 hops): gh_grep -> openaiDeveloperDocs ->
+                           datagouv (925 tool-level paths found)
+                           gh_grep/searchGitHub ->
+                           openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/search_datasets ->
+                           openaiDeveloperDocs/list_openai_docs ->
+                           datagouv/search_dataservices; gh_grep/searchGitHub ->
+                           openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/search_datasets ->
+                           openaiDeveloperDocs/list_openai_docs ->
+                           datagouv/get_dataservice_info; gh_grep/searchGitHub ->
+                           openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/search_datasets ->
+                           openaiDeveloperDocs/list_openai_docs ->
+                           datagouv/get_dataservice_openapi_spec; ... (925 total)
+                           ↳ Remediation: Review the finding and take appropriate action based on
+                           your security policies.
+HIGH  gh_grep              long composition chain (5 hops): gh_grep -> openaiDeveloperDocs ->
+                           datagouv -> deepwiki (915 tool-level paths found)
+                           gh_grep/searchGitHub ->
+                           openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/search_datasets -> deepwiki/read_wiki_structure
+                           -> datagouv/search_dataservices; gh_grep/searchGitHub ->
+                           openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/search_datasets -> deepwiki/read_wiki_structure
+                           -> datagouv/get_dataservice_info; gh_grep/searchGitHub
+                           -> openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/search_datasets -> deepwiki/read_wiki_structure
+                           -> datagouv/get_dataservice_openapi_spec; ... (915
+                           total)
+                           ↳ Remediation: Review the finding and take appropriate action based on
+                           your security policies.
+HIGH  gh_grep              long composition chain (5 hops): gh_grep -> deepwiki -> datagouv (285
+                           tool-level paths found)
+                           gh_grep/searchGitHub -> deepwiki/read_wiki_structure ->
+                           datagouv/search_datasets -> deepwiki/read_wiki_contents
+                           -> datagouv/search_dataservices; gh_grep/searchGitHub ->
+                           deepwiki/read_wiki_structure -> datagouv/search_datasets
+                           -> deepwiki/read_wiki_contents ->
+                           datagouv/get_dataservice_info; gh_grep/searchGitHub ->
+                           deepwiki/read_wiki_structure -> datagouv/search_datasets
+                           -> deepwiki/read_wiki_contents ->
+                           datagouv/get_dataservice_openapi_spec; ... (285 total)
+                           ↳ Remediation: Review the finding and take appropriate action based on
+                           your security policies.
+HIGH  gh_grep              long composition chain (5 hops): gh_grep -> deepwiki -> datagouv ->
+                           openaiDeveloperDocs (795 tool-level paths found)
+                           gh_grep/searchGitHub -> deepwiki/read_wiki_structure ->
+                           datagouv/search_datasets ->
+                           openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/search_dataservices; gh_grep/searchGitHub ->
+                           deepwiki/read_wiki_structure -> datagouv/search_datasets
+                           -> openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/get_dataservice_info; gh_grep/searchGitHub ->
+                           deepwiki/read_wiki_structure -> datagouv/search_datasets
+                           -> openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/get_dataservice_openapi_spec; ... (795 total)
+                           ↳ Remediation: Review the finding and take appropriate action based on
+                           your security policies.
+HIGH  openaiDeveloperDocs  long composition chain (5 hops): openaiDeveloperDocs -> datagouv ->
+                           gh_grep -> deepwiki (195 tool-level paths found)
+                           openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/search_datasets -> gh_grep/searchGitHub ->
+                           deepwiki/read_wiki_structure ->
+                           datagouv/search_dataservices;
+                           openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/search_datasets -> gh_grep/searchGitHub ->
+                           deepwiki/read_wiki_structure ->
+                           datagouv/get_dataservice_info;
+                           openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/search_datasets -> gh_grep/searchGitHub ->
+                           deepwiki/read_wiki_structure ->
+                           datagouv/get_dataservice_openapi_spec; ... (195 total)
+                           ↳ Remediation: Review the finding and take appropriate action based on
+                           your security policies.
+HIGH  openaiDeveloperDocs  long composition chain (5 hops): openaiDeveloperDocs -> datagouv ->
+                           deepwiki -> gh_grep (195 tool-level paths found)
+                           openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/search_datasets -> deepwiki/read_wiki_structure
+                           -> gh_grep/searchGitHub -> datagouv/search_dataservices;
+                           openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/search_datasets -> deepwiki/read_wiki_structure
+                           -> gh_grep/searchGitHub ->
+                           datagouv/get_dataservice_info;
+                           openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/search_datasets -> deepwiki/read_wiki_structure
+                           -> gh_grep/searchGitHub ->
+                           datagouv/get_dataservice_openapi_spec; ... (195 total)
+                           ↳ Remediation: Review the finding and take appropriate action based on
+                           your security policies.
+HIGH  openaiDeveloperDocs  long composition chain (5 hops): openaiDeveloperDocs -> datagouv ->
+                           gh_grep (635 tool-level paths found)
+                           openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/search_datasets ->
+                           openaiDeveloperDocs/list_openai_docs ->
+                           gh_grep/searchGitHub -> datagouv/search_dataservices;
+                           openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/search_datasets ->
+                           openaiDeveloperDocs/list_openai_docs ->
+                           gh_grep/searchGitHub -> datagouv/get_dataservice_info;
+                           openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/search_datasets ->
+                           openaiDeveloperDocs/list_openai_docs ->
+                           gh_grep/searchGitHub ->
+                           datagouv/get_dataservice_openapi_spec; ... (635 total)
+                           ↳ Remediation: Review the finding and take appropriate action based on
+                           your security policies.
+HIGH  openaiDeveloperDocs  long composition chain (5 hops): openaiDeveloperDocs -> deepwiki ->
+                           datagouv (1305 tool-level paths found)
+                           openaiDeveloperDocs/search_openai_docs ->
+                           deepwiki/read_wiki_structure -> datagouv/search_datasets
+                           -> openaiDeveloperDocs/list_openai_docs ->
+                           datagouv/search_dataservices;
+                           openaiDeveloperDocs/search_openai_docs ->
+                           deepwiki/read_wiki_structure -> datagouv/search_datasets
+                           -> openaiDeveloperDocs/list_openai_docs ->
+                           datagouv/get_dataservice_info;
+                           openaiDeveloperDocs/search_openai_docs ->
+                           deepwiki/read_wiki_structure -> datagouv/search_datasets
+                           -> openaiDeveloperDocs/list_openai_docs ->
+                           datagouv/get_dataservice_openapi_spec; ... (1305 total)
+                           ↳ Remediation: Review the finding and take appropriate action based on
+                           your security policies.
+HIGH  openaiDeveloperDocs  long composition chain (5 hops): openaiDeveloperDocs -> deepwiki ->
+                           datagouv -> gh_grep (195 tool-level paths found)
+                           openaiDeveloperDocs/search_openai_docs ->
+                           deepwiki/read_wiki_structure -> datagouv/search_datasets
+                           -> gh_grep/searchGitHub -> datagouv/search_dataservices;
+                           openaiDeveloperDocs/search_openai_docs ->
+                           deepwiki/read_wiki_structure -> datagouv/search_datasets
+                           -> gh_grep/searchGitHub ->
+                           datagouv/get_dataservice_info;
+                           openaiDeveloperDocs/search_openai_docs ->
+                           deepwiki/read_wiki_structure -> datagouv/search_datasets
+                           -> gh_grep/searchGitHub ->
+                           datagouv/get_dataservice_openapi_spec; ... (195 total)
+                           ↳ Remediation: Review the finding and take appropriate action based on
+                           your security policies.
+HIGH  openaiDeveloperDocs  long composition chain (5 hops): openaiDeveloperDocs -> deepwiki ->
+                           gh_grep (36 tool-level paths found)
+                           openaiDeveloperDocs/search_openai_docs ->
+                           deepwiki/read_wiki_structure ->
+                           openaiDeveloperDocs/list_openai_docs ->
+                           gh_grep/searchGitHub ->
+                           openaiDeveloperDocs/fetch_openai_doc;
+                           openaiDeveloperDocs/search_openai_docs ->
+                           deepwiki/read_wiki_structure ->
+                           openaiDeveloperDocs/list_openai_docs ->
+                           gh_grep/searchGitHub ->
+                           openaiDeveloperDocs/get_openapi_spec;
+                           openaiDeveloperDocs/search_openai_docs ->
+                           deepwiki/read_wiki_structure ->
+                           openaiDeveloperDocs/fetch_openai_doc ->
+                           gh_grep/searchGitHub ->
+                           openaiDeveloperDocs/get_openapi_spec; ... (36 total)
+                           ↳ Remediation: Review the finding and take appropriate action based on
+                           your security policies.
+HIGH  openaiDeveloperDocs  long composition chain (5 hops): openaiDeveloperDocs -> gh_grep ->
+                           datagouv -> deepwiki (195 tool-level paths found)
+                           openaiDeveloperDocs/search_openai_docs ->
+                           gh_grep/searchGitHub -> datagouv/search_datasets ->
+                           deepwiki/read_wiki_structure ->
+                           datagouv/search_dataservices;
+                           openaiDeveloperDocs/search_openai_docs ->
+                           gh_grep/searchGitHub -> datagouv/search_datasets ->
+                           deepwiki/read_wiki_structure ->
+                           datagouv/get_dataservice_info;
+                           openaiDeveloperDocs/search_openai_docs ->
+                           gh_grep/searchGitHub -> datagouv/search_datasets ->
+                           deepwiki/read_wiki_structure ->
+                           datagouv/get_dataservice_openapi_spec; ... (195 total)
+                           ↳ Remediation: Review the finding and take appropriate action based on
+                           your security policies.
+HIGH  openaiDeveloperDocs  long composition chain (5 hops): openaiDeveloperDocs -> gh_grep ->
+                           deepwiki -> datagouv (195 tool-level paths found)
+                           openaiDeveloperDocs/search_openai_docs ->
+                           gh_grep/searchGitHub ->
+                           openaiDeveloperDocs/list_openai_docs ->
+                           deepwiki/read_wiki_structure ->
+                           datagouv/search_dataservices;
+                           openaiDeveloperDocs/search_openai_docs ->
+                           gh_grep/searchGitHub ->
+                           openaiDeveloperDocs/list_openai_docs ->
+                           deepwiki/read_wiki_structure ->
+                           datagouv/get_dataservice_info;
+                           openaiDeveloperDocs/search_openai_docs ->
+                           gh_grep/searchGitHub ->
+                           openaiDeveloperDocs/list_openai_docs ->
+                           deepwiki/read_wiki_structure ->
+                           datagouv/get_dataservice_openapi_spec; ... (195 total)
+                           ↳ Remediation: Review the finding and take appropriate action based on
+                           your security policies.
+HIGH  openaiDeveloperDocs  long composition chain (5 hops): openaiDeveloperDocs -> datagouv ->
+                           deepwiki (1905 tool-level paths found)
+                           openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/search_datasets ->
+                           openaiDeveloperDocs/list_openai_docs ->
+                           deepwiki/read_wiki_structure ->
+                           datagouv/search_dataservices;
+                           openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/search_datasets ->
+                           openaiDeveloperDocs/list_openai_docs ->
+                           deepwiki/read_wiki_structure ->
+                           datagouv/get_dataservice_info;
+                           openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/search_datasets ->
+                           openaiDeveloperDocs/list_openai_docs ->
+                           deepwiki/read_wiki_structure ->
+                           datagouv/get_dataservice_openapi_spec; ... (1905 total)
+                           ↳ Remediation: Review the finding and take appropriate action based on
+                           your security policies.
+HIGH  openaiDeveloperDocs  long composition chain (5 hops): openaiDeveloperDocs -> gh_grep ->
+                           deepwiki (24 tool-level paths found)
+                           openaiDeveloperDocs/search_openai_docs ->
+                           gh_grep/searchGitHub ->
+                           openaiDeveloperDocs/list_openai_docs ->
+                           deepwiki/read_wiki_structure ->
+                           openaiDeveloperDocs/fetch_openai_doc;
+                           openaiDeveloperDocs/search_openai_docs ->
+                           gh_grep/searchGitHub ->
+                           openaiDeveloperDocs/list_openai_docs ->
+                           deepwiki/read_wiki_structure ->
+                           openaiDeveloperDocs/get_openapi_spec;
+                           openaiDeveloperDocs/search_openai_docs ->
+                           gh_grep/searchGitHub ->
+                           openaiDeveloperDocs/list_openai_docs ->
+                           deepwiki/read_wiki_contents ->
+                           openaiDeveloperDocs/fetch_openai_doc; ... (24 total)
+                           ↳ Remediation: Review the finding and take appropriate action based on
+                           your security policies.
+HIGH  openaiDeveloperDocs  long composition chain (5 hops): openaiDeveloperDocs -> deepwiki (42
+                           tool-level paths found)
+                           openaiDeveloperDocs/search_openai_docs ->
+                           deepwiki/read_wiki_structure ->
+                           openaiDeveloperDocs/list_openai_docs ->
+                           deepwiki/read_wiki_contents ->
+                           openaiDeveloperDocs/fetch_openai_doc;
+                           openaiDeveloperDocs/search_openai_docs ->
+                           deepwiki/read_wiki_structure ->
+                           openaiDeveloperDocs/list_openai_docs ->
+                           deepwiki/read_wiki_contents ->
+                           openaiDeveloperDocs/get_openapi_spec;
+                           openaiDeveloperDocs/search_openai_docs ->
+                           deepwiki/read_wiki_structure ->
+                           openaiDeveloperDocs/list_openai_docs ->
+                           deepwiki/ask_question ->
+                           openaiDeveloperDocs/fetch_openai_doc; ... (42 total)
+                           ↳ Remediation: Review the finding and take appropriate action based on
+                           your security policies.
+HIGH  openaiDeveloperDocs  long composition chain (5 hops): openaiDeveloperDocs -> deepwiki ->
+                           gh_grep -> datagouv (225 tool-level paths found)
+                           openaiDeveloperDocs/search_openai_docs ->
+                           deepwiki/read_wiki_structure ->
+                           openaiDeveloperDocs/list_openai_docs ->
+                           gh_grep/searchGitHub -> datagouv/search_dataservices;
+                           openaiDeveloperDocs/search_openai_docs ->
+                           deepwiki/read_wiki_structure ->
+                           openaiDeveloperDocs/list_openai_docs ->
+                           gh_grep/searchGitHub -> datagouv/get_dataservice_info;
+                           openaiDeveloperDocs/search_openai_docs ->
+                           deepwiki/read_wiki_structure ->
+                           openaiDeveloperDocs/list_openai_docs ->
+                           gh_grep/searchGitHub ->
+                           datagouv/get_dataservice_openapi_spec; ... (225 total)
+                           ↳ Remediation: Review the finding and take appropriate action based on
+                           your security policies.
+HIGH  openaiDeveloperDocs  long composition chain (5 hops): openaiDeveloperDocs -> gh_grep ->
+                           datagouv (265 tool-level paths found)
+                           openaiDeveloperDocs/search_openai_docs ->
+                           gh_grep/searchGitHub -> datagouv/search_datasets ->
+                           openaiDeveloperDocs/list_openai_docs ->
+                           datagouv/search_dataservices;
+                           openaiDeveloperDocs/search_openai_docs ->
+                           gh_grep/searchGitHub -> datagouv/search_datasets ->
+                           openaiDeveloperDocs/list_openai_docs ->
+                           datagouv/get_dataservice_info;
+                           openaiDeveloperDocs/search_openai_docs ->
+                           gh_grep/searchGitHub -> datagouv/search_datasets ->
+                           openaiDeveloperDocs/list_openai_docs ->
+                           datagouv/get_dataservice_openapi_spec; ... (265 total)
+                           ↳ Remediation: Review the finding and take appropriate action based on
+                           your security policies.
+HIGH  openaiDeveloperDocs  long composition chain (5 hops): openaiDeveloperDocs -> datagouv (635
+                           tool-level paths found)
+                           openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/search_datasets ->
+                           openaiDeveloperDocs/list_openai_docs ->
+                           datagouv/search_organizations ->
+                           openaiDeveloperDocs/fetch_openai_doc;
+                           openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/search_datasets ->
+                           openaiDeveloperDocs/list_openai_docs ->
+                           datagouv/search_organizations ->
+                           openaiDeveloperDocs/get_openapi_spec;
+                           openaiDeveloperDocs/search_openai_docs ->
+                           datagouv/search_datasets ->
+                           openaiDeveloperDocs/list_openai_docs ->
+                           datagouv/search_dataservices; ... (635 total)
+                           ↳ Remediation: Review the finding and take appropriate action based on
+                           your security policies.
+
+── MEDIUM ──
+  /Users/mostafaelataby-cheviron/.config/opencode/opencode.json (project)
+MEDIUM  datagouv              connection to http://metadata.google.internal/computeMetadata/v1/
+                              failed: Get "http://metadata.google.internal/computeMetadata/v1/":
+                              dial tcp: lookup metadata.google.internal: no such host
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  datagouv              connection to
+                              http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token
+                              failed: Get
+                              "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token":
+                              dial tcp: lookup metadata.google.internal: no such host
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  datagouv              connection to http://10.0.0.1/ failed: Get "http://10.0.0.1/": context
+                              deadline exceeded (Client.Timeout exceeded while awaiting headers)
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  datagouv              connection to http://169.254.169.254/latest/user-data/ failed: Get
+                              "http://169.254.169.254/latest/user-data/": dial tcp
+                              169.254.169.254:80: connect: host is down
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  datagouv              connection to
+                              http://169.254.169.254/latest/meta-data/iam/security-credentials/
+                              failed: Get
+                              "http://169.254.169.254/latest/meta-data/iam/security-credentials/":
+                              dial tcp 169.254.169.254:80: connect: host is down
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  datagouv              connection to http://169.254.169.254/latest/meta-data/ failed: Get
+                              "http://169.254.169.254/latest/meta-data/": dial tcp
+                              169.254.169.254:80: connect: host is down
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  datagouv              connection to http://0.0.0.0/ failed: Get "http://0.0.0.0/": dial tcp
+                              0.0.0.0:80: connect: connection refused
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  datagouv              connection to http://[::1]/ failed: Get "http://[::1]/": dial tcp
+                              [::1]:80: connect: connection refused
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  datagouv              connection to http://127.0.0.1:3000/ failed: Get
+                              "http://127.0.0.1:3000/": dial tcp 127.0.0.1:3000: connect: connection
+                              refused
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  datagouv              connection to http://127.0.0.1:8080/ failed: Get
+                              "http://127.0.0.1:8080/": dial tcp 127.0.0.1:8080: connect: connection
+                              refused
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  datagouv              connection to http://127.0.0.1:80/ failed: Get "http://127.0.0.1:80/":
+                              dial tcp 127.0.0.1:80: connect: connection refused
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  datagouv              connection to http://127.0.0.1/ failed: Get "http://127.0.0.1/": dial
+                              tcp 127.0.0.1:80: connect: connection refused
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  datagouv              connection to http://192.168.1.1/ failed: Get "http://192.168.1.1/":
+                              context deadline exceeded (Client.Timeout exceeded while awaiting
+                              headers)
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  datagouv              connection to http://172.16.0.1/ failed: Get "http://172.16.0.1/":
+                              context deadline exceeded (Client.Timeout exceeded while awaiting
+                              headers)
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  deepwiki              connection to http://169.254.169.254/latest/user-data/ failed: Get
+                              "http://169.254.169.254/latest/user-data/": dial tcp
+                              169.254.169.254:80: connect: host is down
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  deepwiki              connection to
+                              http://169.254.169.254/latest/meta-data/iam/security-credentials/
+                              failed: Get
+                              "http://169.254.169.254/latest/meta-data/iam/security-credentials/":
+                              dial tcp 169.254.169.254:80: connect: host is down
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  deepwiki              connection to http://169.254.169.254/latest/meta-data/ failed: Get
+                              "http://169.254.169.254/latest/meta-data/": dial tcp
+                              169.254.169.254:80: connect: host is down
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  glanceable-analytics  connection to http://127.0.0.1:80/ failed: Get "http://127.0.0.1:80/":
+                              dial tcp 127.0.0.1:80: connect: connection refused
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  glanceable-analytics  connection to http://metadata.google.internal/computeMetadata/v1/
+                              failed: Get "http://metadata.google.internal/computeMetadata/v1/":
+                              dial tcp: lookup metadata.google.internal: no such host
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  glanceable-analytics  connection to http://127.0.0.1/ failed: Get "http://127.0.0.1/": dial
+                              tcp 127.0.0.1:80: connect: connection refused
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  glanceable-analytics  connection to http://127.0.0.1:8080/ failed: Get
+                              "http://127.0.0.1:8080/": dial tcp 127.0.0.1:8080: connect: connection
+                              refused
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  glanceable-analytics  connection to http://0.0.0.0/ failed: Get "http://0.0.0.0/": dial tcp
+                              0.0.0.0:80: connect: connection refused
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  glanceable-analytics  connection to http://192.168.1.1/ failed: Get "http://192.168.1.1/":
+                              context deadline exceeded (Client.Timeout exceeded while awaiting
+                              headers)
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  glanceable-analytics  connection to http://172.16.0.1/ failed: Get "http://172.16.0.1/":
+                              context deadline exceeded (Client.Timeout exceeded while awaiting
+                              headers)
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  glanceable-analytics  connection to http://10.0.0.1/ failed: Get "http://10.0.0.1/": context
+                              deadline exceeded (Client.Timeout exceeded while awaiting headers)
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  glanceable-analytics  connection to http://127.0.0.1:3000/ failed: Get
+                              "http://127.0.0.1:3000/": dial tcp 127.0.0.1:3000: connect: connection
+                              refused
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  glanceable-analytics  connection to http://[::1]/ failed: Get "http://[::1]/": dial tcp
+                              [::1]:80: connect: connection refused
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  glanceable-analytics  connection to http://169.254.169.254/latest/meta-data/ failed: Get
+                              "http://169.254.169.254/latest/meta-data/": dial tcp
+                              169.254.169.254:80: connect: no route to host
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  glanceable-analytics  connection to
+                              http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token
+                              failed: Get
+                              "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token":
+                              dial tcp: lookup metadata.google.internal: no such host
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  glanceable-analytics  connection to http://169.254.169.254/latest/user-data/ failed: Get
+                              "http://169.254.169.254/latest/user-data/": dial tcp
+                              169.254.169.254:80: connect: host is down
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  glanceable-analytics  connection to
+                              http://169.254.169.254/latest/meta-data/iam/security-credentials/
+                              failed: Get
+                              "http://169.254.169.254/latest/meta-data/iam/security-credentials/":
+                              dial tcp 169.254.169.254:80: connect: host is down
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  marker-io             connection to http://192.168.1.1/ failed: Get "http://192.168.1.1/":
+                              context deadline exceeded (Client.Timeout exceeded while awaiting
+                              headers)
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  marker-io             connection to http://172.16.0.1/ failed: Get "http://172.16.0.1/":
+                              context deadline exceeded (Client.Timeout exceeded while awaiting
+                              headers)
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  marker-io             connection to http://10.0.0.1/ failed: Get "http://10.0.0.1/": context
+                              deadline exceeded (Client.Timeout exceeded while awaiting headers)
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  marker-io             connection to http://127.0.0.1/ failed: Get "http://127.0.0.1/": dial
+                              tcp 127.0.0.1:80: connect: connection refused
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  marker-io             connection to http://127.0.0.1:8080/ failed: Get
+                              "http://127.0.0.1:8080/": dial tcp 127.0.0.1:8080: connect: connection
+                              refused
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  marker-io             connection to http://127.0.0.1:3000/ failed: Get
+                              "http://127.0.0.1:3000/": dial tcp 127.0.0.1:3000: connect: connection
+                              refused
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  marker-io             connection to http://127.0.0.1:80/ failed: Get "http://127.0.0.1:80/":
+                              dial tcp 127.0.0.1:80: connect: connection refused
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  marker-io             connection to http://metadata.google.internal/computeMetadata/v1/
+                              failed: Get "http://metadata.google.internal/computeMetadata/v1/":
+                              dial tcp: lookup metadata.google.internal: no such host
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  marker-io             connection to
+                              http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token
+                              failed: Get
+                              "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token":
+                              dial tcp: lookup metadata.google.internal: no such host
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  marker-io             connection to http://0.0.0.0/ failed: Get "http://0.0.0.0/": dial tcp
+                              0.0.0.0:80: connect: connection refused
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  marker-io             connection to http://[::1]/ failed: Get "http://[::1]/": dial tcp
+                              [::1]:80: connect: connection refused
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  marker-io             connection to http://169.254.169.254/latest/meta-data/ failed: Get
+                              "http://169.254.169.254/latest/meta-data/": dial tcp
+                              169.254.169.254:80: connect: host is down
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  marker-io             connection to http://169.254.169.254/latest/user-data/ failed: Get
+                              "http://169.254.169.254/latest/user-data/": dial tcp
+                              169.254.169.254:80: connect: host is down
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  marker-io             connection to
+                              http://169.254.169.254/latest/meta-data/iam/security-credentials/
+                              failed: Get
+                              "http://169.254.169.254/latest/meta-data/iam/security-credentials/":
+                              dial tcp 169.254.169.254:80: connect: host is down
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  openaiDeveloperDocs   connection to
+                              http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token
+                              failed: Get
+                              "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token":
+                              dial tcp: lookup metadata.google.internal: no such host
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  openaiDeveloperDocs   connection to http://metadata.google.internal/computeMetadata/v1/
+                              failed: Get "http://metadata.google.internal/computeMetadata/v1/":
+                              dial tcp: lookup metadata.google.internal: no such host
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  openaiDeveloperDocs   connection to http://192.168.1.1/ failed: Get "http://192.168.1.1/":
+                              context deadline exceeded (Client.Timeout exceeded while awaiting
+                              headers)
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  openaiDeveloperDocs   connection to http://10.0.0.1/ failed: Get "http://10.0.0.1/": context
+                              deadline exceeded (Client.Timeout exceeded while awaiting headers)
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  openaiDeveloperDocs   connection to http://172.16.0.1/ failed: Get "http://172.16.0.1/":
+                              context deadline exceeded (Client.Timeout exceeded while awaiting
+                              headers)
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  openaiDeveloperDocs   connection to http://169.254.169.254/latest/user-data/ failed: Get
+                              "http://169.254.169.254/latest/user-data/": dial tcp
+                              169.254.169.254:80: connect: host is down
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  openaiDeveloperDocs   connection to http://169.254.169.254/latest/meta-data/ failed: Get
+                              "http://169.254.169.254/latest/meta-data/": dial tcp
+                              169.254.169.254:80: connect: host is down
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  openaiDeveloperDocs   connection to
+                              http://169.254.169.254/latest/meta-data/iam/security-credentials/
+                              failed: Get
+                              "http://169.254.169.254/latest/meta-data/iam/security-credentials/":
+                              dial tcp 169.254.169.254:80: connect: host is down
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  openaiDeveloperDocs   connection to http://127.0.0.1:3000/ failed: Get
+                              "http://127.0.0.1:3000/": dial tcp 127.0.0.1:3000: connect: connection
+                              refused
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  openaiDeveloperDocs   connection to http://[::1]/ failed: Get "http://[::1]/": dial tcp
+                              [::1]:80: connect: connection refused
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  openaiDeveloperDocs   connection to http://0.0.0.0/ failed: Get "http://0.0.0.0/": dial tcp
+                              0.0.0.0:80: connect: connection refused
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  openaiDeveloperDocs   connection to http://127.0.0.1:8080/ failed: Get
+                              "http://127.0.0.1:8080/": dial tcp 127.0.0.1:8080: connect: connection
+                              refused
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  openaiDeveloperDocs   connection to http://127.0.0.1:80/ failed: Get "http://127.0.0.1:80/":
+                              dial tcp 127.0.0.1:80: connect: connection refused
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  openaiDeveloperDocs   connection to http://127.0.0.1/ failed: Get "http://127.0.0.1/": dial
+                              tcp 127.0.0.1:80: connect: connection refused
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+  /Users/mostafaelataby-cheviron/.cursor/mcp.json (project)
+MEDIUM  deepwiki              connection to http://metadata.google.internal/computeMetadata/v1/
+                              failed: Get "http://metadata.google.internal/computeMetadata/v1/":
+                              dial tcp: lookup metadata.google.internal: no such host
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  deepwiki              connection to http://169.254.169.254/latest/meta-data/ failed: Get
+                              "http://169.254.169.254/latest/meta-data/": context deadline exceeded
+                              (Client.Timeout exceeded while awaiting headers)
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  deepwiki              connection to
+                              http://169.254.169.254/latest/meta-data/iam/security-credentials/
+                              failed: Get
+                              "http://169.254.169.254/latest/meta-data/iam/security-credentials/":
+                              context deadline exceeded (Client.Timeout exceeded while awaiting
+                              headers)
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  deepwiki              connection to http://192.168.1.1/ failed: Get "http://192.168.1.1/":
+                              context deadline exceeded (Client.Timeout exceeded while awaiting
+                              headers)
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  deepwiki              connection to http://169.254.169.254/latest/user-data/ failed: Get
+                              "http://169.254.169.254/latest/user-data/": context deadline exceeded
+                              (Client.Timeout exceeded while awaiting headers)
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  deepwiki              connection to http://10.0.0.1/ failed: Get "http://10.0.0.1/": context
+                              deadline exceeded (Client.Timeout exceeded while awaiting headers)
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  deepwiki              connection to http://172.16.0.1/ failed: Get "http://172.16.0.1/":
+                              context deadline exceeded (Client.Timeout exceeded while awaiting
+                              headers)
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  deepwiki              connection to http://[::1]/ failed: Get "http://[::1]/": dial tcp
+                              [::1]:80: connect: connection refused
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  deepwiki              connection to http://127.0.0.1:80/ failed: Get "http://127.0.0.1:80/":
+                              dial tcp 127.0.0.1:80: connect: connection refused
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  deepwiki              connection to http://127.0.0.1/ failed: Get "http://127.0.0.1/": dial
+                              tcp 127.0.0.1:80: connect: connection refused
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  deepwiki              connection to http://0.0.0.0/ failed: Get "http://0.0.0.0/": dial tcp
+                              0.0.0.0:80: connect: connection refused
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  deepwiki              connection to http://127.0.0.1:3000/ failed: Get
+                              "http://127.0.0.1:3000/": dial tcp 127.0.0.1:3000: connect: connection
+                              refused
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  deepwiki              connection to http://127.0.0.1:8080/ failed: Get
+                              "http://127.0.0.1:8080/": dial tcp 127.0.0.1:8080: connect: connection
+                              refused
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  deepwiki              connection to
+                              http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token
+                              failed: Get
+                              "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token":
+                              dial tcp: lookup metadata.google.internal: no such host
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  gh_grep               connection to http://169.254.169.254/latest/meta-data/ failed: Get
+                              "http://169.254.169.254/latest/meta-data/": context deadline exceeded
+                              (Client.Timeout exceeded while awaiting headers)
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  gh_grep               connection to http://metadata.google.internal/computeMetadata/v1/
+                              failed: Get "http://metadata.google.internal/computeMetadata/v1/":
+                              dial tcp: lookup metadata.google.internal: no such host
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  gh_grep               connection to http://10.0.0.1/ failed: Get "http://10.0.0.1/": context
+                              deadline exceeded (Client.Timeout exceeded while awaiting headers)
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  gh_grep               connection to
+                              http://169.254.169.254/latest/meta-data/iam/security-credentials/
+                              failed: Get
+                              "http://169.254.169.254/latest/meta-data/iam/security-credentials/":
+                              context deadline exceeded (Client.Timeout exceeded while awaiting
+                              headers)
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  gh_grep               connection to http://127.0.0.1:3000/ failed: Get
+                              "http://127.0.0.1:3000/": dial tcp 127.0.0.1:3000: connect: connection
+                              refused
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  gh_grep               connection to http://[::1]/ failed: Get "http://[::1]/": dial tcp
+                              [::1]:80: connect: connection refused
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  gh_grep               connection to http://127.0.0.1:8080/ failed: Get
+                              "http://127.0.0.1:8080/": dial tcp 127.0.0.1:8080: connect: connection
+                              refused
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  gh_grep               connection to http://127.0.0.1:80/ failed: Get "http://127.0.0.1:80/":
+                              dial tcp 127.0.0.1:80: connect: connection refused
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  gh_grep               connection to http://127.0.0.1/ failed: Get "http://127.0.0.1/": dial
+                              tcp 127.0.0.1:80: connect: connection refused
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  gh_grep               connection to http://0.0.0.0/ failed: Get "http://0.0.0.0/": dial tcp
+                              0.0.0.0:80: connect: connection refused
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  gh_grep               connection to http://169.254.169.254/latest/user-data/ failed: Get
+                              "http://169.254.169.254/latest/user-data/": context deadline exceeded
+                              (Client.Timeout exceeded while awaiting headers)
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  gh_grep               tool "searchGitHub" has multiple capabilities: filesystem, database
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  gh_grep               tool "searchGitHub" probe to http://127.0.0.1:8080/ failed: calling
+                              "tools/call": MCP error -32602: Invalid arguments for tool
+                              searchGitHub: [
+                              {
+                              "code": "invalid_type",
+                              "expected": "string",
+                              "received": "undefined",
+                              "path": [
+                              "query"
+                              ],
+                              "message": "Required"
+                              }
+                              ]
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  gh_grep               tool "searchGitHub" probe to http://127.0.0.1/ failed: calling
+                              "tools/call": MCP error -32602: Invalid arguments for tool
+                              searchGitHub: [
+                              {
+                              "code": "invalid_type",
+                              "expected": "string",
+                              "received": "undefined",
+                              "path": [
+                              "query"
+                              ],
+                              "message": "Required"
+                              }
+                              ]
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  gh_grep               connection to http://172.16.0.1/ failed: Get "http://172.16.0.1/":
+                              context deadline exceeded (Client.Timeout exceeded while awaiting
+                              headers)
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  gh_grep               connection to
+                              http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token
+                              failed: Get
+                              "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token":
+                              dial tcp: lookup metadata.google.internal: no such host
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  gh_grep               connection to http://192.168.1.1/ failed: Get "http://192.168.1.1/":
+                              context deadline exceeded (Client.Timeout exceeded while awaiting
+                              headers)
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  datagouv              potential data exfiltration chain: datagouv -> gh_grep (14 tool-level
+                              paths found)
+                              datagouv/search_datasets -> gh_grep/searchGitHub ->
+                              datagouv/search_dataservices;
+                              datagouv/search_datasets -> gh_grep/searchGitHub ->
+                              datagouv/get_dataservice_info;
+                              datagouv/search_datasets -> gh_grep/searchGitHub ->
+                              datagouv/get_dataservice_openapi_spec; ... (14 total)
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  gh_grep               potential data exfiltration chain: gh_grep -> datagouv (5 tool-level
+                              paths found)
+                              gh_grep/searchGitHub -> datagouv/search_dataservices;
+                              gh_grep/searchGitHub ->
+                              datagouv/get_dataservice_info; gh_grep/searchGitHub
+                              -> datagouv/get_dataservice_openapi_spec; ... (5
+                              total)
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  gh_grep               potential data exfiltration chain: gh_grep -> openaiDeveloperDocs
+                              gh_grep/searchGitHub ->
+                              openaiDeveloperDocs/fetch_openai_doc;
+                              gh_grep/searchGitHub ->
+                              openaiDeveloperDocs/get_openapi_spec
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  openaiDeveloperDocs   potential data exfiltration chain: openaiDeveloperDocs -> gh_grep
+                              openaiDeveloperDocs/search_openai_docs ->
+                              gh_grep/searchGitHub ->
+                              openaiDeveloperDocs/fetch_openai_doc;
+                              openaiDeveloperDocs/search_openai_docs ->
+                              gh_grep/searchGitHub ->
+                              openaiDeveloperDocs/get_openapi_spec
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+MEDIUM  openaiDeveloperDocs   potential confused deputy: tool "fetch_openai_doc" in server
+                              "openaiDeveloperDocs" forwards URLs to another server's network-access
+                              tool
+                              ↳ Remediation: Investigate the finding and evaluate whether the
+                              behavior is expected. Consider adding network-level
+                              restrictions or input validation.
+
+── INFO ──
+  /Users/mostafaelataby-cheviron/.config/opencode/opencode.json (project)
+INFO  auth0                 MCP handshake failed: stdio transport requires explicit --transport
+                            stdio flag to execute commands from config
+                            ↳ Remediation: Review the finding and take appropriate action based on
+                            your security policies.
+INFO  clickhouse-dev        MCP handshake failed: stdio transport requires explicit --transport
+                            stdio flag to execute commands from config
+                            ↳ Remediation: Review the finding and take appropriate action based on
+                            your security policies.
+INFO  clickhouse-prod       MCP handshake failed: stdio transport requires explicit --transport
+                            stdio flag to execute commands from config
+                            ↳ Remediation: Review the finding and take appropriate action based on
+                            your security policies.
+INFO  cloud-run             MCP handshake failed: stdio transport requires explicit --transport
+                            stdio flag to execute commands from config
+                            ↳ Remediation: Review the finding and take appropriate action based on
+                            your security policies.
+INFO  datagouv              tool "search_organizations" capabilities: database
+                            ↳ Remediation: Review the finding for awareness. No immediate action
+                            required.
+INFO  datagouv              tool "search_dataservices" capabilities: database
+                            ↳ Remediation: Review the finding for awareness. No immediate action
+                            required.
+INFO  datagouv              tool "search_datasets" capabilities: database
+                            ↳ Remediation: Review the finding for awareness. No immediate action
+                            required.
+INFO  firebase              MCP handshake failed: stdio transport requires explicit --transport
+                            stdio flag to execute commands from config
+                            ↳ Remediation: Review the finding and take appropriate action based on
+                            your security policies.
+INFO  gcloud                MCP handshake failed: stdio transport requires explicit --transport
+                            stdio flag to execute commands from config
+                            ↳ Remediation: Review the finding and take appropriate action based on
+                            your security policies.
+INFO  glanceable-analytics  MCP handshake failed: connect failed (streamable and SSE): failed to
+                            connect: Not Found
+                            ↳ Remediation: Review the finding and take appropriate action based on
+                            your security policies.
+INFO  marker-io             MCP handshake failed: authentication required (401/403): calling
+                            "initialize": sending "initialize": Unauthorized (no auth configured —
+                            server returned 401/403)
+                            ↳ Remediation: Review the finding and take appropriate action based on
+                            your security policies.
+INFO  mongodb-dev           MCP handshake failed: stdio transport requires explicit --transport
+                            stdio flag to execute commands from config
+                            ↳ Remediation: Review the finding and take appropriate action based on
+                            your security policies.
+INFO  mongodb-prod          MCP handshake failed: stdio transport requires explicit --transport
+                            stdio flag to execute commands from config
+                            ↳ Remediation: Review the finding and take appropriate action based on
+                            your security policies.
+INFO  observability         MCP handshake failed: stdio transport requires explicit --transport
+                            stdio flag to execute commands from config
+                            ↳ Remediation: Review the finding and take appropriate action based on
+                            your security policies.
+INFO  openaiDeveloperDocs   tool "search_openai_docs" capabilities: database
+                            ↳ Remediation: Review the finding for awareness. No immediate action
+                            required.
+INFO  openaiDeveloperDocs   tool "fetch_openai_doc" capabilities: network
+                            ↳ Remediation: Review the finding for awareness. No immediate action
+                            required.
+INFO  openaiDeveloperDocs   tool "get_openapi_spec" capabilities: network
+                            ↳ Remediation: Review the finding for awareness. No immediate action
+                            required.
+INFO  prospector            MCP handshake failed: stdio transport requires explicit --transport
+                            stdio flag to execute commands from config
+                            ↳ Remediation: Review the finding and take appropriate action based on
+                            your security policies.
+INFO  storage               MCP handshake failed: stdio transport requires explicit --transport
+                            stdio flag to execute commands from config
+                            ↳ Remediation: Review the finding and take appropriate action based on
+                            your security policies.
+  /Users/mostafaelataby-cheviron/.cursor/mcp.json (project)
+INFO  deepwiki              MCP handshake failed: connect failed (streamable and SSE): failed to
+                            connect: Gone
+                            ↳ Remediation: Review the finding and take appropriate action based on
+                            your security policies.
+INFO  gh_grep               tool "searchGitHub" capabilities: filesystem, database
+                            ↳ Remediation: Review the finding for awareness. No immediate action
+                            required.
+INFO  datagouv              elevated cross-server risk: server "datagouv" adjacency score 20 from
+                            neighbors: deepwiki(unknown=1); openaiDeveloperDocs(filesystem=3,
+                            network=2, database=2, unknown=1); gh_grep(filesystem=3, shell=5,
+                            database=2, unknown=1)
+                            ↳ Remediation: Review the finding and take appropriate action based on
+                            your security policies.
+INFO  deepwiki              elevated cross-server risk: server "deepwiki" adjacency score 27 from
+                            neighbors: datagouv(filesystem=3, network=2, database=2, unknown=1);
+                            openaiDeveloperDocs(filesystem=3, network=2, database=2, unknown=1);
+                            gh_grep(filesystem=3, shell=5, database=2, unknown=1)
+                            ↳ Remediation: Review the finding and take appropriate action based on
+                            your security policies.
+INFO  gh_grep               elevated cross-server risk: server "gh_grep" adjacency score 17 from
+                            neighbors: deepwiki(unknown=1); datagouv(filesystem=3, network=2,
+                            database=2, unknown=1); openaiDeveloperDocs(filesystem=3, network=2,
+                            database=2, unknown=1)
+                            ↳ Remediation: Review the finding and take appropriate action based on
+                            your security policies.
+INFO  openaiDeveloperDocs   elevated cross-server risk: server "openaiDeveloperDocs" adjacency score
+                            20 from neighbors: deepwiki(unknown=1); datagouv(filesystem=3,
+                            network=2, database=2, unknown=1); gh_grep(filesystem=3, shell=5,
+                            database=2, unknown=1)
+                            ↳ Remediation: Review the finding and take appropriate action based on
+                            your security policies.
+
+── PASS ──
+  /Users/mostafaelataby-cheviron/.config/opencode/opencode.json
+PASS  datagouv             no tool drift detected since 2026-06-27T01:17:11+02:00
+PASS  deepwiki             no tool drift detected since 2026-06-27T01:17:12+02:00
+PASS  openaiDeveloperDocs  no tool drift detected since 2026-06-27T01:17:11+02:00
+  /Users/mostafaelataby-cheviron/.config/opencode/opencode.json (project)
+PASS  datagouv             tool "get_dataset_info" handled probe to http://127.0.0.1/ without
+                           leaking data
+PASS  datagouv             tool "search_organizations" description clean — no injection patterns
+                           detected
+PASS  datagouv             tool "search_dataservices" description clean — no injection patterns
+                           detected
+PASS  datagouv             tool "get_dataservice_info" description clean — no injection patterns
+                           detected
+PASS  datagouv             tool "get_dataservice_openapi_spec" description clean — no injection
+                           patterns detected
+PASS  datagouv             tool "query_resource_data" description clean — no injection patterns
+                           detected
+PASS  datagouv             tool "get_dataset_info" description clean — no injection patterns
+                           detected
+PASS  datagouv             tool "list_dataset_resources" description clean — no injection patterns
+                           detected
+PASS  datagouv             tool "get_resource_info" description clean — no injection patterns
+                           detected
+PASS  datagouv             tool "get_metrics" description clean — no injection patterns detected
+PASS  datagouv             tool "get_metrics" handled probe to http://127.0.0.1:80/ without leaking
+                           data
+PASS  datagouv             tool "get_metrics" handled probe to http://127.0.0.1/ without leaking
+                           data
+PASS  datagouv             tool "get_metrics" handled probe to http://127.0.0.1:8080/ without
+                           leaking data
+PASS  datagouv             tool "get_resource_info" handled probe to http://127.0.0.1:80/ without
+                           leaking data
+PASS  datagouv             tool "get_resource_info" handled probe to http://127.0.0.1/ without
+                           leaking data
+PASS  datagouv             tool "get_resource_info" handled probe to http://127.0.0.1:8080/ without
+                           leaking data
+PASS  datagouv             tool "list_dataset_resources" handled probe to http://127.0.0.1:80/
+                           without leaking data
+PASS  datagouv             tool "list_dataset_resources" handled probe to http://127.0.0.1/ without
+                           leaking data
+PASS  datagouv             tool "search_datasets" rejected probe to http://127.0.0.1:8080/
+                           (isError=true)
+PASS  datagouv             tool "search_datasets" handled probe to http://127.0.0.1/ without leaking
+                           data
+PASS  datagouv             tool "search_datasets" rejected probe to http://127.0.0.1:80/
+                           (isError=true)
+PASS  datagouv             tool "search_organizations" handled probe to http://127.0.0.1:8080/
+                           without leaking data
+PASS  datagouv             tool "search_organizations" handled probe to http://127.0.0.1/ without
+                           leaking data
+PASS  datagouv             tool "search_organizations" handled probe to http://127.0.0.1:80/ without
+                           leaking data
+PASS  datagouv             tool "list_dataset_resources" handled probe to http://127.0.0.1:8080/
+                           without leaking data
+PASS  datagouv             tool "get_dataset_info" handled probe to http://127.0.0.1:80/ without
+                           leaking data
+PASS  datagouv             tool "get_dataservice_info" handled probe to http://127.0.0.1/ without
+                           leaking data
+PASS  datagouv             tool "get_dataset_info" handled probe to http://127.0.0.1:8080/ without
+                           leaking data
+PASS  datagouv             tool "search_dataservices" handled probe to http://127.0.0.1:8080/
+                           without leaking data
+PASS  datagouv             tool "search_dataservices" rejected probe to http://127.0.0.1/
+                           (isError=true)
+PASS  datagouv             tool "search_dataservices" rejected probe to http://127.0.0.1:80/
+                           (isError=true)
+PASS  datagouv             tool "query_resource_data" rejected probe to http://127.0.0.1:80/
+                           (isError=true)
+PASS  datagouv             tool "query_resource_data" rejected probe to http://127.0.0.1/
+                           (isError=true)
+PASS  datagouv             tool "search_datasets" description clean — no injection patterns
+                           detected
+PASS  datagouv             tool "get_dataservice_info" handled probe to http://127.0.0.1:80/ without
+                           leaking data
+PASS  datagouv             tool "get_dataservice_info" handled probe to http://127.0.0.1:8080/
+                           without leaking data
+PASS  datagouv             tool "query_resource_data" rejected probe to http://127.0.0.1:8080/
+                           (isError=true)
+PASS  datagouv             tool "get_dataservice_openapi_spec" handled probe to http://127.0.0.1:80/
+                           without leaking data
+PASS  datagouv             tool "get_dataservice_openapi_spec" handled probe to http://127.0.0.1/
+                           without leaking data
+PASS  datagouv             tool "get_dataservice_openapi_spec" handled probe to
+                           http://127.0.0.1:8080/ without leaking data
+PASS  deepwiki             tool "ask_question" rejected probe to http://127.0.0.1:80/ (isError=true)
+PASS  deepwiki             tool "read_wiki_structure" description clean — no injection patterns
+                           detected
+PASS  deepwiki             tool "read_wiki_contents" description clean — no injection patterns
+                           detected
+PASS  deepwiki             tool "ask_question" description clean — no injection patterns detected
+PASS  deepwiki             tool "ask_question" rejected probe to http://127.0.0.1:8080/
+                           (isError=true)
+PASS  deepwiki             tool "ask_question" rejected probe to http://127.0.0.1/ (isError=true)
+PASS  openaiDeveloperDocs  tool "fetch_openai_doc" description clean — no injection patterns
+                           detected
+PASS  openaiDeveloperDocs  tool "list_openai_docs" rejected probe to http://127.0.0.1/
+                           (isError=true)
+PASS  openaiDeveloperDocs  tool "fetch_openai_doc" rejected probe to http://127.0.0.1/
+                           (isError=true)
+PASS  openaiDeveloperDocs  tool "fetch_openai_doc" rejected probe to http://127.0.0.1:8080/
+                           (isError=true)
+PASS  openaiDeveloperDocs  tool "list_openai_docs" handled probe to http://127.0.0.1:80/ without
+                           leaking data
+PASS  openaiDeveloperDocs  tool "search_openai_docs" rejected probe to http://127.0.0.1:8080/
+                           (isError=true)
+PASS  openaiDeveloperDocs  tool "list_openai_docs" rejected probe to http://127.0.0.1:8080/
+                           (isError=true)
+PASS  openaiDeveloperDocs  tool "get_openapi_spec" description clean — no injection patterns
+                           detected
+PASS  openaiDeveloperDocs  tool "list_api_endpoints" description clean — no injection patterns
+                           detected
+PASS  openaiDeveloperDocs  tool "fetch_openai_doc" rejected probe to http://127.0.0.1:80/
+                           (isError=true)
+PASS  openaiDeveloperDocs  tool "list_openai_docs" description clean — no injection patterns
+                           detected
+PASS  openaiDeveloperDocs  tool "search_openai_docs" description clean — no injection patterns
+                           detected
+PASS  openaiDeveloperDocs  tool "list_api_endpoints" handled probe to http://127.0.0.1/ without
+                           leaking data
+PASS  openaiDeveloperDocs  tool "list_api_endpoints" handled probe to http://127.0.0.1:8080/ without
+                           leaking data
+PASS  openaiDeveloperDocs  tool "list_api_endpoints" handled probe to http://127.0.0.1:80/ without
+                           leaking data
+PASS  openaiDeveloperDocs  tool "get_openapi_spec" rejected probe to http://127.0.0.1:8080/
+                           (isError=true)
+PASS  openaiDeveloperDocs  tool "get_openapi_spec" rejected probe to http://127.0.0.1/
+                           (isError=true)
+PASS  openaiDeveloperDocs  tool "get_openapi_spec" rejected probe to http://127.0.0.1:80/
+                           (isError=true)
+  /Users/mostafaelataby-cheviron/.cursor/mcp.json
+PASS  gh_grep              no tool drift detected since 2026-06-27T01:17:11+02:00
+  /Users/mostafaelataby-cheviron/.cursor/mcp.json (project)
+PASS  gh_grep              tool "searchGitHub" description clean — no injection patterns detected

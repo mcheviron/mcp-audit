@@ -9,6 +9,8 @@ import (
 	"github.com/mcheviron/mcp-audit/internal/scanner"
 )
 
+const SchemaSARIF = "1"
+
 type sarifLog struct {
 	Version string `json:"version"`
 	Schema  string `json:"$schema"`

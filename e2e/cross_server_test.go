@@ -105,17 +105,17 @@ func TestE2E_CrossServer_FilesystemToNetworkChain(t *testing.T) {
 		tp, _ := r["type"].(string)
 		finding, _ := r["finding"].(string)
 		sev, _ := r["severity"].(string)
-		if tp == "cross-server" && strings.Contains(finding, "potential data exfiltration chain") {
+		if tp == "cross-server" && strings.Contains(finding, "theoretical cross-server chain") {
 			foundChain = true
-			if sev != "MEDIUM" {
-				t.Errorf("expected MEDIUM severity, got %s", sev)
+			if sev != "INFO" {
+				t.Errorf("expected INFO severity for short chain, got %s", sev)
 			}
 			t.Logf("chain found: %s", finding)
 		}
 	}
 
 	if !foundChain {
-		t.Error("expected MEDIUM 'potential data exfiltration chain' finding")
+		t.Error("expected INFO 'theoretical cross-server chain' finding")
 	}
 }
 

@@ -14,6 +14,7 @@ func runCrossServerAnalysis(allTools map[string][]mcp.Tool) []Result {
 			Server:   f.Server,
 			Type:     f.Type,
 			Finding:  f.Description,
+			Detail:   f.Detail,
 		}
 	}
 	return results

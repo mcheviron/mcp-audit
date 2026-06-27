@@ -8,6 +8,8 @@ import (
 	"github.com/mcheviron/mcp-audit/internal/scanner"
 )
 
+const SchemaJSON = "1"
+
 type jsonOutput struct {
 	Tool              string                    `json:"tool"`
 	Version           string                    `json:"version"`

@@ -54,22 +54,47 @@ func wrapText(s string, width int) []string {
 			}
 			line += " " + w
 		}
-		out = append(out, line)
+		if len(line) > width {
+			out = append(out, breakLongToken(line, width)...)
+		} else {
+			out = append(out, line)
+		}
 	}
 	return out
 }
 
-func writeWrapped(w io.Writer, prefix, indent, text string, width int) error {
+func breakLongToken(s string, width int) []string {
+	if width <= 0 {
+		return []string{s}
+	}
+	var out []string
+	for len(s) > width {
+		out = append(out, s[:width])
+		s = s[width:]
+	}
+	out = append(out, s)
+	return out
+}
+
+func writeWrapped(w io.Writer, firstLine, indent, text string, width int) error {
 	if width < 20 {
 		width = 20
 	}
 	lines := wrapText(text, width)
 	for i, line := range lines {
-		cell := line
-		if i == 0 && prefix != "" {
-			cell = prefix + " " + line
+		if line == "" {
+			if _, err := fmt.Fprintln(w, ""); err != nil {
+				return err
+			}
+			continue
 		}
-		if _, err := fmt.Fprintf(w, "%s%s\n", indent, cell); err != nil {
+		if i == 0 {
+			if _, err := fmt.Fprintf(w, "%s%s\n", firstLine, line); err != nil {
+				return err
+			}
+			continue
+		}
+		if _, err := fmt.Fprintf(w, "%s%s\n", indent, line); err != nil {
 			return err
 		}
 	}

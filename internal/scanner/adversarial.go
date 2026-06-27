@@ -18,6 +18,10 @@ import (
 //go:embed probes.txt
 var probesData string
 
+func ProbesText() []byte {
+	return []byte(probesData)
+}
+
 type Probe struct {
 	ID          string
 	Category    string
@@ -77,7 +81,23 @@ type AdversarialResult struct {
 const (
 	advIndExtraction = "extraction"
 	advIndInjection  = "injection"
+
+	minConfidenceForHIGH = 0.5
 )
+
+var (
+	mutatingVerbs = []string{
+		"delete", "execute", "write", "update", "set", "remove", "create", "modify", "send", "post", "put", "patch",
+	}
+	retrievalVerbs = []string{
+		"search", "lookup", "fetch", "get", "list", "read", "find", "query", "retrieve", "show",
+	}
+)
+
+type MatchResult struct {
+	Indicator  string
+	Confidence float64
+}
 
 var (
 	sysPromptPatterns = []*regexp.Regexp{
@@ -105,18 +125,34 @@ var (
 	}
 )
 
-func analyzeAdversarialResponse(text string) string {
+func analyzeAdversarialResponse(text, probeText, toolName, toolDesc string) MatchResult {
+	var match string
+	var indicator string
 	for _, p := range sysPromptPatterns {
 		if m := p.FindString(text); m != "" {
-			return advIndExtraction
+			match = m
+			indicator = advIndExtraction
+			break
 		}
 	}
-	for _, p := range roleSwitchPatterns {
-		if m := p.FindString(text); m != "" {
-			return advIndInjection
+	if indicator == "" {
+		for _, p := range roleSwitchPatterns {
+			if m := p.FindString(text); m != "" {
+				match = m
+				indicator = advIndInjection
+				break
+			}
 		}
 	}
-	return ""
+	if indicator == "" {
+		return MatchResult{}
+	}
+
+	base := 1.0
+	echo := echoFactor(match, probeText)
+	purpose := classifyPurpose(toolName, toolDesc)
+	confidence := base * echo * purpose
+	return MatchResult{Indicator: indicator, Confidence: confidence}
 }
 
 func pickTextTools(tools []mcp.Tool, maxN int) []mcp.Tool {
@@ -268,7 +304,7 @@ func execAdversarialProbes(
 
 			sent++
 			if matched := recordAdversarialProbeResult(
-				callResult, probe, tool.Name, serverName, configPath, scope, &results,
+				callResult, probe, tool.Name, tool.Description, serverName, configPath, scope, &results,
 			); matched {
 				succeeded++
 			}
@@ -281,20 +317,25 @@ func execAdversarialProbes(
 func recordAdversarialProbeResult(
 	callResult *mcp.CallToolResult,
 	probe Probe,
-	toolName, serverName, configPath, scope string,
+	toolName, toolDesc, serverName, configPath, scope string,
 	results *[]Result,
 ) bool {
 	for _, content := range callResult.Content {
 		if content.Type != "text" {
 			continue
 		}
-		indicator := analyzeAdversarialResponse(content.Text)
-		if indicator == "" {
+		match := analyzeAdversarialResponse(content.Text, probe.Text, toolName, toolDesc)
+		if match.Indicator == "" {
 			continue
 		}
-		finding := formatAdversarialFinding(indicator, probe, toolName)
+		severity := SevHigh
+		finding := formatAdversarialFinding(match.Indicator, probe, toolName)
+		if match.Confidence < minConfidenceForHIGH {
+			severity = SevInfo
+			finding = fmt.Sprintf("%s (low confidence %.2f, review manually)", finding, match.Confidence)
+		}
 		*results = append(*results, Result{
-			Severity: SevHigh, Server: serverName, Type: "adversarial",
+			Severity: severity, Server: serverName, Type: "adversarial",
 			Finding: finding, Detail: redactDetail(content.Text),
 			ConfigPath: configPath, Scope: scope,
 		})

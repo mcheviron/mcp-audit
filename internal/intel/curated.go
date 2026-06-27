@@ -10,6 +10,10 @@ import (
 //go:embed default-trust.json
 var defaultTrustJSON []byte
 
+func DefaultTrustJSON() []byte {
+	return defaultTrustJSON
+}
+
 type TrustFile struct {
 	Version     string            `json:"version"`
 	GeneratedAt string            `json:"generated_at"`

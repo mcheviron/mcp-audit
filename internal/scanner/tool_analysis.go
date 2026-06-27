@@ -47,7 +47,7 @@ func analyzeCallToolResponse(
 }
 
 func evalToolTextBlock(text, toolName, target string, worst *Result) {
-	a := assessBody(text, "")
+	a := assessBodyWithContext(text, "", target, toolName)
 
 	if a.score > 0.7 {
 		checkCriticalToolPatternsFromAssessment(a, toolName, target, worst)
@@ -62,7 +62,7 @@ func evalToolTextBlock(text, toolName, target string, worst *Result) {
 		}
 	}
 
-	if a.containsPromptInject && worst.Severity < SevHigh {
+	if a.containsPromptInject() && worst.Severity < SevHigh {
 		*worst = Result{
 			Severity: SevHigh, Server: worst.Server, Type: "dynamic",
 			Finding: fmt.Sprintf("tool %q response contains prompt injection pattern", toolName),
@@ -253,14 +253,19 @@ func injectHeaderArg(args map[string]any, key, value string) {
 }
 
 var PromptInjectionPatterns = []*regexp.Regexp{
-	regexp.MustCompile(`(?i)(you are now|you are no longer|from now on you are)`),
-	regexp.MustCompile(`(?i)(ignore (all |)previous|forget (all |)prior|disregard (all |)above)`),
+	regexp.MustCompile(`(?i)(^|\.\s|!\s)(you are now|you are no longer|from now on you are)\b`),
+	regexp.MustCompile(`(?i)(^|\.\s|!\s)(ignore (all |)previous|forget (all |)prior|disregard (all |)above)\b`),
 	regexp.MustCompile(`(?i)(system:\s*|system prompt:\s*|<system>|\[system\]|<<SYSTEM>>)`),
-	regexp.MustCompile(`(?i)(act as .*(?:assistant|agent|tool|bot|hacker|adversary|attacker))`),
-	regexp.MustCompile(`(?i)(you must|you should|you will|your (?:new |)(?:goal|task|job|mission|objective))`),
+	regexp.MustCompile(`(?i)(^|\.\s|!\s)(act as .*(?:assistant|agent|tool|bot|hacker|adversary|attacker))\b`),
+	regexp.MustCompile(
+		`(?i)(^|\.\s|!\s)(you must|you should|you will|your (?:new |)(?:goal|task|job|mission|objective))\b`,
+	),
 	regexp.MustCompile(`(?i)(base64|base\s*64)[\s:]*[A-Za-z0-9+/=]{20,}`),
 	regexp.MustCompile(`(?i)(secret (?:key|token|password|credential)|api[_-]?key\s*[:=])`),
-	regexp.MustCompile(`(?i)(bypass|override|exploit|inject|hijack|backdoor|trojan|malware)`),
+	regexp.MustCompile(`(?i)\b(bypass|hijack|backdoor|trojan|malware)\b`),
+	regexp.MustCompile(`(?i)\boverride\b.{0,40}\b(security|safety|policy|permission|filter)`),
+	regexp.MustCompile(`(?i)\b(inject|exploit|injection)\b`),
+	regexp.MustCompile(`(?i)(^|\s)(inject|exploit)\s+(prompt|injection|payload|vulnerab)`),
 }
 
 var urlEmbedPattern = regexp.MustCompile(`(https?://[^\s)]+)`)

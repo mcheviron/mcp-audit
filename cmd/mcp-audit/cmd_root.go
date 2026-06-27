@@ -35,6 +35,7 @@ func init() {
 	setupRootFlags(rootCmd.PersistentFlags())
 	rootCmd.AddCommand(scanCmd, staticCmd, probeCmd, watchCmd, proxyCmd)
 	rootCmd.AddCommand(trustCmd, uploadCmd, sbomCmd)
+	rootCmd.AddCommand(verifyCmd)
 	rootCmd.SetVersionTemplate("mcp-audit {{.Version}}\n  commit: " + commit + "\n  date:   " + date + "\n")
 	rootCmd.Version = version
 }

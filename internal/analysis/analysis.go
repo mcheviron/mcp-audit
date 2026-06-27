@@ -9,6 +9,7 @@ type Finding struct {
 	Server      string
 	Type        string
 	Description string
+	Detail      string
 }
 
 func Run(allTools map[string][]mcp.Tool) []Finding {

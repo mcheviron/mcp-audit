@@ -190,8 +190,14 @@ func writeSeverityGroup(w io.Writer, g []scanner.Result, opts TableOptions) erro
 		}
 	}
 	remIndent := "↳ Remediation: "
-	remPrefixLen := 2 + serverWidth + 2 + len(remIndent)
+	findIndentLen := len(g[0].Severity.String()) + 2 + serverWidth + 2
+	findIndent := strings.Repeat(" ", findIndentLen)
+	remPrefixLen := findIndentLen + len(remIndent)
 	remWidth := contentWidth(opts.Width, remPrefixLen)
+	findWidth := contentWidth(opts.Width, findIndentLen)
+	if findWidth+findIndentLen > opts.Width {
+		findWidth = max(1, opts.Width-findIndentLen)
+	}
 
 	paths := make([]string, 0)
 	pathIndex := map[string]int{}
@@ -221,20 +227,18 @@ func writeSeverityGroup(w io.Writer, g []scanner.Result, opts TableOptions) erro
 				continue
 			}
 			padded := r.Server + strings.Repeat(" ", serverWidth-len(r.Server))
-			if _, err := fmt.Fprintf(w, "%s  %s  %s\n",
-				colorize(r.Severity.String()), padded, r.Finding); err != nil {
+			head := colorize(r.Severity.String()) + "  " + padded + "  "
+			if err := writeWrapped(w, head, findIndent, r.Finding, findWidth); err != nil {
 				return err
 			}
 			if r.Detail != "" {
-				indent := strings.Repeat(" ", 2+serverWidth+2)
-				if err := writeWrapped(w, "", indent, r.Detail, remWidth); err != nil {
+				if err := writeWrapped(w, findIndent, findIndent, r.Detail, remWidth); err != nil {
 					return err
 				}
 			}
 			if r.Remediation != "" &&
 				(r.Severity != scanner.SevPass || opts.ShowPassRemediation) {
-				indent := strings.Repeat(" ", 2+serverWidth+2)
-				if err := writeWrapped(w, remIndent, indent, r.Remediation, remWidth); err != nil {
+				if err := writeWrapped(w, findIndent+remIndent, findIndent, r.Remediation, remWidth); err != nil {
 					return err
 				}
 			}

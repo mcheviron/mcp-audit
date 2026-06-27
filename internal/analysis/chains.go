@@ -7,15 +7,19 @@ import (
 	"github.com/hashicorp/go-set"
 )
 
-func detectCompositionChains(g *toolGraph) []Finding {
-	var results []Finding
+type rawChain struct {
+	indexes []int
+	servers []string
+}
 
+func detectCompositionChains(g *toolGraph) []Finding {
+	var raw []rawChain
 	for i := range g.nodes {
 		if !g.nodes[i].dataAccess {
 			continue
 		}
-		chains := findPaths(g, i, 0, nil)
-		for _, chain := range chains {
+		paths := findPaths(g, i, 0, nil)
+		for _, chain := range paths {
 			if len(chain) < 2 {
 				continue
 			}
@@ -27,27 +31,68 @@ func detectCompositionChains(g *toolGraph) []Finding {
 			if len(servers) < 2 {
 				continue
 			}
-			chainLen := len(chain)
-			sev := "MEDIUM"
-			if chainLen > 5 {
-				sev = "CRITICAL"
-			} else if chainLen > 3 {
-				sev = "HIGH"
-			}
-			path := formatChainPath(g, chain)
-			finding := fmt.Sprintf("potential data exfiltration chain: %s", path)
-			if chainLen > 3 {
-				finding = fmt.Sprintf("long composition chain (%d hops): %s", chainLen, path)
-			}
-			results = append(results, Finding{
-				Severity:    sev,
-				Server:      g.nodes[i].server,
-				Type:        "cross-server",
-				Description: finding,
-			})
+			raw = append(raw, rawChain{indexes: chain, servers: servers})
 		}
 	}
+	return emitGroupedChains(g, raw)
+}
 
+func emitGroupedChains(g *toolGraph, raw []rawChain) []Finding {
+	type group struct {
+		examples []rawChain
+		maxHops  int
+		count    int
+	}
+	groups := map[string]*group{}
+	for _, rc := range raw {
+		key := strings.Join(rc.servers, " -> ")
+		hops := len(rc.indexes)
+		grp, ok := groups[key]
+		if !ok {
+			grp = &group{maxHops: hops}
+			groups[key] = grp
+		}
+		grp.count++
+		if hops > grp.maxHops {
+			grp.maxHops = hops
+		}
+		if len(grp.examples) < 3 {
+			grp.examples = append(grp.examples, rc)
+		}
+	}
+	var results []Finding
+	for seq, grp := range groups {
+		maxHops := grp.maxHops
+		sev := "INFO"
+		desc := fmt.Sprintf("theoretical cross-server chain (%d hops, %d paths): %s", maxHops, grp.count, seq)
+		if grp.count > len(grp.examples) {
+			desc = fmt.Sprintf(
+				"theoretical cross-server chain (%d hops): %s (%d tool-level paths found)",
+				maxHops, seq, grp.count,
+			)
+		}
+		if maxHops >= 5 {
+			sev = "MEDIUM"
+		}
+		first := grp.examples[0]
+		var detail string
+		for j, ex := range grp.examples {
+			if j > 0 {
+				detail += "; "
+			}
+			detail += formatChainPath(g, ex.indexes)
+		}
+		if grp.count > len(grp.examples) {
+			detail = fmt.Sprintf("%s; ... (%d total)", detail, grp.count)
+		}
+		results = append(results, Finding{
+			Severity:    sev,
+			Server:      first.servers[0],
+			Type:        "cross-server",
+			Description: desc,
+			Detail:      detail,
+		})
+	}
 	return results
 }
 
