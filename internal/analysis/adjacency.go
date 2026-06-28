@@ -9,6 +9,14 @@ import (
 	"github.com/mcheviron/mcp-audit/internal/mcp"
 )
 
+type capSummary struct {
+	filesystem bool
+	shell      bool
+	network    bool
+	database   bool
+	unknown    bool
+}
+
 func detectConfusedDeputy(allTools map[string][]mcp.Tool) []Finding {
 	var results []Finding
 
@@ -92,14 +100,6 @@ func toolHasNetworkCapability(tool mcp.Tool) bool {
 		return true
 	}
 	return false
-}
-
-type capSummary struct {
-	filesystem bool
-	shell      bool
-	network    bool
-	database   bool
-	unknown    bool
 }
 
 func (c capSummary) score() int {

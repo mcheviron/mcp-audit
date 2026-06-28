@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+type timeoutError struct{}
+
 func TestIsTransientTimeoutError(t *testing.T) {
 	err := &net.OpError{Err: &timeoutError{}, Op: "dial"}
 	if !isTransient(err) {
@@ -15,10 +17,10 @@ func TestIsTransientTimeoutError(t *testing.T) {
 	}
 }
 
-type timeoutError struct{}
+func (e *timeoutError) Error() string { return "timeout" }
 
-func (e *timeoutError) Error() string   { return "timeout" }
-func (e *timeoutError) Timeout() bool   { return true }
+func (e *timeoutError) Timeout() bool { return true }
+
 func (e *timeoutError) Temporary() bool { return true }
 
 func TestIsTransientConnectionRefused(t *testing.T) {

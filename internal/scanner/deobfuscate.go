@@ -11,24 +11,6 @@ import (
 	"unicode/utf8"
 )
 
-//go:embed confusables.json
-var confusablesData string
-
-var confusableMap map[string]string
-
-func init() {
-	confusableMap = loadConfusables(confusablesData)
-}
-
-func loadConfusables(data string) map[string]string {
-	m := map[string]string{}
-	if err := json.Unmarshal([]byte(data), &m); err != nil {
-		slog.Warn("load confusables", "err", err)
-		m = map[string]string{}
-	}
-	return m
-}
-
 type deobStage func(desc string) (string, []Result, bool)
 
 func isBidiRune(r rune) bool {
@@ -38,6 +20,34 @@ func isBidiRune(r rune) bool {
 		return true
 	}
 	return false
+}
+
+//go:embed confusables.json
+var confusablesData string
+
+var confusableMap map[string]string
+
+func init() {
+	confusableMap = loadConfusables(confusablesData)
+}
+
+var b64Pattern = regexp.MustCompile(`[A-Za-z0-9+/]{20,}={0,2}`)
+
+var deobStages = []deobStage{
+	stripUnicodeTags,
+	detectBiDi,
+	scanZeroWidth,
+	decodeBase64,
+	detectConfusables,
+}
+
+func loadConfusables(data string) map[string]string {
+	m := map[string]string{}
+	if err := json.Unmarshal([]byte(data), &m); err != nil {
+		slog.Warn("load confusables", "err", err)
+		m = map[string]string{}
+	}
+	return m
 }
 
 func isZeroWidthRune(r rune) bool {
@@ -66,8 +76,6 @@ func countZeroWidthRunes(s string) int {
 	}
 	return n
 }
-
-var b64Pattern = regexp.MustCompile(`[A-Za-z0-9+/]{20,}={0,2}`)
 
 func stripUnicodeTags(desc string) (string, []Result, bool) {
 	var findings []Result
@@ -179,14 +187,6 @@ func detectConfusables(desc string) (string, []Result, bool) {
 		})
 	}
 	return desc, findings, false
-}
-
-var deobStages = []deobStage{
-	stripUnicodeTags,
-	detectBiDi,
-	scanZeroWidth,
-	decodeBase64,
-	detectConfusables,
 }
 
 func deobfuscate(desc string) (string, []Result) {

@@ -61,6 +61,60 @@ func Write(
 	}
 }
 
+func WriteCISummary(w io.Writer, results []scanner.Result, serversScanned int) error {
+	counts := countBySeverity(results)
+	s := jsonSummary{
+		Critical:       counts[scanner.SevCritical],
+		High:           counts[scanner.SevHigh],
+		Medium:         counts[scanner.SevMedium],
+		Low:            counts[scanner.SevLow],
+		Info:           counts[scanner.SevInfo],
+		Pass:           counts[scanner.SevPass],
+		ServersScanned: serversScanned,
+	}
+	data, err := json.Marshal(s)
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintln(w, string(data))
+	return err
+}
+
+func ExitCode(results []scanner.Result, scanErrored bool) int {
+	if scanErrored {
+		return 2
+	}
+	for _, r := range results {
+		if r.Severity == scanner.SevCritical || r.Severity == scanner.SevHigh {
+			return 1
+		}
+	}
+	return 0
+}
+
+func PrintSummary(results []scanner.Result, serversScanned int) {
+	counts := countBySeverity(results)
+	if allZero(counts) {
+		fmt.Fprintf(os.Stderr, "0 findings — %d servers scanned\n", serversScanned)
+		return
+	}
+
+	fmt.Fprintf(os.Stderr,
+		"%d CRITICAL  %d HIGH  %d MEDIUM  %d LOW  %d INFO  %d PASS  —  %d servers scanned\n",
+		counts[scanner.SevCritical],
+		counts[scanner.SevHigh],
+		counts[scanner.SevMedium],
+		counts[scanner.SevLow],
+		counts[scanner.SevInfo],
+		counts[scanner.SevPass],
+		serversScanned,
+	)
+}
+
+func UniqueServerCount(results []scanner.Result) int {
+	return len(uniqueServers(results))
+}
+
 func writeSummaryLine(w io.Writer, counts map[scanner.Severity]int) error {
 	if allZero(counts) {
 		return nil
@@ -120,25 +174,6 @@ func writeBlastChains(w io.Writer, chains []scanner.Chain) {
 		}
 	}
 	_, _ = fmt.Fprintln(w, "")
-}
-
-func WriteCISummary(w io.Writer, results []scanner.Result, serversScanned int) error {
-	counts := countBySeverity(results)
-	s := jsonSummary{
-		Critical:       counts[scanner.SevCritical],
-		High:           counts[scanner.SevHigh],
-		Medium:         counts[scanner.SevMedium],
-		Low:            counts[scanner.SevLow],
-		Info:           counts[scanner.SevInfo],
-		Pass:           counts[scanner.SevPass],
-		ServersScanned: serversScanned,
-	}
-	data, err := json.Marshal(s)
-	if err != nil {
-		return err
-	}
-	_, err = fmt.Fprintln(w, string(data))
-	return err
 }
 
 func writeTable(w io.Writer, results []scanner.Result, chains []scanner.Chain, opts TableOptions) error {
@@ -247,37 +282,6 @@ func writeSeverityGroup(w io.Writer, g []scanner.Result, opts TableOptions) erro
 	return nil
 }
 
-func ExitCode(results []scanner.Result, scanErrored bool) int {
-	if scanErrored {
-		return 2
-	}
-	for _, r := range results {
-		if r.Severity == scanner.SevCritical || r.Severity == scanner.SevHigh {
-			return 1
-		}
-	}
-	return 0
-}
-
-func PrintSummary(results []scanner.Result, serversScanned int) {
-	counts := countBySeverity(results)
-	if allZero(counts) {
-		fmt.Fprintf(os.Stderr, "0 findings — %d servers scanned\n", serversScanned)
-		return
-	}
-
-	fmt.Fprintf(os.Stderr,
-		"%d CRITICAL  %d HIGH  %d MEDIUM  %d LOW  %d INFO  %d PASS  —  %d servers scanned\n",
-		counts[scanner.SevCritical],
-		counts[scanner.SevHigh],
-		counts[scanner.SevMedium],
-		counts[scanner.SevLow],
-		counts[scanner.SevInfo],
-		counts[scanner.SevPass],
-		serversScanned,
-	)
-}
-
 func countBySeverity(results []scanner.Result) map[scanner.Severity]int {
 	counts := map[scanner.Severity]int{}
 	for _, r := range results {
@@ -368,8 +372,4 @@ func uniqueServers(results []scanner.Result) []string {
 	}
 	sort.Strings(servers)
 	return servers
-}
-
-func UniqueServerCount(results []scanner.Result) int {
-	return len(uniqueServers(results))
 }

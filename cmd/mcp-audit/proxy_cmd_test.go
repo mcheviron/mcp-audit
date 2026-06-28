@@ -8,28 +8,6 @@ import (
 	"testing"
 )
 
-func writeTempPolicy(t *testing.T, content string) string {
-	t.Helper()
-	dir := t.TempDir()
-	path := filepath.Join(dir, "policy.yaml")
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-		t.Fatalf("write temp policy: %v", err)
-	}
-	return path
-}
-
-func buildTestBinary(t *testing.T) string {
-	t.Helper()
-	bin := filepath.Join(t.TempDir(), "mcp-audit")
-	pkgDir := filepath.Join("github.com", "mostafaelataby-cheviron", "mcp-audit", "cmd", "mcp-audit")
-	cmd := exec.Command("go", "build", "-o", bin, pkgDir)
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("build: %v", err)
-	}
-	return bin
-}
-
 func TestValidateSubcommandValidPolicy(t *testing.T) {
 	yaml := `
 rules:
@@ -70,4 +48,26 @@ rules:
 	if !strings.Contains(string(out), "Policy validation failed") {
 		t.Errorf("expected 'Policy validation failed' in output, got: %s", string(out))
 	}
+}
+
+func writeTempPolicy(t *testing.T, content string) string {
+	t.Helper()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "policy.yaml")
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatalf("write temp policy: %v", err)
+	}
+	return path
+}
+
+func buildTestBinary(t *testing.T) string {
+	t.Helper()
+	bin := filepath.Join(t.TempDir(), "mcp-audit")
+	pkgDir := filepath.Join("github.com", "mostafaelataby-cheviron", "mcp-audit", "cmd", "mcp-audit")
+	cmd := exec.Command("go", "build", "-o", bin, pkgDir)
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	return bin
 }

@@ -12,6 +12,99 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+type capabilityPattern struct {
+	name     string
+	patterns []string
+}
+
+var PromptInjectionPatterns = []*regexp.Regexp{
+	regexp.MustCompile(`(?i)(^|\.\s|!\s)(you are now|you are no longer|from now on you are)\b`),
+	regexp.MustCompile(`(?i)(^|\.\s|!\s)(ignore (all |)previous|forget (all |)prior|disregard (all |)above)\b`),
+	regexp.MustCompile(`(?i)(system:\s*|system prompt:\s*|<system>|\[system\]|<<SYSTEM>>)`),
+	regexp.MustCompile(`(?i)(^|\.\s|!\s)(act as .*(?:assistant|agent|tool|bot|hacker|adversary|attacker))\b`),
+	regexp.MustCompile(
+		`(?i)(^|\.\s|!\s)(you must|you should|you will|your (?:new |)(?:goal|task|job|mission|objective))\b`,
+	),
+	regexp.MustCompile(`(?i)(base64|base\s*64)[\s:]*[A-Za-z0-9+/=]{20,}`),
+	regexp.MustCompile(`(?i)(secret (?:key|token|password|credential)|api[_-]?key\s*[:=])`),
+	regexp.MustCompile(`(?i)\b(bypass|hijack|backdoor|trojan|malware)\b`),
+	regexp.MustCompile(`(?i)\boverride\b.{0,40}\b(security|safety|policy|permission|filter)`),
+	regexp.MustCompile(`(?i)\b(inject|exploit|injection)\b`),
+	regexp.MustCompile(`(?i)(^|\s)(inject|exploit)\s+(prompt|injection|payload|vulnerab)`),
+}
+
+var urlEmbedPattern = regexp.MustCompile(`(https?://[^\s)]+)`)
+
+func analyzeToolDescription(tool mcp.Tool, serverName, configPath, scope string) []Result {
+	desc := strings.TrimSpace(tool.Description)
+	if desc == "" {
+		return []Result{{
+			Severity:   SevInfo,
+			Server:     serverName,
+			Type:       "static",
+			Finding:    fmt.Sprintf("tool %q has no description (information hiding)", tool.Name),
+			ConfigPath: configPath,
+			Scope:      scope,
+		}}
+	}
+
+	cleanDesc, deobFindings := deobfuscate(desc)
+	var results []Result
+	if stop := collectDeobFindings(
+		deobFindings, tool.Name, serverName, configPath, scope, &results,
+	); stop {
+		return results
+	}
+
+	for _, p := range PromptInjectionPatterns {
+		if m := p.FindString(cleanDesc); m != "" {
+			results = append(results, Result{
+				Severity:   SevLow,
+				Server:     serverName,
+				Type:       "static",
+				Finding:    fmt.Sprintf("tool %q description matches injection pattern %q", tool.Name, m),
+				Detail:     redactDetail(cleanDesc),
+				ConfigPath: configPath,
+				Scope:      scope,
+			})
+			break
+		}
+	}
+
+	if urls := urlEmbedPattern.FindAllString(cleanDesc, 20); len(urls) > 0 {
+		for _, u := range urls {
+			results = append(results, Result{
+				Severity:   SevLow,
+				Server:     serverName,
+				Type:       "static",
+				Finding:    fmt.Sprintf("tool %q description contains embedded URL: %s", tool.Name, u),
+				ConfigPath: configPath,
+				Scope:      scope,
+			})
+		}
+	}
+
+	if len(results) == 0 {
+		results = append(results, Result{
+			Severity:   SevPass,
+			Server:     serverName,
+			Type:       "static",
+			Finding:    fmt.Sprintf("tool %q description clean — no injection patterns detected", tool.Name),
+			ConfigPath: configPath,
+			Scope:      scope,
+		})
+	}
+
+	return results
+}
+
+var capabilityPatterns = []capabilityPattern{
+	capabilityPattern{name: "filesystem", patterns: []string{"path", "file", "directory", "folder", "filename"}},
+	capabilityPattern{name: "network", patterns: []string{"url", "uri", "endpoint", "host", "hostname"}},
+	capabilityPattern{name: "shell", patterns: []string{"command", "cmd", "script", "exec", "shell"}},
+	capabilityPattern{name: "database", patterns: []string{"query", "sql", "collection", "table", "database"}},
+}
+
 func analyzeCallToolResponse(
 	callResult *mcp.CallToolResult,
 	srv config.ServerEntry,
@@ -252,87 +345,6 @@ func injectHeaderArg(args map[string]any, key, value string) {
 	args["extra_headers"] = map[string]string{key: value}
 }
 
-var PromptInjectionPatterns = []*regexp.Regexp{
-	regexp.MustCompile(`(?i)(^|\.\s|!\s)(you are now|you are no longer|from now on you are)\b`),
-	regexp.MustCompile(`(?i)(^|\.\s|!\s)(ignore (all |)previous|forget (all |)prior|disregard (all |)above)\b`),
-	regexp.MustCompile(`(?i)(system:\s*|system prompt:\s*|<system>|\[system\]|<<SYSTEM>>)`),
-	regexp.MustCompile(`(?i)(^|\.\s|!\s)(act as .*(?:assistant|agent|tool|bot|hacker|adversary|attacker))\b`),
-	regexp.MustCompile(
-		`(?i)(^|\.\s|!\s)(you must|you should|you will|your (?:new |)(?:goal|task|job|mission|objective))\b`,
-	),
-	regexp.MustCompile(`(?i)(base64|base\s*64)[\s:]*[A-Za-z0-9+/=]{20,}`),
-	regexp.MustCompile(`(?i)(secret (?:key|token|password|credential)|api[_-]?key\s*[:=])`),
-	regexp.MustCompile(`(?i)\b(bypass|hijack|backdoor|trojan|malware)\b`),
-	regexp.MustCompile(`(?i)\boverride\b.{0,40}\b(security|safety|policy|permission|filter)`),
-	regexp.MustCompile(`(?i)\b(inject|exploit|injection)\b`),
-	regexp.MustCompile(`(?i)(^|\s)(inject|exploit)\s+(prompt|injection|payload|vulnerab)`),
-}
-
-var urlEmbedPattern = regexp.MustCompile(`(https?://[^\s)]+)`)
-
-func analyzeToolDescription(tool mcp.Tool, serverName, configPath, scope string) []Result {
-	desc := strings.TrimSpace(tool.Description)
-	if desc == "" {
-		return []Result{{
-			Severity:   SevInfo,
-			Server:     serverName,
-			Type:       "static",
-			Finding:    fmt.Sprintf("tool %q has no description (information hiding)", tool.Name),
-			ConfigPath: configPath,
-			Scope:      scope,
-		}}
-	}
-
-	cleanDesc, deobFindings := deobfuscate(desc)
-	var results []Result
-	if stop := collectDeobFindings(
-		deobFindings, tool.Name, serverName, configPath, scope, &results,
-	); stop {
-		return results
-	}
-
-	for _, p := range PromptInjectionPatterns {
-		if m := p.FindString(cleanDesc); m != "" {
-			results = append(results, Result{
-				Severity:   SevLow,
-				Server:     serverName,
-				Type:       "static",
-				Finding:    fmt.Sprintf("tool %q description matches injection pattern %q", tool.Name, m),
-				Detail:     redactDetail(cleanDesc),
-				ConfigPath: configPath,
-				Scope:      scope,
-			})
-			break
-		}
-	}
-
-	if urls := urlEmbedPattern.FindAllString(cleanDesc, 20); len(urls) > 0 {
-		for _, u := range urls {
-			results = append(results, Result{
-				Severity:   SevLow,
-				Server:     serverName,
-				Type:       "static",
-				Finding:    fmt.Sprintf("tool %q description contains embedded URL: %s", tool.Name, u),
-				ConfigPath: configPath,
-				Scope:      scope,
-			})
-		}
-	}
-
-	if len(results) == 0 {
-		results = append(results, Result{
-			Severity:   SevPass,
-			Server:     serverName,
-			Type:       "static",
-			Finding:    fmt.Sprintf("tool %q description clean — no injection patterns detected", tool.Name),
-			ConfigPath: configPath,
-			Scope:      scope,
-		})
-	}
-
-	return results
-}
-
 func collectDeobFindings(
 	deobFindings []Result, toolName, serverName, configPath, scope string, results *[]Result,
 ) bool {
@@ -351,18 +363,6 @@ func collectDeobFindings(
 		}
 	}
 	return false
-}
-
-type capabilityPattern struct {
-	name     string
-	patterns []string
-}
-
-var capabilityPatterns = []capabilityPattern{
-	capabilityPattern{name: "filesystem", patterns: []string{"path", "file", "directory", "folder", "filename"}},
-	capabilityPattern{name: "network", patterns: []string{"url", "uri", "endpoint", "host", "hostname"}},
-	capabilityPattern{name: "shell", patterns: []string{"command", "cmd", "script", "exec", "shell"}},
-	capabilityPattern{name: "database", patterns: []string{"query", "sql", "collection", "table", "database"}},
 }
 
 func classifyToolCapabilities(schema map[string]any) []string {

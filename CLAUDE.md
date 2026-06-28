@@ -59,6 +59,7 @@ Exit codes: 0 = clean, 1 = CRITICAL/HIGH found, 2 = scan error.
 
 ## Standards
 
+- **File structure** — declarations ordered top-to-bottom: `import` → `const` → `var` → `type` → `func init()` → public funcs → private funcs. Within each section, callers appear above callees. Receiver methods follow declaration order within their visibility section.
 - **Zero comments** — no doc comments, no inline comments.
 - **No external dependencies** — stdlib only. Exceptions: `golang.org/x/sync/errgroup`, `golang.org/x/term`, `github.com/spf13/cobra`, `github.com/hashicorp/go-set`, `github.com/modelcontextprotocol/go-sdk`.
 - **500‑line file limit** — enforced by `just loc-check`.

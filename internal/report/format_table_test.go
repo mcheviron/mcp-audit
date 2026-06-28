@@ -9,16 +9,6 @@ import (
 	"github.com/mcheviron/mcp-audit/internal/scanner"
 )
 
-func colOf(t *testing.T, out, marker string) int {
-	t.Helper()
-	idx := strings.Index(out, marker)
-	if idx < 0 {
-		t.Fatalf("marker %q not found", marker)
-	}
-	lineStart := strings.LastIndex(out[:idx], "\n") + 1
-	return idx - lineStart
-}
-
 func TestWriteTableFileSubHeaders(t *testing.T) {
 	results := []scanner.Result{
 		{Severity: scanner.SevPass, Server: "a", Finding: "x",
@@ -490,4 +480,14 @@ func TestWriteTableEmbeddedNewlineFindsColumnZero(t *testing.T) {
 			t.Errorf("line %d has indented blank: %q", i, line)
 		}
 	}
+}
+
+func colOf(t *testing.T, out, marker string) int {
+	t.Helper()
+	idx := strings.Index(out, marker)
+	if idx < 0 {
+		t.Fatalf("marker %q not found", marker)
+	}
+	lineStart := strings.LastIndex(out[:idx], "\n") + 1
+	return idx - lineStart
 }

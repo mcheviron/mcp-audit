@@ -368,7 +368,7 @@ func TestE2E_Help_ShowsAllSubcommands(t *testing.T) {
 		t.Errorf("expected exit 0, got %d", code)
 	}
 
-	expected := []string{"static", "probe", "watch", "proxy", "trust", "upload", "version", "completion", "scan"}
+	expected := []string{"static", "probe", "watch", "proxy", "trust", "version", "completion", "scan", "sbom"}
 	for _, sub := range expected {
 		if !strings.Contains(out, sub) {
 			t.Errorf("help output missing %q subcommand\noutput:\n%s", sub, out)

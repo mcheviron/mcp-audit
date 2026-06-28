@@ -6,14 +6,6 @@ import (
 	"github.com/mcheviron/mcp-audit/internal/mcp"
 )
 
-func makeTool(name, desc string, props map[string]any) mcp.Tool {
-	schema := map[string]any{}
-	if props != nil {
-		schema["properties"] = props
-	}
-	return mcp.Tool{Name: name, Description: desc, InputSchema: schema}
-}
-
 func TestBuildGraphSingleServer(t *testing.T) {
 	allTools := map[string][]mcp.Tool{
 		"server-a": {
@@ -389,4 +381,12 @@ func TestEveryChainHasValidContent(t *testing.T) {
 			t.Errorf("unexpected type: %s", c.Type)
 		}
 	}
+}
+
+func makeTool(name, desc string, props map[string]any) mcp.Tool {
+	schema := map[string]any{}
+	if props != nil {
+		schema["properties"] = props
+	}
+	return mcp.Tool{Name: name, Description: desc, InputSchema: schema}
 }

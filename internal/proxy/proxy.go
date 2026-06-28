@@ -35,44 +35,6 @@ type Proxy struct {
 	policy    *PolicyEngine
 }
 
-func (p *Proxy) buildTransport() *http.Transport {
-	cfg := p.config
-	if cfg.UpstreamCACert == "" && cfg.UpstreamCert == "" && cfg.UpstreamKey == "" {
-		return nil
-	}
-
-	tlsCfg := &tls.Config{
-		MinVersion: tls.VersionTLS12,
-	}
-
-	if cfg.UpstreamCACert != "" {
-		caCert, err := os.ReadFile(cfg.UpstreamCACert)
-		if err != nil {
-			slog.Error("failed to read upstream CA cert", "path", cfg.UpstreamCACert, "err", err)
-			return nil
-		}
-		caCertPool := x509.NewCertPool()
-		if !caCertPool.AppendCertsFromPEM(caCert) {
-			slog.Error("failed to parse upstream CA cert")
-			return nil
-		}
-		tlsCfg.RootCAs = caCertPool
-	}
-
-	if cfg.UpstreamCert != "" && cfg.UpstreamKey != "" {
-		cert, err := tls.LoadX509KeyPair(cfg.UpstreamCert, cfg.UpstreamKey)
-		if err != nil {
-			slog.Error("failed to load upstream client cert", "err", err)
-			return nil
-		}
-		tlsCfg.Certificates = []tls.Certificate{cert}
-	}
-
-	return &http.Transport{
-		TLSClientConfig: tlsCfg,
-	}
-}
-
 func (p *Proxy) Handler() http.Handler {
 	targetURL := p.targetURL
 	if targetURL == nil {
@@ -123,6 +85,108 @@ func (p *Proxy) Handler() http.Handler {
 	}
 
 	return p.policyWrapper(rp)
+}
+
+func (p *Proxy) Inspector() *Inspector {
+	return p.inspector
+}
+
+func New(cfg Config) *Proxy {
+	if cfg.MaxResponseSize <= 0 {
+		cfg.MaxResponseSize = 65536
+	}
+	pr := &Proxy{
+		config:    cfg,
+		inspector: NewInspector(),
+	}
+	if cfg.PolicyPath != "" {
+		pc, err := LoadPolicy(cfg.PolicyPath)
+		if err != nil {
+			slog.Error("failed to load policy", "path", cfg.PolicyPath, "err", err)
+			return pr
+		}
+		pr.policy = NewPolicyEngine(pc, cfg.DefaultDeny)
+		slog.Info("policy engine loaded", "path", cfg.PolicyPath, "rules", len(pc.Rules), "defaultDeny", cfg.DefaultDeny)
+	}
+	return pr
+}
+
+func (p *Proxy) Start(ctx context.Context) error {
+	target, err := url.Parse(p.config.TargetURL)
+	if err != nil {
+		return fmt.Errorf("parse target URL: %w", err)
+	}
+	p.targetURL = target
+
+	slog.Info("proxy listening", "addr", p.config.ListenAddr, "target", p.config.TargetURL)
+	if p.config.BlockCritical {
+		slog.Info("block-critical mode enabled")
+	}
+	if p.policy != nil {
+		slog.Info("policy engine enabled")
+	}
+
+	srv := &http.Server{
+		Addr:              p.config.ListenAddr,
+		Handler:           p.Handler(),
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+
+	go func() {
+		<-ctx.Done()
+		slog.Info("proxy shutting down")
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := srv.Shutdown(shutdownCtx); err != nil {
+			slog.Error("proxy shutdown error", "err", err)
+		}
+	}()
+
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		return err
+	}
+	return nil
+}
+
+func (p *Proxy) buildTransport() *http.Transport {
+	cfg := p.config
+	if cfg.UpstreamCACert == "" && cfg.UpstreamCert == "" && cfg.UpstreamKey == "" {
+		return nil
+	}
+
+	tlsCfg := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+	}
+
+	if cfg.UpstreamCACert != "" {
+		caCert, err := os.ReadFile(cfg.UpstreamCACert)
+		if err != nil {
+			slog.Error("failed to read upstream CA cert", "path", cfg.UpstreamCACert, "err", err)
+			return nil
+		}
+		caCertPool := x509.NewCertPool()
+		if !caCertPool.AppendCertsFromPEM(caCert) {
+			slog.Error("failed to parse upstream CA cert")
+			return nil
+		}
+		tlsCfg.RootCAs = caCertPool
+	}
+
+	if cfg.UpstreamCert != "" && cfg.UpstreamKey != "" {
+		cert, err := tls.LoadX509KeyPair(cfg.UpstreamCert, cfg.UpstreamKey)
+		if err != nil {
+			slog.Error("failed to load upstream client cert", "err", err)
+			return nil
+		}
+		tlsCfg.Certificates = []tls.Certificate{cert}
+	}
+
+	return &http.Transport{
+		TLSClientConfig: tlsCfg,
+	}
 }
 
 func (p *Proxy) policyWrapper(rp *httputil.ReverseProxy) http.Handler {
@@ -193,10 +257,6 @@ func (p *Proxy) serveStats(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(resp)
 }
 
-func (p *Proxy) Inspector() *Inspector {
-	return p.inspector
-}
-
 func (p *Proxy) inspectRequestFromBody(body []byte, method string) {
 	if len(body) == 0 || method != "tools/call" {
 		return
@@ -210,66 +270,6 @@ func (p *Proxy) inspectRequestFromBody(body []byte, method string) {
 	}
 
 	p.inspector.InspectRequest(method, req.Params)
-}
-
-func New(cfg Config) *Proxy {
-	if cfg.MaxResponseSize <= 0 {
-		cfg.MaxResponseSize = 65536
-	}
-	pr := &Proxy{
-		config:    cfg,
-		inspector: NewInspector(),
-	}
-	if cfg.PolicyPath != "" {
-		pc, err := LoadPolicy(cfg.PolicyPath)
-		if err != nil {
-			slog.Error("failed to load policy", "path", cfg.PolicyPath, "err", err)
-			return pr
-		}
-		pr.policy = NewPolicyEngine(pc, cfg.DefaultDeny)
-		slog.Info("policy engine loaded", "path", cfg.PolicyPath, "rules", len(pc.Rules), "defaultDeny", cfg.DefaultDeny)
-	}
-	return pr
-}
-
-func (p *Proxy) Start(ctx context.Context) error {
-	target, err := url.Parse(p.config.TargetURL)
-	if err != nil {
-		return fmt.Errorf("parse target URL: %w", err)
-	}
-	p.targetURL = target
-
-	slog.Info("proxy listening", "addr", p.config.ListenAddr, "target", p.config.TargetURL)
-	if p.config.BlockCritical {
-		slog.Info("block-critical mode enabled")
-	}
-	if p.policy != nil {
-		slog.Info("policy engine enabled")
-	}
-
-	srv := &http.Server{
-		Addr:              p.config.ListenAddr,
-		Handler:           p.Handler(),
-		ReadTimeout:       30 * time.Second,
-		WriteTimeout:      30 * time.Second,
-		IdleTimeout:       120 * time.Second,
-		ReadHeaderTimeout: 10 * time.Second,
-	}
-
-	go func() {
-		<-ctx.Done()
-		slog.Info("proxy shutting down")
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-		if err := srv.Shutdown(shutdownCtx); err != nil {
-			slog.Error("proxy shutdown error", "err", err)
-		}
-	}()
-
-	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		return err
-	}
-	return nil
 }
 
 func (p *Proxy) inspectAndModify(resp *http.Response, method string) error {

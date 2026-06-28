@@ -45,6 +45,15 @@ type DriftFinding struct {
 	ConfigPath string
 }
 
+var sanitizeReplacer = strings.NewReplacer(
+	"://", "_",
+	"/", "_",
+	":", "_",
+	"@", "_",
+	" ", "_",
+	"\\", "_",
+)
+
 func MakeKey(srvName, url, command string) string {
 	var parts []string
 	if srvName != "" {
@@ -62,20 +71,11 @@ func MakeKey(srvName, url, command string) string {
 	return strings.Join(parts, "|")
 }
 
-var sanitizeReplacer = strings.NewReplacer(
-	"://", "_",
-	"/", "_",
-	":", "_",
-	"@", "_",
-	" ", "_",
-	"\\", "_",
-)
-
-func sanitize(s string) string {
-	return sanitizeReplacer.Replace(s)
-}
-
 func HashToolDescription(desc string) string {
 	hash := sha256.Sum256([]byte(strings.TrimSpace(desc)))
 	return fmt.Sprintf("sha256:%x", hash)
+}
+
+func sanitize(s string) string {
+	return sanitizeReplacer.Replace(s)
 }

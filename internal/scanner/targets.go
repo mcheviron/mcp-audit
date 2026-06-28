@@ -53,6 +53,15 @@ func getProbeTargets(depth ProbeDepth) []string {
 	return targets
 }
 
+var probeMethods = []string{http.MethodGet, http.MethodPost, http.MethodPut}
+
+var probeHeaders = map[string]string{
+	"Metadata":         "true",
+	"X-Forwarded-Host": "169.254.169.254",
+	"Host":             "169.254.169.254",
+	"Referer":          "http://169.254.169.254/",
+}
+
 func filterTargets(targets, allowHosts, blockHosts []string) []string {
 	if len(allowHosts) == 0 && len(blockHosts) == 0 {
 		return targets
@@ -78,15 +87,6 @@ func hostMatchesAny(target string, hosts []string) bool {
 		}
 	}
 	return false
-}
-
-var probeMethods = []string{http.MethodGet, http.MethodPost, http.MethodPut}
-
-var probeHeaders = map[string]string{
-	"Metadata":         "true",
-	"X-Forwarded-Host": "169.254.169.254",
-	"Host":             "169.254.169.254",
-	"Referer":          "http://169.254.169.254/",
 }
 
 func loadTargetsFile(path string) []string {

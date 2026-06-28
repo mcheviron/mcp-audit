@@ -30,6 +30,15 @@ func InitRegistry(toolsConfigPath string) {
 	MergeUserTools(userTools)
 }
 
+func Discover(cwd string) []Config {
+	global, home := discoverGlobal()
+	if cwd == "" {
+		return global
+	}
+	project := discoverProject(cwd, home)
+	return mergeConfigs(project, global)
+}
+
 func initRegistry() {
 	if registryInitialized {
 		return
@@ -180,15 +189,6 @@ func walkProjectConfigs(cwd string, tp ToolParser, home string) ([]string, error
 		}
 		dir = parent
 	}
-}
-
-func Discover(cwd string) []Config {
-	global, home := discoverGlobal()
-	if cwd == "" {
-		return global
-	}
-	project := discoverProject(cwd, home)
-	return mergeConfigs(project, global)
 }
 
 func readConfig(path string, tp ToolParser, scope string) Config {

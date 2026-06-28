@@ -117,14 +117,6 @@ func (d Document) ToJSON() ([]byte, error) {
 	return json.MarshalIndent(d, "", "  ")
 }
 
-func sbomName() string {
-	return fmt.Sprintf("mcp-audit-sbom-%s-%d", time.Now().Format("20060102"), time.Now().UnixNano()%1000000)
-}
-
-func sbomNamespace() string {
-	return fmt.Sprintf("https://mcp-audit.dev/sbom/%s-%d", time.Now().Format("20060102"), time.Now().UnixNano()%1000000)
-}
-
 func (d Document) ToTagValue() ([]byte, error) {
 	var b strings.Builder
 
@@ -157,6 +149,14 @@ func (d Document) ToTagValue() ([]byte, error) {
 	}
 
 	return []byte(b.String()), nil
+}
+
+func sbomName() string {
+	return fmt.Sprintf("mcp-audit-sbom-%s-%d", time.Now().Format("20060102"), time.Now().UnixNano()%1000000)
+}
+
+func sbomNamespace() string {
+	return fmt.Sprintf("https://mcp-audit.dev/sbom/%s-%d", time.Now().Format("20060102"), time.Now().UnixNano()%1000000)
 }
 
 func sanitizeID(s string) string {

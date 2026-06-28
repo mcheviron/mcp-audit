@@ -7,16 +7,6 @@ import (
 	"testing"
 )
 
-func writeTempPolicy(t *testing.T, content string) string {
-	t.Helper()
-	dir := t.TempDir()
-	path := filepath.Join(dir, "policy.yaml")
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-		t.Fatalf("write temp policy: %v", err)
-	}
-	return path
-}
-
 func TestLoadPolicyValid(t *testing.T) {
 	yaml := `
 rules:
@@ -356,4 +346,14 @@ rules:
 	if action != "deny" {
 		t.Errorf("expected deny for contains match, got %s", action)
 	}
+}
+
+func writeTempPolicy(t *testing.T, content string) string {
+	t.Helper()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "policy.yaml")
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatalf("write temp policy: %v", err)
+	}
+	return path
 }

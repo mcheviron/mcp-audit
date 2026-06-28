@@ -205,11 +205,6 @@ func TestVerifyChecksumMatch(t *testing.T) {
 	}
 }
 
-func sha256Hex(data []byte) string {
-	h := sha256.Sum256(data)
-	return hex.EncodeToString(h[:])
-}
-
 func TestVerifyChecksumMismatch(t *testing.T) {
 	data := []byte(`{"version":"1.0.0","trusted":["@anthropic/"]}`)
 	checksumFile := []byte("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef  trust.json\n")
@@ -226,4 +221,9 @@ func TestVerifyChecksumEmptyFile(t *testing.T) {
 	if err := verifyChecksum(data, checksumFile); err != nil {
 		t.Fatalf("expected no error for empty checksum file, got: %v", err)
 	}
+}
+
+func sha256Hex(data []byte) string {
+	h := sha256.Sum256(data)
+	return hex.EncodeToString(h[:])
 }

@@ -11,6 +11,12 @@ import (
 	"github.com/mcheviron/mcp-audit/internal/mcp"
 )
 
+const embeddedTrustStaleness = 90 * 24 * time.Hour
+
+func New(cfg ScannerConfig) *Scanner {
+	return &Scanner{ScannerConfig: cfg, LastProbeTools: map[string][]mcp.Tool{}}
+}
+
 type AuthConfig struct {
 	Token   string
 	Headers map[string]string
@@ -36,17 +42,6 @@ func (d ProbeDepth) String() string {
 		return "full"
 	default:
 		return "basic"
-	}
-}
-
-func ParseProbeDepth(s string) ProbeDepth {
-	switch s {
-	case "extended":
-		return DepthExtended
-	case "full":
-		return DepthFull
-	default:
-		return DepthBasic
 	}
 }
 
@@ -119,21 +114,15 @@ type Scanner struct {
 	TestConfigs    []config.Config
 }
 
-const embeddedTrustStaleness = 90 * 24 * time.Hour
-
-func New(cfg ScannerConfig) *Scanner {
-	return &Scanner{ScannerConfig: cfg, LastProbeTools: map[string][]mcp.Tool{}}
-}
-
-func (s *Scanner) authConfig() AuthConfig {
-	return s.Auth
-}
-
-func (s *Scanner) discoverConfigs() []config.Config {
-	if s.TestConfigs != nil {
-		return s.TestConfigs
+func ParseProbeDepth(s string) ProbeDepth {
+	switch s {
+	case "extended":
+		return DepthExtended
+	case "full":
+		return DepthFull
+	default:
+		return DepthBasic
 	}
-	return config.Discover(s.ProjectDir)
 }
 
 func (s *Scanner) SetTrustConfig(path string) error {
@@ -154,6 +143,17 @@ func (s *Scanner) SetTrustConfig(path string) error {
 	}
 	s.Trust = tc
 	return nil
+}
+
+func (s *Scanner) authConfig() AuthConfig {
+	return s.Auth
+}
+
+func (s *Scanner) discoverConfigs() []config.Config {
+	if s.TestConfigs != nil {
+		return s.TestConfigs
+	}
+	return config.Discover(s.ProjectDir)
 }
 
 func (s *Scanner) loadEmbeddedDefaults() error {

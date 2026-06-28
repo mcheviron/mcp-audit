@@ -10,13 +10,6 @@ import (
 	"strings"
 )
 
-type yamlNode struct {
-	scalar   string
-	mapping  map[string]*yamlNode
-	sequence []*yamlNode
-	kind     int
-}
-
 const (
 	yamlScalar  = 0
 	yamlMapping = 1
@@ -41,6 +34,58 @@ func parsePolicyYAML(data []byte) (*PolicyConfig, error) {
 	return &cfg, nil
 }
 
+type yamlNode struct {
+	scalar   string
+	mapping  map[string]*yamlNode
+	sequence []*yamlNode
+	kind     int
+}
+
+type yamlLine struct {
+	indent int
+	text   string
+	index  int
+}
+
+var yamlStringReplacer = strings.NewReplacer(
+	"\\", "\\\\",
+	"\"", "\\\"",
+	"\n", "\\n",
+	"\r", "\\r",
+	"\t", "\\t",
+)
+
+var yamlKeyReplacer = strings.NewReplacer(
+	"\\", "\\\\",
+	"\"", "\\\"",
+)
+
+func convertMapping(m map[string]*yamlNode) ([]byte, error) {
+	if len(m) == 0 {
+		return []byte("{}"), nil
+	}
+	var buf bytes.Buffer
+	buf.WriteByte('{')
+	first := true
+	keys := slices.Sorted(maps.Keys(m))
+	for _, k := range keys {
+		if !first {
+			buf.WriteByte(',')
+		}
+		first = false
+		buf.WriteByte('"')
+		buf.WriteString(yamlKeyReplacer.Replace(k))
+		buf.WriteString("\":")
+		valBytes, err := yamlNodeToJSON(m[k])
+		if err != nil {
+			return nil, err
+		}
+		buf.Write(valBytes)
+	}
+	buf.WriteByte('}')
+	return buf.Bytes(), nil
+}
+
 func parseYAML(data []byte) (*yamlNode, error) {
 	lines := strings.Split(string(data), "\n")
 	var cleaned []string
@@ -57,12 +102,6 @@ func parseYAML(data []byte) (*yamlNode, error) {
 		return nil, err
 	}
 	return node, nil
-}
-
-type yamlLine struct {
-	indent int
-	text   string
-	index  int
 }
 
 func buildLineInfo(lines []string) []yamlLine {
@@ -288,45 +327,6 @@ func convertScalar(s string) ([]byte, error) {
 	}
 	escaped := yamlStringReplacer.Replace(unquoted)
 	return []byte(`"` + escaped + `"`), nil
-}
-
-var yamlStringReplacer = strings.NewReplacer(
-	"\\", "\\\\",
-	"\"", "\\\"",
-	"\n", "\\n",
-	"\r", "\\r",
-	"\t", "\\t",
-)
-
-var yamlKeyReplacer = strings.NewReplacer(
-	"\\", "\\\\",
-	"\"", "\\\"",
-)
-
-func convertMapping(m map[string]*yamlNode) ([]byte, error) {
-	if len(m) == 0 {
-		return []byte("{}"), nil
-	}
-	var buf bytes.Buffer
-	buf.WriteByte('{')
-	first := true
-	keys := slices.Sorted(maps.Keys(m))
-	for _, k := range keys {
-		if !first {
-			buf.WriteByte(',')
-		}
-		first = false
-		buf.WriteByte('"')
-		buf.WriteString(yamlKeyReplacer.Replace(k))
-		buf.WriteString("\":")
-		valBytes, err := yamlNodeToJSON(m[k])
-		if err != nil {
-			return nil, err
-		}
-		buf.Write(valBytes)
-	}
-	buf.WriteByte('}')
-	return buf.Bytes(), nil
 }
 
 func convertSequence(seq []*yamlNode) ([]byte, error) {

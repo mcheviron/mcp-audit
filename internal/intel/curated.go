@@ -7,13 +7,6 @@ import (
 	"time"
 )
 
-//go:embed default-trust.json
-var defaultTrustJSON []byte
-
-func DefaultTrustJSON() []byte {
-	return defaultTrustJSON
-}
-
 type TrustFile struct {
 	Version     string            `json:"version"`
 	GeneratedAt string            `json:"generated_at"`
@@ -27,6 +20,13 @@ type TrustFile struct {
 type Scope struct {
 	Trusted []string `json:"trusted,omitempty"`
 	Blocked []string `json:"blocked,omitempty"`
+}
+
+//go:embed default-trust.json
+var defaultTrustJSON []byte
+
+func DefaultTrustJSON() []byte {
+	return defaultTrustJSON
 }
 
 func LoadDefaults() (*TrustFile, error) {

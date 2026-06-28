@@ -13,6 +13,30 @@ type probeTiming struct {
 	configPath string
 }
 
+type ResponseClass int
+
+const (
+	ResponseMetadata ResponseClass = iota
+	ResponseError
+	ResponseData
+	ResponseBinary
+)
+
+func (rc ResponseClass) String() string {
+	switch rc {
+	case ResponseMetadata:
+		return "metadata"
+	case ResponseError:
+		return "error"
+	case ResponseData:
+		return "data"
+	case ResponseBinary:
+		return "binary"
+	default:
+		return "unknown"
+	}
+}
+
 var keywordWeights = map[string]float64{
 	"access_key": 1.0,
 	"token":      0.9,
@@ -79,30 +103,6 @@ func entropyBand(entropy float64) string {
 		return "structured"
 	default:
 		return "suspicious"
-	}
-}
-
-type ResponseClass int
-
-const (
-	ResponseMetadata ResponseClass = iota
-	ResponseError
-	ResponseData
-	ResponseBinary
-)
-
-func (rc ResponseClass) String() string {
-	switch rc {
-	case ResponseMetadata:
-		return "metadata"
-	case ResponseError:
-		return "error"
-	case ResponseData:
-		return "data"
-	case ResponseBinary:
-		return "binary"
-	default:
-		return "unknown"
 	}
 }
 

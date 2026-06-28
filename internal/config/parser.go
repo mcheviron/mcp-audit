@@ -22,6 +22,12 @@ type mcpServerDef struct {
 	} `json:"tls"`
 }
 
+var runners = set.From[string]([]string{
+	"npx", "npm", "npm exec",
+	"uvx", "uv", "uv run",
+	"pipx", "pipx run",
+})
+
 func serversFromMCPMap(mcpServers map[string]mcpServerDef, tool string) []ServerEntry {
 	var servers []ServerEntry
 	for name, s := range mcpServers {
@@ -172,12 +178,6 @@ func parseOpenCode(data []byte) ([]ServerEntry, error) {
 
 	return servers, nil
 }
-
-var runners = set.From[string]([]string{
-	"npx", "npm", "npm exec",
-	"uvx", "uv", "uv run",
-	"pipx", "pipx run",
-})
 
 func coerceMap(in map[string]any) map[string]string {
 	if len(in) == 0 {

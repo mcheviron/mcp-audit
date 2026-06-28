@@ -71,6 +71,81 @@ func NewPolicyEngine(cfg *PolicyConfig, defaultDeny bool) *PolicyEngine {
 	}
 }
 
+func (e *PolicyEngine) Evaluate(method, tool string, params map[string]any) (action, description string) {
+	e.mu.RLock()
+	rules := e.rules
+	e.mu.RUnlock()
+
+	e.toolMu.Lock()
+	e.totalReqs++
+	if tool != "" {
+		e.toolCounts[tool]++
+	}
+	e.toolMu.Unlock()
+
+	for _, rule := range rules {
+		if !matchGlob(rule.Method, method) {
+			continue
+		}
+		if rule.Tool != "" && !matchGlob(rule.Tool, tool) {
+			continue
+		}
+		if !e.evaluateConditions(rule, params) {
+			continue
+		}
+		return rule.Action, rule.Description
+	}
+
+	if e.defaultDeny {
+		return "deny", "Default deny: no matching allow rule"
+	}
+	return "allow", "No matching rule, default allow"
+}
+
+func (e *PolicyEngine) Stats() (total int64, toolCounts map[string]int64) {
+	e.toolMu.Lock()
+	defer e.toolMu.Unlock()
+	tc := make(map[string]int64, len(e.toolCounts))
+	maps.Copy(tc, e.toolCounts)
+	return e.totalReqs, tc
+}
+
+func LoadPolicy(path string) (*PolicyConfig, error) {
+	//nolint:gosec // path from user --policy flag, intended
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read policy file: %w", err)
+	}
+
+	cfg, err := parsePolicyYAML(data)
+	if err != nil {
+		return nil, err
+	}
+
+	for i, rule := range cfg.Rules {
+		if rule.Action != "allow" && rule.Action != "deny" && rule.Action != "audit" {
+			return nil, fmt.Errorf("rule %d: unknown action %q", i, rule.Action)
+		}
+		if rule.Method == "" {
+			return nil, fmt.Errorf("rule %d: method is required", i)
+		}
+	}
+
+	seen := map[int]int{}
+	for i, rule := range cfg.Rules {
+		if prev, ok := seen[rule.Priority]; ok {
+			return nil, fmt.Errorf("duplicate priority %d between rule %d and rule %d", rule.Priority, prev, i)
+		}
+		seen[rule.Priority] = i
+	}
+
+	slices.SortFunc(cfg.Rules, func(a, b PolicyRule) int {
+		return cmp.Compare(a.Priority, b.Priority)
+	})
+
+	return cfg, nil
+}
+
 func matchGlob(pattern, value string) bool {
 	if pattern == "*" {
 		return true
@@ -150,79 +225,4 @@ func (e *PolicyEngine) evaluateConditions(rule PolicyRule, params map[string]any
 		}
 	}
 	return true
-}
-
-func (e *PolicyEngine) Evaluate(method, tool string, params map[string]any) (action, description string) {
-	e.mu.RLock()
-	rules := e.rules
-	e.mu.RUnlock()
-
-	e.toolMu.Lock()
-	e.totalReqs++
-	if tool != "" {
-		e.toolCounts[tool]++
-	}
-	e.toolMu.Unlock()
-
-	for _, rule := range rules {
-		if !matchGlob(rule.Method, method) {
-			continue
-		}
-		if rule.Tool != "" && !matchGlob(rule.Tool, tool) {
-			continue
-		}
-		if !e.evaluateConditions(rule, params) {
-			continue
-		}
-		return rule.Action, rule.Description
-	}
-
-	if e.defaultDeny {
-		return "deny", "Default deny: no matching allow rule"
-	}
-	return "allow", "No matching rule, default allow"
-}
-
-func (e *PolicyEngine) Stats() (total int64, toolCounts map[string]int64) {
-	e.toolMu.Lock()
-	defer e.toolMu.Unlock()
-	tc := make(map[string]int64, len(e.toolCounts))
-	maps.Copy(tc, e.toolCounts)
-	return e.totalReqs, tc
-}
-
-func LoadPolicy(path string) (*PolicyConfig, error) {
-	//nolint:gosec // path from user --policy flag, intended
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("read policy file: %w", err)
-	}
-
-	cfg, err := parsePolicyYAML(data)
-	if err != nil {
-		return nil, err
-	}
-
-	for i, rule := range cfg.Rules {
-		if rule.Action != "allow" && rule.Action != "deny" && rule.Action != "audit" {
-			return nil, fmt.Errorf("rule %d: unknown action %q", i, rule.Action)
-		}
-		if rule.Method == "" {
-			return nil, fmt.Errorf("rule %d: method is required", i)
-		}
-	}
-
-	seen := map[int]int{}
-	for i, rule := range cfg.Rules {
-		if prev, ok := seen[rule.Priority]; ok {
-			return nil, fmt.Errorf("duplicate priority %d between rule %d and rule %d", rule.Priority, prev, i)
-		}
-		seen[rule.Priority] = i
-	}
-
-	slices.SortFunc(cfg.Rules, func(a, b PolicyRule) int {
-		return cmp.Compare(a.Priority, b.Priority)
-	})
-
-	return cfg, nil
 }

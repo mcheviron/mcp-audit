@@ -7,26 +7,6 @@ import (
 	"github.com/hashicorp/go-set"
 )
 
-func mustRead(t *testing.T, path string) []byte {
-	t.Helper()
-	data, err := os.ReadFile("testdata/" + path)
-	if err != nil {
-		t.Fatalf("read fixture %s: %v", path, err)
-	}
-	return data
-}
-
-func findServer(t *testing.T, servers []ServerEntry, name string) *ServerEntry {
-	t.Helper()
-	for i := range servers {
-		if servers[i].Name == name {
-			return &servers[i]
-		}
-	}
-	t.Fatalf("server %q not found in results", name)
-	return nil
-}
-
 func TestParseClaudeValid(t *testing.T) {
 	servers, err := parseMCPServers(mustRead(t, "claude_valid.json"), "claude")
 	if err != nil {
@@ -458,4 +438,24 @@ func TestExtractPackage(t *testing.T) {
 				tt.command, tt.args, got, tt.expected)
 		}
 	}
+}
+
+func mustRead(t *testing.T, path string) []byte {
+	t.Helper()
+	data, err := os.ReadFile("testdata/" + path)
+	if err != nil {
+		t.Fatalf("read fixture %s: %v", path, err)
+	}
+	return data
+}
+
+func findServer(t *testing.T, servers []ServerEntry, name string) *ServerEntry {
+	t.Helper()
+	for i := range servers {
+		if servers[i].Name == name {
+			return &servers[i]
+		}
+	}
+	t.Fatalf("server %q not found in results", name)
+	return nil
 }

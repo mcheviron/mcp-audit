@@ -27,6 +27,18 @@ type Weights struct {
 	Network     float64
 }
 
+type resultCounts struct {
+	typosquatCount   int
+	minTyposquatDist int
+	cveCount         int
+	cveHighCount     int
+	hasShell         bool
+	capCount         int
+	highSevNetwork   bool
+}
+
+var distanceDigitsRE = regexp.MustCompile(`distance\s+(\d+)`)
+
 func DefaultWeights() Weights {
 	return Weights{
 		Typosquat:   0.25,
@@ -70,10 +82,6 @@ func ParseWeights(s string) (Weights, error) {
 	return w, nil
 }
 
-func round2(v float64) float64 {
-	return math.Round(v*100) / 100
-}
-
 func AggregateRisk(factors RiskFactors, weights Weights) float64 {
 	score := factors.TyposquatDistance*weights.Typosquat +
 		factors.CVECount*weights.CVE +
@@ -87,6 +95,23 @@ func AggregateRisk(factors RiskFactors, weights Weights) float64 {
 		score = 100
 	}
 	return round2(score)
+}
+
+func ComputeServerScores(results []Result, allTools map[string][]mcp.Tool, weights Weights) []Result {
+	serverFactors := extractRiskFactors(results, allTools)
+	enriched := make([]Result, len(results))
+	for i, r := range results {
+		enriched[i] = r
+		if factors, ok := serverFactors[r.Server]; ok {
+			enriched[i].Factors = factors
+			enriched[i].Score = AggregateRisk(factors, weights)
+		}
+	}
+	return enriched
+}
+
+func round2(v float64) float64 {
+	return math.Round(v*100) / 100
 }
 
 func shannonCharEntropy(s string) float64 {
@@ -143,29 +168,6 @@ func scoreDescriptionQuality(desc string) float64 {
 	}
 	entropyScore := shannonCharEntropy(trimmed)
 	return round2((lengthScore + entropyScore) / 2)
-}
-
-func ComputeServerScores(results []Result, allTools map[string][]mcp.Tool, weights Weights) []Result {
-	serverFactors := extractRiskFactors(results, allTools)
-	enriched := make([]Result, len(results))
-	for i, r := range results {
-		enriched[i] = r
-		if factors, ok := serverFactors[r.Server]; ok {
-			enriched[i].Factors = factors
-			enriched[i].Score = AggregateRisk(factors, weights)
-		}
-	}
-	return enriched
-}
-
-type resultCounts struct {
-	typosquatCount   int
-	minTyposquatDist int
-	cveCount         int
-	cveHighCount     int
-	hasShell         bool
-	capCount         int
-	highSevNetwork   bool
 }
 
 func computeTyposquatFactor(rc resultCounts) float64 {
@@ -293,8 +295,6 @@ func containsPattern(s string, patterns ...string) bool {
 	}
 	return false
 }
-
-var distanceDigitsRE = regexp.MustCompile(`distance\s+(\d+)`)
 
 func extractDistance(finding string) int {
 	idx := strings.Index(strings.ToLower(finding), "distance")

@@ -16,21 +16,6 @@ func DefaultSnapshotDir() string {
 	return filepath.Join(home, ".config", "mcp-audit", "snapshots")
 }
 
-func resolveDir(dir string) string {
-	if dir != "" {
-		return dir
-	}
-	return DefaultSnapshotDir()
-}
-
-func ensureDir(path string) error {
-	return os.MkdirAll(path, 0700)
-}
-
-func snapshotPath(dir, key string) string {
-	return filepath.Join(dir, key+".json")
-}
-
 func SaveSnapshot(dir, key, srvName, url, command string, tools []ToolEntry) error {
 	dir = resolveDir(dir)
 	if err := ensureDir(dir); err != nil {
@@ -78,4 +63,19 @@ func LoadSnapshot(dir, key string) (*Snapshot, error) {
 	}
 
 	return &snap, nil
+}
+
+func resolveDir(dir string) string {
+	if dir != "" {
+		return dir
+	}
+	return DefaultSnapshotDir()
+}
+
+func ensureDir(path string) error {
+	return os.MkdirAll(path, 0700)
+}
+
+func snapshotPath(dir, key string) string {
+	return filepath.Join(dir, key+".json")
 }

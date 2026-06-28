@@ -8,10 +8,6 @@ import (
 	"time"
 )
 
-func toolEntry(name, descHash, schemaHash string, props ...string) ToolEntry {
-	return ToolEntry{Name: name, DescriptionHash: descHash, SchemaHash: schemaHash, Properties: props}
-}
-
 func TestMakeKey(t *testing.T) {
 	k1 := MakeKey("filesystem", "http://localhost:8080", "")
 	k2 := MakeKey("filesystem", "http://localhost:8080", "")
@@ -471,4 +467,8 @@ func TestServerIdentityStability(t *testing.T) {
 	if len(files) != 2 {
 		t.Fatalf("expected 2 snapshot files, got %d: %v", len(files), files)
 	}
+}
+
+func toolEntry(name, descHash, schemaHash string, props ...string) ToolEntry {
+	return ToolEntry{Name: name, DescriptionHash: descHash, SchemaHash: schemaHash, Properties: props}
 }

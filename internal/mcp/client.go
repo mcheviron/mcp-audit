@@ -14,13 +14,6 @@ import (
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-var ErrAuthRequired = errors.New("authentication required (401/403)")
-
-var implementation = &sdkmcp.Implementation{
-	Name:    "mcp-audit",
-	Version: "0.1.0",
-}
-
 const DefaultTimeout = 30 * time.Second
 
 type Client interface {
@@ -59,6 +52,42 @@ type toolContent struct {
 type clientSession struct {
 	session *sdkmcp.ClientSession
 	closers []func() error
+}
+
+type sessionClient struct {
+	session *clientSession
+}
+
+type stdioClient struct {
+	transport *sdkmcp.CommandTransport
+	cmd       *exec.Cmd
+	session   *clientSession
+}
+
+type authRoundTripper struct {
+	base       http.RoundTripper
+	authHeader string
+	headers    map[string]string
+}
+
+type httpClientWrapper struct {
+	transport  sdkmcp.Transport
+	url        string
+	httpClient *http.Client
+	sessionClient
+}
+
+type autoClient struct {
+	url        string
+	httpClient *http.Client
+	sessionClient
+}
+
+var ErrAuthRequired = errors.New("authentication required (401/403)")
+
+var implementation = &sdkmcp.Implementation{
+	Name:    "mcp-audit",
+	Version: "0.1.0",
 }
 
 func (c *clientSession) Initialize(_ context.Context) (*InitializeResult, error) {
@@ -131,10 +160,6 @@ func (c *clientSession) Close() error {
 	return firstErr
 }
 
-type sessionClient struct {
-	session *clientSession
-}
-
 func (s *sessionClient) ListTools(ctx context.Context) (*ListToolsResult, error) {
 	if s.session == nil {
 		return nil, fmt.Errorf("not connected")
@@ -156,21 +181,6 @@ func (s *sessionClient) Close() error {
 	return nil
 }
 
-func toMap(v any) map[string]any {
-	if m, ok := v.(map[string]any); ok {
-		return m
-	}
-	b, err := json.Marshal(v)
-	if err != nil {
-		return nil
-	}
-	var m map[string]any
-	if err := json.Unmarshal(b, &m); err != nil {
-		return nil
-	}
-	return m
-}
-
 func NewStdioClient(ctx context.Context, command string, args []string, timeout time.Duration) Client {
 	if timeout > 0 {
 		var cancel context.CancelFunc
@@ -183,12 +193,6 @@ func NewStdioClient(ctx context.Context, command string, args []string, timeout 
 	cmd := exec.CommandContext(ctx, command, args...)
 	tr := &sdkmcp.CommandTransport{Command: cmd}
 	return &stdioClient{transport: tr, cmd: cmd}
-}
-
-type stdioClient struct {
-	transport *sdkmcp.CommandTransport
-	cmd       *exec.Cmd
-	session   *clientSession
 }
 
 func (s *stdioClient) Initialize(ctx context.Context) (*InitializeResult, error) {
@@ -222,32 +226,6 @@ func (s *stdioClient) Close() error {
 	return nil
 }
 
-func newHTTPClient(
-	token string, headers map[string]string, certFile, keyFile string, timeout time.Duration,
-) (*http.Client, error) {
-	tlsConfig := &tls.Config{MinVersion: tls.VersionTLS12}
-	if certFile != "" && keyFile != "" {
-		cert, err := tls.LoadX509KeyPair(certFile, keyFile)
-		if err != nil {
-			return nil, fmt.Errorf("load TLS keypair: %w", err)
-		}
-		tlsConfig.Certificates = []tls.Certificate{cert}
-	}
-	base := &http.Transport{TLSClientConfig: tlsConfig}
-	rt := &authRoundTripper{
-		base:       base,
-		authHeader: "Bearer " + token,
-		headers:    headers,
-	}
-	return &http.Client{Transport: rt, Timeout: timeout}, nil
-}
-
-type authRoundTripper struct {
-	base       http.RoundTripper
-	authHeader string
-	headers    map[string]string
-}
-
 func (a *authRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	if a.authHeader != "" {
 		req.Header.Set("Authorization", a.authHeader)
@@ -256,20 +234,6 @@ func (a *authRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) 
 		req.Header.Set(k, v)
 	}
 	return a.base.RoundTrip(req)
-}
-
-func newStreamableTransport(url string, httpClient *http.Client) *sdkmcp.StreamableClientTransport {
-	return &sdkmcp.StreamableClientTransport{
-		Endpoint:   url,
-		HTTPClient: httpClient,
-	}
-}
-
-func newSSETransport(url string, httpClient *http.Client) *sdkmcp.SSEClientTransport {
-	return &sdkmcp.SSEClientTransport{
-		Endpoint:   url,
-		HTTPClient: httpClient,
-	}
 }
 
 func NewHTTPClient(
@@ -304,13 +268,6 @@ func NewAutoClient(
 	return &autoClient{url: url, httpClient: httpClient}, nil
 }
 
-type httpClientWrapper struct {
-	transport  sdkmcp.Transport
-	url        string
-	httpClient *http.Client
-	sessionClient
-}
-
 func (h *httpClientWrapper) Initialize(ctx context.Context) (*InitializeResult, error) {
 	sdkClient := sdkmcp.NewClient(implementation, nil)
 	session, err := sdkClient.Connect(ctx, h.transport, nil)
@@ -319,12 +276,6 @@ func (h *httpClientWrapper) Initialize(ctx context.Context) (*InitializeResult, 
 	}
 	h.session = &clientSession{session: session}
 	return h.session.Initialize(ctx)
-}
-
-type autoClient struct {
-	url        string
-	httpClient *http.Client
-	sessionClient
 }
 
 func (a *autoClient) Initialize(ctx context.Context) (*InitializeResult, error) {
@@ -346,6 +297,55 @@ func (a *autoClient) Initialize(ctx context.Context) (*InitializeResult, error) 
 	}
 	a.session = &clientSession{session: session}
 	return a.session.Initialize(ctx)
+}
+
+func toMap(v any) map[string]any {
+	if m, ok := v.(map[string]any); ok {
+		return m
+	}
+	b, err := json.Marshal(v)
+	if err != nil {
+		return nil
+	}
+	var m map[string]any
+	if err := json.Unmarshal(b, &m); err != nil {
+		return nil
+	}
+	return m
+}
+
+func newHTTPClient(
+	token string, headers map[string]string, certFile, keyFile string, timeout time.Duration,
+) (*http.Client, error) {
+	tlsConfig := &tls.Config{MinVersion: tls.VersionTLS12}
+	if certFile != "" && keyFile != "" {
+		cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+		if err != nil {
+			return nil, fmt.Errorf("load TLS keypair: %w", err)
+		}
+		tlsConfig.Certificates = []tls.Certificate{cert}
+	}
+	base := &http.Transport{TLSClientConfig: tlsConfig}
+	rt := &authRoundTripper{
+		base:       base,
+		authHeader: "Bearer " + token,
+		headers:    headers,
+	}
+	return &http.Client{Transport: rt, Timeout: timeout}, nil
+}
+
+func newStreamableTransport(url string, httpClient *http.Client) *sdkmcp.StreamableClientTransport {
+	return &sdkmcp.StreamableClientTransport{
+		Endpoint:   url,
+		HTTPClient: httpClient,
+	}
+}
+
+func newSSETransport(url string, httpClient *http.Client) *sdkmcp.SSEClientTransport {
+	return &sdkmcp.SSEClientTransport{
+		Endpoint:   url,
+		HTTPClient: httpClient,
+	}
 }
 
 func wrapAuthError(err error) error {

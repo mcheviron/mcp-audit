@@ -20,9 +20,6 @@ type exitError struct {
 	err  error
 }
 
-func (e *exitError) Error() string { return e.err.Error() }
-func (e *exitError) Unwrap() error { return e.err }
-
 var validSeverities = set.From[string]([]string{
 	"PASS", "INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL",
 })
@@ -30,6 +27,10 @@ var validSeverities = set.From[string]([]string{
 var validFormats = set.From[string]([]string{"table", "json", "sarif", "junit"})
 
 var validProbeDepths = set.From[string]([]string{"basic", "extended", "full"})
+
+func (e *exitError) Error() string { return e.err.Error() }
+
+func (e *exitError) Unwrap() error { return e.err }
 
 func main() {
 	if err := rootCmd.Execute(); err != nil {

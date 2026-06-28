@@ -12,6 +12,11 @@ import (
 	"github.com/mcheviron/mcp-audit/internal/scanner"
 )
 
+type Inspector struct {
+	mu       sync.Mutex
+	Findings []Finding
+}
+
 var internalCIDRPattern = regexp.MustCompile(
 	`(?i)(127\.0\.0\.1|192\.168\.|10\.\d+\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.)`,
 )
@@ -22,9 +27,11 @@ type Finding struct {
 	Message  string
 }
 
-type Inspector struct {
-	mu       sync.Mutex
-	Findings []Finding
+var internalHostPatterns = []string{
+	"localhost",
+	"127.0.0.1",
+	"169.254.169.254",
+	"metadata.google.internal",
 }
 
 func NewInspector() *Inspector {
@@ -231,13 +238,6 @@ func isInternalHost(target string) bool {
 		}
 	}
 	return internalCIDRPattern.MatchString(target)
-}
-
-var internalHostPatterns = []string{
-	"localhost",
-	"127.0.0.1",
-	"169.254.169.254",
-	"metadata.google.internal",
 }
 
 func redactURL(u string) string {

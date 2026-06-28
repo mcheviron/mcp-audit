@@ -7,25 +7,6 @@ import (
 	"github.com/mcheviron/mcp-audit/internal/config"
 )
 
-func credConfig() config.Config {
-	raw := []byte(`{"mcpServers":{"leaky":{"command":"npx","args":["-y","pkg"],"env":{"API_KEY":"sk-` +
-		strings.Repeat("a", 20) + `"}}}}`)
-	return config.Config{
-		Tool: "claude",
-		Path: "/tmp/config.json",
-		Raw:  raw,
-		Servers: []config.ServerEntry{{
-			Name:       "leaky",
-			Tool:       "claude",
-			Transport:  "stdio",
-			Command:    "npx",
-			Args:       []string{"-y", "pkg"},
-			ConfigPath: "/tmp/config.json",
-			Env:        map[string]string{"API_KEY": "sk-" + strings.Repeat("a", 20)},
-		}},
-	}
-}
-
 func TestCheckCredentialsReportsCritical(t *testing.T) {
 	s := &Scanner{TestConfigs: []config.Config{credConfig()}}
 	results := s.checkCredentials(credConfig())
@@ -96,5 +77,24 @@ func TestStaticIntegratesCredentialScan(t *testing.T) {
 	}
 	if !found {
 		t.Fatal("expected CRITICAL OpenAI finding in static results")
+	}
+}
+
+func credConfig() config.Config {
+	raw := []byte(`{"mcpServers":{"leaky":{"command":"npx","args":["-y","pkg"],"env":{"API_KEY":"sk-` +
+		strings.Repeat("a", 20) + `"}}}}`)
+	return config.Config{
+		Tool: "claude",
+		Path: "/tmp/config.json",
+		Raw:  raw,
+		Servers: []config.ServerEntry{{
+			Name:       "leaky",
+			Tool:       "claude",
+			Transport:  "stdio",
+			Command:    "npx",
+			Args:       []string{"-y", "pkg"},
+			ConfigPath: "/tmp/config.json",
+			Env:        map[string]string{"API_KEY": "sk-" + strings.Repeat("a", 20)},
+		}},
 	}
 }

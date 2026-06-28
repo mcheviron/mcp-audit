@@ -47,14 +47,6 @@ type evidenceChain struct {
 	Truncated   bool               `json:"truncated"`
 }
 
-func computeHMAC(key []byte, id, data, prev string) string {
-	mac := hmac.New(sha256.New, key)
-	mac.Write([]byte(id))
-	mac.Write([]byte(data))
-	mac.Write([]byte(prev))
-	return hex.EncodeToString(mac.Sum(nil))
-}
-
 func ExportEvidence(path, keyHex string, results []scanner.Result, chains []scanner.Chain) error {
 	key, err := hex.DecodeString(keyHex)
 	if err != nil {
@@ -112,6 +104,30 @@ func ExportEvidence(path, keyHex string, results []scanner.Result, chains []scan
 	return enc.Encode(bundle)
 }
 
+func VerifyEvidenceBundle(path, keyHex string) (bool, error) {
+	key, err := hex.DecodeString(keyHex)
+	if err != nil {
+		return false, fmt.Errorf("invalid evidence key: must be hex-encoded: %w", err)
+	}
+	data, err := os.ReadFile(filepath.Clean(path))
+	if err != nil {
+		return false, fmt.Errorf("read evidence file: %w", err)
+	}
+	var bundle evidenceBundle
+	if err := json.Unmarshal(data, &bundle); err != nil {
+		return false, fmt.Errorf("parse evidence bundle: %w", err)
+	}
+	return verifyHMACChain(bundle.Entries, key), nil
+}
+
+func computeHMAC(key []byte, id, data, prev string) string {
+	mac := hmac.New(sha256.New, key)
+	mac.Write([]byte(id))
+	mac.Write([]byte(data))
+	mac.Write([]byte(prev))
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
 func verifyHMACChain(entries []evidenceEntry, key []byte) bool {
 	prevHash := ""
 	for _, e := range entries {
@@ -151,20 +167,4 @@ func buildEvidenceEntries(results []scanner.Result, key []byte) ([]evidenceEntry
 		prevHash = h
 	}
 	return entries, nil
-}
-
-func VerifyEvidenceBundle(path, keyHex string) (bool, error) {
-	key, err := hex.DecodeString(keyHex)
-	if err != nil {
-		return false, fmt.Errorf("invalid evidence key: must be hex-encoded: %w", err)
-	}
-	data, err := os.ReadFile(filepath.Clean(path))
-	if err != nil {
-		return false, fmt.Errorf("read evidence file: %w", err)
-	}
-	var bundle evidenceBundle
-	if err := json.Unmarshal(data, &bundle); err != nil {
-		return false, fmt.Errorf("parse evidence bundle: %w", err)
-	}
-	return verifyHMACChain(bundle.Entries, key), nil
 }

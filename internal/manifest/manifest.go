@@ -45,14 +45,6 @@ func Build() Manifest {
 	}
 }
 
-func hashBytes(data []byte) string {
-	if len(data) == 0 {
-		return ""
-	}
-	sum := sha256.Sum256(data)
-	return hex.EncodeToString(sum[:])
-}
-
 func (m Manifest) WriteJSON(w io.Writer) error {
 	data, err := json.MarshalIndent(m, "", "  ")
 	if err != nil {
@@ -109,4 +101,12 @@ func Keys() []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+func hashBytes(data []byte) string {
+	if len(data) == 0 {
+		return ""
+	}
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
 }

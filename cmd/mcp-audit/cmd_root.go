@@ -15,6 +15,63 @@ import (
 	"github.com/mcheviron/mcp-audit/internal/scanner"
 )
 
+type flags struct {
+	formatRaw             string
+	probeDepthRaw         string
+	severityMinRaw        string
+	format                report.Format
+	dryRun                bool
+	allowHosts            string
+	blockHosts            string
+	targets               string
+	trustConfig           string
+	transport             string
+	authToken             string
+	authHeaders           string
+	tlsCert               string
+	tlsKey                string
+	noToolAnalysis        bool
+	snapshotDir           string
+	noSnapshot            bool
+	noTrustOnFirstUse     bool
+	noSecretScan          bool
+	probeDepth            scanner.ProbeDepth
+	callbackPort          int
+	targetsFile           string
+	maxResponse           int
+	verbose               bool
+	quiet                 bool
+	debug                 bool
+	severityMin           scanner.Severity
+	outputFile            string
+	timeout               int
+	concurrency           int
+	noColor               bool
+	showPassRemediation   bool
+	noCrossServerAnalysis bool
+	toolsConfig           string
+	projectDir            string
+	noProject             bool
+	noCVEScan             bool
+	cveCacheDir           string
+	cveCacheTTL           int
+	ci                    bool
+	ciSummaryFile         string
+	ciInfo                report.CIInfo
+	heuristic             bool
+	scoreWeights          string
+	minSecurityScore      float64
+	maxAbsoluteRisk       float64
+	llmEndpoint           string
+	adversarial           bool
+	adversarialMaxProbes  int
+	blastRadius           bool
+	blastRadiusDepth      int
+	complianceFramework   string
+	exportEvidence        string
+	evidenceKey           string
+}
+
 var (
 	version = "dev"
 	commit  = "unknown"
@@ -34,7 +91,7 @@ var rootCmd = &cobra.Command{
 func init() {
 	setupRootFlags(rootCmd.PersistentFlags())
 	rootCmd.AddCommand(scanCmd, staticCmd, probeCmd, watchCmd, proxyCmd)
-	rootCmd.AddCommand(trustCmd, uploadCmd, sbomCmd)
+	rootCmd.AddCommand(trustCmd, sbomCmd)
 	rootCmd.AddCommand(verifyCmd)
 	rootCmd.SetVersionTemplate("mcp-audit {{.Version}}\n  commit: " + commit + "\n  date:   " + date + "\n")
 	rootCmd.Version = version
@@ -131,63 +188,6 @@ func validateAndApply(cmd *cobra.Command, f *flags) error {
 	}
 	applyConfigDefaults(cmd, f)
 	return nil
-}
-
-type flags struct {
-	formatRaw             string
-	probeDepthRaw         string
-	severityMinRaw        string
-	format                report.Format
-	dryRun                bool
-	allowHosts            string
-	blockHosts            string
-	targets               string
-	trustConfig           string
-	transport             string
-	authToken             string
-	authHeaders           string
-	tlsCert               string
-	tlsKey                string
-	noToolAnalysis        bool
-	snapshotDir           string
-	noSnapshot            bool
-	noTrustOnFirstUse     bool
-	noSecretScan          bool
-	probeDepth            scanner.ProbeDepth
-	callbackPort          int
-	targetsFile           string
-	maxResponse           int
-	verbose               bool
-	quiet                 bool
-	debug                 bool
-	severityMin           scanner.Severity
-	outputFile            string
-	timeout               int
-	concurrency           int
-	noColor               bool
-	showPassRemediation   bool
-	noCrossServerAnalysis bool
-	toolsConfig           string
-	projectDir            string
-	noProject             bool
-	noCVEScan             bool
-	cveCacheDir           string
-	cveCacheTTL           int
-	ci                    bool
-	ciSummaryFile         string
-	ciInfo                report.CIInfo
-	heuristic             bool
-	scoreWeights          string
-	minSecurityScore      float64
-	maxAbsoluteRisk       float64
-	llmEndpoint           string
-	adversarial           bool
-	adversarialMaxProbes  int
-	blastRadius           bool
-	blastRadiusDepth      int
-	complianceFramework   string
-	exportEvidence        string
-	evidenceKey           string
 }
 
 func newLogger(verbose, quiet, debug bool) *slog.Logger {

@@ -63,23 +63,6 @@ func LoadUserTools(path string) ([]ToolParser, error) {
 	return tools, nil
 }
 
-func buildPathsFunc(paths []string, home string) func(string) []string {
-	return func(_ string) []string {
-		resolved := make([]string, len(paths))
-		for i, p := range paths {
-			switch {
-			case strings.HasPrefix(p, "~/"), strings.HasPrefix(p, `~\`):
-				resolved[i] = filepath.Join(home, p[2:])
-			case filepath.IsAbs(p):
-				resolved[i] = p
-			default:
-				resolved[i] = filepath.Join(home, p)
-			}
-		}
-		return resolved
-	}
-}
-
 func MergeUserTools(userTools []ToolParser) {
 	if len(userTools) == 0 {
 		return
@@ -97,5 +80,22 @@ func MergeUserTools(userTools []ToolParser) {
 		} else {
 			registry = append(registry, ut)
 		}
+	}
+}
+
+func buildPathsFunc(paths []string, home string) func(string) []string {
+	return func(_ string) []string {
+		resolved := make([]string, len(paths))
+		for i, p := range paths {
+			switch {
+			case strings.HasPrefix(p, "~/"), strings.HasPrefix(p, `~\`):
+				resolved[i] = filepath.Join(home, p[2:])
+			case filepath.IsAbs(p):
+				resolved[i] = p
+			default:
+				resolved[i] = filepath.Join(home, p)
+			}
+		}
+		return resolved
 	}
 }

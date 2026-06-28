@@ -11,17 +11,6 @@ import (
 	"github.com/mcheviron/mcp-audit/internal/mcp"
 )
 
-func makeTool(name, desc string) mcp.Tool {
-	return mcp.Tool{
-		Name:        name,
-		Description: desc,
-		InputSchema: map[string]any{
-			"type":       "object",
-			"properties": map[string]any{},
-		},
-	}
-}
-
 func TestAnalyzeToolDescriptionInjection(t *testing.T) {
 	tests := []struct {
 		name, desc string
@@ -446,5 +435,16 @@ func TestMaxResponseTruncation(t *testing.T) {
 	zeroBody := probeTargetDirect(context.Background(), client, "GET", ts.URL, DepthBasic, 0)
 	if len(zeroBody.body) != 0 {
 		t.Errorf("maxResp=0 should read nothing, got %d bytes", len(zeroBody.body))
+	}
+}
+
+func makeTool(name, desc string) mcp.Tool {
+	return mcp.Tool{
+		Name:        name,
+		Description: desc,
+		InputSchema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{},
+		},
 	}
 }

@@ -10,24 +10,6 @@ import (
 	"github.com/mcheviron/mcp-audit/internal/scanner"
 )
 
-func captureStderr(t *testing.T, fn func()) string {
-	t.Helper()
-	old := os.Stderr
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatal(err)
-	}
-	os.Stderr = w
-	fn()
-	w.Close()
-	var buf bytes.Buffer
-	if _, err := buf.ReadFrom(r); err != nil {
-		t.Fatal(err)
-	}
-	os.Stderr = old
-	return buf.String()
-}
-
 func TestWriteResultsHeaderFooterTally(t *testing.T) {
 	tmpfile, err := os.CreateTemp("", "mcp-audit-tally-*.out")
 	if err != nil {
@@ -182,4 +164,22 @@ func TestWriteResultsEmpty(t *testing.T) {
 	if !strings.Contains(footer, "0 findings") {
 		t.Errorf("clean run footer should be 0 findings line, got %q", footer)
 	}
+}
+
+func captureStderr(t *testing.T, fn func()) string {
+	t.Helper()
+	old := os.Stderr
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stderr = w
+	fn()
+	w.Close()
+	var buf bytes.Buffer
+	if _, err := buf.ReadFrom(r); err != nil {
+		t.Fatal(err)
+	}
+	os.Stderr = old
+	return buf.String()
 }

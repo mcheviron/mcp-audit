@@ -13,6 +13,10 @@ const (
 	SevCritical
 )
 
+type severityErr struct{}
+
+var errSeverityParse = &severityErr{}
+
 func (s Severity) String() string {
 	switch s {
 	case SevPass:
@@ -73,6 +77,8 @@ func (s *Severity) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+func (*severityErr) Error() string { return "types: invalid severity payload" }
+
 func jsonUnquote(data []byte, dst *string) error {
 	if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
 		return errSeverityParse
@@ -80,9 +86,3 @@ func jsonUnquote(data []byte, dst *string) error {
 	*dst = string(data[1 : len(data)-1])
 	return nil
 }
-
-var errSeverityParse = &severityErr{}
-
-type severityErr struct{}
-
-func (*severityErr) Error() string { return "types: invalid severity payload" }

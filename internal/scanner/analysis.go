@@ -8,6 +8,7 @@ import (
 )
 
 var AwsKeyPattern = regexp.MustCompile(`AKIA[0-9A-Z]{16}`)
+
 var GcpTokenPattern = regexp.MustCompile(`(?i)"access_token"\s*:\s*"ya29\.`)
 
 var MetadataPattern = regexp.MustCompile(

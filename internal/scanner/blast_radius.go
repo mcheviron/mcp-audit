@@ -39,27 +39,6 @@ func MakeResultIDForExport(r Result) string {
 	return makeResultID(r)
 }
 
-func makeResultID(r Result) string {
-	if r.Finding != "" {
-		return fmt.Sprintf("%s-%s-%s", r.Server, r.Type, sanitizeForID(r.Finding))
-	}
-	return fmt.Sprintf("%s-%s-unknown", r.Server, r.Type)
-}
-
-func sanitizeForID(s string) string {
-	s = strings.ToLower(s)
-	s = strings.Map(func(r rune) rune {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
-			return r
-		}
-		return '-'
-	}, s)
-	if len(s) > 40 {
-		s = s[:40]
-	}
-	return strings.Trim(s, "-")
-}
-
 func LinkFindings(results []Result) {
 	serverFindings := make(map[string][]*Result)
 
@@ -149,6 +128,59 @@ func ComputeChains(results []Result, depth int) []Chain {
 	}
 
 	return chains
+}
+
+func FilterByFramework(findings []Result, framework string) []Result {
+	if framework == "" || framework == "all" {
+		return findings
+	}
+	frameworks := strings.Split(framework, ",")
+	for i := range frameworks {
+		frameworks[i] = strings.TrimSpace(frameworks[i])
+	}
+
+	if mappings == nil {
+		LoadMappings()
+	}
+	fullNames := set.New[string](0)
+	for _, fw := range frameworks {
+		if fm, ok := mappings[fw]; ok {
+			fullNames.Insert(strings.ToLower(fm.Framework))
+		}
+		fullNames.Insert(strings.ToLower(fw))
+	}
+
+	var filtered []Result
+	for _, r := range findings {
+		for _, tag := range r.Compliance {
+			if fullNames.Contains(strings.ToLower(tag.Framework)) {
+				filtered = append(filtered, r)
+				break
+			}
+		}
+	}
+	return filtered
+}
+
+func makeResultID(r Result) string {
+	if r.Finding != "" {
+		return fmt.Sprintf("%s-%s-%s", r.Server, r.Type, sanitizeForID(r.Finding))
+	}
+	return fmt.Sprintf("%s-%s-unknown", r.Server, r.Type)
+}
+
+func sanitizeForID(s string) string {
+	s = strings.ToLower(s)
+	s = strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+			return r
+		}
+		return '-'
+	}, s)
+	if len(s) > 40 {
+		s = s[:40]
+	}
+	return strings.Trim(s, "-")
 }
 
 func expandBlastNode(curr blastRadiusNode, pkgToServers map[string][]string, srvToConfig map[string]string,
@@ -259,36 +291,4 @@ func extractPackageFromFinding(finding string) string {
 		}
 	}
 	return ""
-}
-
-func FilterByFramework(findings []Result, framework string) []Result {
-	if framework == "" || framework == "all" {
-		return findings
-	}
-	frameworks := strings.Split(framework, ",")
-	for i := range frameworks {
-		frameworks[i] = strings.TrimSpace(frameworks[i])
-	}
-
-	if mappings == nil {
-		LoadMappings()
-	}
-	fullNames := set.New[string](0)
-	for _, fw := range frameworks {
-		if fm, ok := mappings[fw]; ok {
-			fullNames.Insert(strings.ToLower(fm.Framework))
-		}
-		fullNames.Insert(strings.ToLower(fw))
-	}
-
-	var filtered []Result
-	for _, r := range findings {
-		for _, tag := range r.Compliance {
-			if fullNames.Contains(strings.ToLower(tag.Framework)) {
-				filtered = append(filtered, r)
-				break
-			}
-		}
-	}
-	return filtered
 }

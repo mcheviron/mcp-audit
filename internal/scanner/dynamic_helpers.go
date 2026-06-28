@@ -13,6 +13,43 @@ import (
 	"github.com/mcheviron/mcp-audit/internal/mcp"
 )
 
+func (s *Scanner) RunProbe(dryRun bool) []Result {
+	httpServers, mcpServers := s.partitionServers()
+	depth := s.Probe.Depth
+	targets := s.resolveTargets(depth)
+
+	if dryRun {
+		return dryRunResults(mcpServers, targets, depth)
+	}
+
+	concurrency := s.Probe.Concurrency
+	if concurrency <= 0 {
+		concurrency = 10
+	}
+	timeoutSecs := s.Probe.TimeoutSecs
+	if timeoutSecs <= 0 {
+		timeoutSecs = 30
+	}
+
+	overallTimeout := time.Duration(timeoutSecs+30) * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), overallTimeout)
+	defer cancel()
+
+	cl := s.setupCallbackListener(depth)
+
+	results := s.runProbes(ctx, httpServers, mcpServers, targets, depth, concurrency, timeoutSecs, cl)
+
+	if cl != nil {
+		cl.drainCallbacks(30 * time.Second)
+		for _, srv := range mcpServers {
+			results = append(results, cl.collectCallbackResults(srv.Name, srv.ConfigPath)...)
+		}
+		cl.stopCallbackListener()
+	}
+
+	return results
+}
+
 func (s *Scanner) collectServers() []config.ServerEntry {
 	configs := s.discoverConfigs()
 	var servers []config.ServerEntry
@@ -125,43 +162,6 @@ func dryRunResults(mcpServers []config.ServerEntry, targets []string, depth Prob
 			),
 		})
 	}
-	return results
-}
-
-func (s *Scanner) RunProbe(dryRun bool) []Result {
-	httpServers, mcpServers := s.partitionServers()
-	depth := s.Probe.Depth
-	targets := s.resolveTargets(depth)
-
-	if dryRun {
-		return dryRunResults(mcpServers, targets, depth)
-	}
-
-	concurrency := s.Probe.Concurrency
-	if concurrency <= 0 {
-		concurrency = 10
-	}
-	timeoutSecs := s.Probe.TimeoutSecs
-	if timeoutSecs <= 0 {
-		timeoutSecs = 30
-	}
-
-	overallTimeout := time.Duration(timeoutSecs+30) * time.Second
-	ctx, cancel := context.WithTimeout(context.Background(), overallTimeout)
-	defer cancel()
-
-	cl := s.setupCallbackListener(depth)
-
-	results := s.runProbes(ctx, httpServers, mcpServers, targets, depth, concurrency, timeoutSecs, cl)
-
-	if cl != nil {
-		cl.drainCallbacks(30 * time.Second)
-		for _, srv := range mcpServers {
-			results = append(results, cl.collectCallbackResults(srv.Name, srv.ConfigPath)...)
-		}
-		cl.stopCallbackListener()
-	}
-
 	return results
 }
 
