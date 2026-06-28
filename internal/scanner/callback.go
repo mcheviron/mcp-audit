@@ -86,7 +86,7 @@ func (cl *CallbackListener) collectCallbackResults(srvName, configPath string) [
 			results = append(results, Result{
 				Severity:   SevCritical,
 				Server:     srvName,
-				Type:       "dynamic",
+				Type:       FindingTypeDynamic,
 				Finding:    fmt.Sprintf("blind SSRF confirmed: server made outbound request to callback listener from %s", src),
 				ConfigPath: configPath,
 			})

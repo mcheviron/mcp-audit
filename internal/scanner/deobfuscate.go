@@ -94,7 +94,7 @@ func stripUnicodeTags(desc string) (string, []Result, bool) {
 		}, desc)
 		findings = append(findings, Result{
 			Severity: SevMedium,
-			Type:     "static",
+			Type:     FindingTypeStatic,
 			Finding:  fmt.Sprintf("description contains %d hidden Unicode tag characters", tagCount),
 		})
 		return filtered, findings, true
@@ -107,7 +107,7 @@ func detectBiDi(desc string) (string, []Result, bool) {
 	if containsBidiRune(desc) {
 		findings = append(findings, Result{
 			Severity: SevHigh,
-			Type:     "static",
+			Type:     FindingTypeStatic,
 			Finding:  "description contains bidirectional text override characters",
 		})
 	}
@@ -119,7 +119,7 @@ func scanZeroWidth(desc string) (string, []Result, bool) {
 	if n >= 5 {
 		return desc, []Result{{
 			Severity: SevLow,
-			Type:     "static",
+			Type:     FindingTypeStatic,
 			Finding:  fmt.Sprintf("description contains %d zero-width characters", n),
 		}}, false
 	}
@@ -140,7 +140,7 @@ func decodeBase64(desc string) (string, []Result, bool) {
 		if len(decoded) < 20 {
 			findings = append(findings, Result{
 				Severity: SevInfo,
-				Type:     "static",
+				Type:     FindingTypeStatic,
 				Finding:  "description contains short Base64-encoded content",
 			})
 			continue
@@ -153,7 +153,7 @@ func decodeBase64(desc string) (string, []Result, bool) {
 			if m := p.FindString(decodedStr); m != "" {
 				findings = append(findings, Result{
 					Severity: SevHigh,
-					Type:     "static",
+					Type:     FindingTypeStatic,
 					Finding:  fmt.Sprintf("description contains Base64-encoded injection payload: %q", m),
 					Detail:   redactDetail(decodedStr),
 				})
@@ -162,7 +162,7 @@ func decodeBase64(desc string) (string, []Result, bool) {
 		}
 		findings = append(findings, Result{
 			Severity: SevInfo,
-			Type:     "static",
+			Type:     FindingTypeStatic,
 			Finding:  fmt.Sprintf("description contains Base64-encoded content (decoded: %q)", redactDetail(decodedStr)),
 		})
 	}
@@ -182,7 +182,7 @@ func detectConfusables(desc string) (string, []Result, bool) {
 		asciiText := strings.Join(confusableParts, "")
 		findings = append(findings, Result{
 			Severity: SevMedium,
-			Type:     "static",
+			Type:     FindingTypeStatic,
 			Finding:  fmt.Sprintf("description contains confusable characters interpreting as %q", asciiText),
 		})
 	}

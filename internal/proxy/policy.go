@@ -13,14 +13,32 @@ import (
 	"sync"
 )
 
+type Action string
+
+const (
+	ActionAllow Action = "allow"
+	ActionDeny  Action = "deny"
+	ActionAudit Action = "audit"
+)
+
+type ConditionOp string
+
+const (
+	OpEquals   ConditionOp = "equals"
+	OpContains ConditionOp = "contains"
+	OpPrefix   ConditionOp = "prefix"
+	OpSuffix   ConditionOp = "suffix"
+	OpRegex    ConditionOp = "regex"
+)
+
 type PolicyCondition struct {
-	Field string `json:"field"`
-	Op    string `json:"op"`
-	Value string `json:"value"`
+	Field string      `json:"field"`
+	Op    ConditionOp `json:"op"`
+	Value string      `json:"value"`
 }
 
 type PolicyRule struct {
-	Action      string                       `json:"action"`
+	Action      Action                       `json:"action"`
 	Priority    int                          `json:"priority"`
 	Method      string                       `json:"method"`
 	Tool        string                       `json:"tool,omitempty"`
@@ -29,8 +47,8 @@ type PolicyRule struct {
 }
 
 type PolicyConditionOp struct {
-	Op            string `json:"op"`
-	Value         string `json:"value"`
+	Op            ConditionOp `json:"op"`
+	Value         string      `json:"value"`
 	compiledRegex *regexp.Regexp
 }
 
@@ -50,7 +68,7 @@ type PolicyEngine struct {
 func NewPolicyEngine(cfg *PolicyConfig, defaultDeny bool) *PolicyEngine {
 	for i := range cfg.Rules {
 		for field, cond := range cfg.Rules[i].Conditions {
-			if cond.Op == "regex" {
+			if cond.Op == OpRegex {
 				re, err := regexp.Compile(cond.Value)
 				if err != nil {
 					slog.Warn("invalid regex in policy condition", "field", field, "pattern", cond.Value, "err", err)
@@ -71,7 +89,7 @@ func NewPolicyEngine(cfg *PolicyConfig, defaultDeny bool) *PolicyEngine {
 	}
 }
 
-func (e *PolicyEngine) Evaluate(method, tool string, params map[string]any) (action, description string) {
+func (e *PolicyEngine) Evaluate(method, tool string, params map[string]any) (Action, string) {
 	e.mu.RLock()
 	rules := e.rules
 	e.mu.RUnlock()
@@ -97,9 +115,9 @@ func (e *PolicyEngine) Evaluate(method, tool string, params map[string]any) (act
 	}
 
 	if e.defaultDeny {
-		return "deny", "Default deny: no matching allow rule"
+		return ActionDeny, "Default deny: no matching allow rule"
 	}
-	return "allow", "No matching rule, default allow"
+	return ActionAllow, "No matching rule, default allow"
 }
 
 func (e *PolicyEngine) Stats() (total int64, toolCounts map[string]int64) {
@@ -123,7 +141,7 @@ func LoadPolicy(path string) (*PolicyConfig, error) {
 	}
 
 	for i, rule := range cfg.Rules {
-		if rule.Action != "allow" && rule.Action != "deny" && rule.Action != "audit" {
+		if rule.Action != ActionAllow && rule.Action != ActionDeny && rule.Action != ActionAudit {
 			return nil, fmt.Errorf("rule %d: unknown action %q", i, rule.Action)
 		}
 		if rule.Method == "" {
@@ -192,15 +210,15 @@ func extractNestedValue(params map[string]any, field string) string {
 
 func (e *PolicyEngine) evaluateCondition(cond PolicyConditionOp, actual string) bool {
 	switch cond.Op {
-	case "equals":
+	case OpEquals:
 		return actual == cond.Value
-	case "contains":
+	case OpContains:
 		return strings.Contains(actual, cond.Value)
-	case "prefix":
+	case OpPrefix:
 		return strings.HasPrefix(actual, cond.Value)
-	case "suffix":
+	case OpSuffix:
 		return strings.HasSuffix(actual, cond.Value)
-	case "regex":
+	case OpRegex:
 		if cond.compiledRegex == nil {
 			return false
 		}

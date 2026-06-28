@@ -58,7 +58,7 @@ func ExportEvidence(path, keyHex string, results []scanner.Result, chains []scan
 		ef[i] = evidenceFinding{
 			Severity:   r.Severity.String(),
 			Server:     r.Server,
-			Type:       r.Type,
+			Type:       string(r.Type),
 			Finding:    r.Finding,
 			Detail:     r.Detail,
 			Compliance: r.Compliance,
@@ -148,7 +148,7 @@ func buildEvidenceEntries(results []scanner.Result, key []byte) ([]evidenceEntry
 		dataJSON, err := json.Marshal(evidenceFinding{
 			Severity:   r.Severity.String(),
 			Server:     r.Server,
-			Type:       r.Type,
+			Type:       string(r.Type),
 			Finding:    r.Finding,
 			Detail:     r.Detail,
 			Compliance: r.Compliance,

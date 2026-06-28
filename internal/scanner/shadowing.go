@@ -30,7 +30,7 @@ func detectToolShadowing(allTools map[string][]mcp.Tool) []Result {
 					results = append(results, Result{
 						Severity: SevMedium,
 						Server:   refs[i].server,
-						Type:     "static",
+						Type:     FindingTypeStatic,
 						Finding: fmt.Sprintf(
 							"tool %q shadowing: %q and %q have conflicting descriptions",
 							name, refs[i].server, refs[j].server),
@@ -39,7 +39,7 @@ func detectToolShadowing(allTools map[string][]mcp.Tool) []Result {
 					results = append(results, Result{
 						Severity: SevInfo,
 						Server:   refs[i].server,
-						Type:     "static",
+						Type:     FindingTypeStatic,
 						Finding: fmt.Sprintf(
 							"tool %q exposed by %q and %q with identical descriptions — potential impersonation",
 							name, refs[i].server, refs[j].server),

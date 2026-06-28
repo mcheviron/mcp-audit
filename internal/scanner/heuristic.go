@@ -233,7 +233,7 @@ func extractRiskFactors(results []Result, allTools map[string][]mcp.Tool) map[st
 		}
 		rc := counts[s]
 		switch r.Type {
-		case "static":
+		case FindingTypeStatic:
 			if r.Severity == SevInfo && containsPattern(r.Finding, "typosquat", "distance") {
 				rc.typosquatCount++
 				if d := extractDistance(r.Finding); d > 0 && d < rc.minTyposquatDist {
@@ -246,12 +246,12 @@ func extractRiskFactors(results []Result, allTools map[string][]mcp.Tool) map[st
 			if containsPattern(r.Finding, "capabilities:") {
 				rc.capCount++
 			}
-		case "cve":
+		case FindingTypeCVE:
 			rc.cveCount++
 			if r.Severity >= SevHigh {
 				rc.cveHighCount++
 			}
-		case "dynamic":
+		case FindingTypeDynamic:
 			if r.Severity >= SevHigh && containsPattern(r.Finding,
 				"redirect", "internal", "metadata", "leaked", "exposed") {
 				rc.highSevNetwork = true

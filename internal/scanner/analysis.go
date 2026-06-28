@@ -42,7 +42,7 @@ func analyzeProbeResult(result probeResult, srv config.ServerEntry) Result {
 		return Result{
 			Severity: SevMedium,
 			Server:   srv.Name,
-			Type:     "dynamic",
+			Type:     FindingTypeDynamic,
 			Finding:  fmt.Sprintf("connection to %s failed: %v", result.target, result.err),
 		}
 	}
@@ -55,7 +55,7 @@ func analyzeProbeResult(result probeResult, srv config.ServerEntry) Result {
 		return Result{
 			Severity: sev,
 			Server:   srv.Name,
-			Type:     "dynamic",
+			Type:     FindingTypeDynamic,
 			Finding:  fmt.Sprintf("open redirect to %s (status %d)", result.redirect, result.status),
 		}
 	}
@@ -135,7 +135,7 @@ func checkCriticalFromAssessment(result probeResult, srv config.ServerEntry, a b
 		return &Result{
 			Severity: SevCritical,
 			Server:   srv.Name,
-			Type:     "dynamic",
+			Type:     FindingTypeDynamic,
 			Finding:  fmt.Sprintf("AWS credentials exposed via %s", result.target),
 			Detail:   redactDetail(result.body),
 		}
@@ -144,7 +144,7 @@ func checkCriticalFromAssessment(result probeResult, srv config.ServerEntry, a b
 		return &Result{
 			Severity: SevCritical,
 			Server:   srv.Name,
-			Type:     "dynamic",
+			Type:     FindingTypeDynamic,
 			Finding:  fmt.Sprintf("GCP access token exposed via %s", result.target),
 			Detail:   redactDetail(result.body),
 		}
@@ -153,7 +153,7 @@ func checkCriticalFromAssessment(result probeResult, srv config.ServerEntry, a b
 		return &Result{
 			Severity: SevCritical,
 			Server:   srv.Name,
-			Type:     "dynamic",
+			Type:     FindingTypeDynamic,
 			Finding:  fmt.Sprintf("cloud metadata exposed via %s", result.target),
 			Detail:   redactDetail(result.body),
 		}
@@ -162,7 +162,7 @@ func checkCriticalFromAssessment(result probeResult, srv config.ServerEntry, a b
 		return &Result{
 			Severity: SevHigh,
 			Server:   srv.Name,
-			Type:     "dynamic",
+			Type:     FindingTypeDynamic,
 			Finding: fmt.Sprintf(
 				"internal content returned via %s (status %d, %d bytes)",
 				result.target, result.status, len(result.body),
@@ -176,7 +176,7 @@ func passResult(srv config.ServerEntry, result probeResult) Result {
 	return Result{
 		Severity: SevPass,
 		Server:   srv.Name,
-		Type:     "dynamic",
+		Type:     FindingTypeDynamic,
 		Finding:  fmt.Sprintf("no SSRF detected for %s (status %d)", result.target, result.status),
 	}
 }

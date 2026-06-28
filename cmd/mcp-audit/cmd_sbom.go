@@ -103,7 +103,7 @@ func collectCVEsFromScan(cfgs []config.Config) map[string][]sbom.CVEResult {
 
 	cves := make(map[string][]sbom.CVEResult)
 	for _, r := range res.Results {
-		if r.Type != "cve" {
+		if r.Type != scanner.FindingTypeCVE {
 			continue
 		}
 		if !packages.Contains(r.Server) {

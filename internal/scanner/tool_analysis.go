@@ -12,8 +12,17 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+type Capability string
+
+const (
+	CapFilesystem Capability = "filesystem"
+	CapNetwork    Capability = "network"
+	CapShell      Capability = "shell"
+	CapDatabase   Capability = "database"
+)
+
 type capabilityPattern struct {
-	name     string
+	name     Capability
 	patterns []string
 }
 
@@ -41,7 +50,7 @@ func analyzeToolDescription(tool mcp.Tool, serverName, configPath, scope string)
 		return []Result{{
 			Severity:   SevInfo,
 			Server:     serverName,
-			Type:       "static",
+			Type:       FindingTypeStatic,
 			Finding:    fmt.Sprintf("tool %q has no description (information hiding)", tool.Name),
 			ConfigPath: configPath,
 			Scope:      scope,
@@ -61,7 +70,7 @@ func analyzeToolDescription(tool mcp.Tool, serverName, configPath, scope string)
 			results = append(results, Result{
 				Severity:   SevLow,
 				Server:     serverName,
-				Type:       "static",
+				Type:       FindingTypeStatic,
 				Finding:    fmt.Sprintf("tool %q description matches injection pattern %q", tool.Name, m),
 				Detail:     redactDetail(cleanDesc),
 				ConfigPath: configPath,
@@ -76,7 +85,7 @@ func analyzeToolDescription(tool mcp.Tool, serverName, configPath, scope string)
 			results = append(results, Result{
 				Severity:   SevLow,
 				Server:     serverName,
-				Type:       "static",
+				Type:       FindingTypeStatic,
 				Finding:    fmt.Sprintf("tool %q description contains embedded URL: %s", tool.Name, u),
 				ConfigPath: configPath,
 				Scope:      scope,
@@ -88,7 +97,7 @@ func analyzeToolDescription(tool mcp.Tool, serverName, configPath, scope string)
 		results = append(results, Result{
 			Severity:   SevPass,
 			Server:     serverName,
-			Type:       "static",
+			Type:       FindingTypeStatic,
 			Finding:    fmt.Sprintf("tool %q description clean — no injection patterns detected", tool.Name),
 			ConfigPath: configPath,
 			Scope:      scope,
@@ -99,10 +108,10 @@ func analyzeToolDescription(tool mcp.Tool, serverName, configPath, scope string)
 }
 
 var capabilityPatterns = []capabilityPattern{
-	capabilityPattern{name: "filesystem", patterns: []string{"path", "file", "directory", "folder", "filename"}},
-	capabilityPattern{name: "network", patterns: []string{"url", "uri", "endpoint", "host", "hostname"}},
-	capabilityPattern{name: "shell", patterns: []string{"command", "cmd", "script", "exec", "shell"}},
-	capabilityPattern{name: "database", patterns: []string{"query", "sql", "collection", "table", "database"}},
+	capabilityPattern{name: CapFilesystem, patterns: []string{"path", "file", "directory", "folder", "filename"}},
+	{name: CapNetwork, patterns: []string{"url", "uri", "endpoint", "host", "hostname"}},
+	{name: CapShell, patterns: []string{"command", "cmd", "script", "exec", "shell"}},
+	{name: CapDatabase, patterns: []string{"query", "sql", "collection", "table", "database"}},
 }
 
 func analyzeCallToolResponse(
@@ -115,7 +124,7 @@ func analyzeCallToolResponse(
 		return Result{
 			Severity: SevPass,
 			Server:   srv.Name,
-			Type:     "dynamic",
+			Type:     FindingTypeDynamic,
 			Finding:  fmt.Sprintf("tool %q rejected probe to %s (isError=true)", toolName, target),
 		}
 	}
@@ -301,7 +310,7 @@ func probeMCPTool(
 					return Result{
 						Severity: SevMedium,
 						Server:   srv.Name,
-						Type:     "dynamic",
+						Type:     FindingTypeDynamic,
 						Finding:  fmt.Sprintf("tool %q probe to %s failed: %v", tool.Name, target, err),
 					}
 				}
@@ -365,7 +374,7 @@ func collectDeobFindings(
 	return false
 }
 
-func classifyToolCapabilities(schema map[string]any) []string {
+func classifyToolCapabilities(schema map[string]any) []Capability {
 	props, _ := schema["properties"].(map[string]any)
 	if props == nil {
 		return nil
@@ -376,7 +385,7 @@ func classifyToolCapabilities(schema map[string]any) []string {
 		lowKeys = append(lowKeys, strings.ToLower(key))
 	}
 
-	var caps []string
+	var caps []Capability
 	for _, cap := range capabilityPatterns {
 		for _, lk := range lowKeys {
 			matched := false
@@ -393,4 +402,12 @@ func classifyToolCapabilities(schema map[string]any) []string {
 		}
 	}
 	return caps
+}
+
+func capStrings(caps []Capability) string {
+	strs := make([]string, len(caps))
+	for i, c := range caps {
+		strs[i] = string(c)
+	}
+	return strings.Join(strs, ", ")
 }

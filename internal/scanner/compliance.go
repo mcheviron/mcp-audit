@@ -61,7 +61,7 @@ type Control struct {
 	Control   string
 }
 
-func MapToCompliance(findingType string, severity Severity) []Control {
+func MapToCompliance(findingType FindingType, severity Severity) []Control {
 	if mappings == nil {
 		LoadMappings()
 	}
@@ -80,31 +80,31 @@ func MapToCompliance(findingType string, severity Severity) []Control {
 	return controls
 }
 
-func normalizeFindingType(t string) string {
-	t = strings.ToLower(t)
+func normalizeFindingType(t FindingType) string {
+	s := strings.ToLower(string(t))
 	switch {
-	case strings.Contains(t, "credential"):
+	case strings.Contains(s, "credential"):
 		return "credential_leak"
-	case strings.Contains(t, "secret"):
+	case strings.Contains(s, "secret"):
 		return "secret_leak"
-	case strings.Contains(t, "injection") || strings.Contains(t, "prompt"):
+	case strings.Contains(s, "injection") || strings.Contains(s, "prompt"):
 		return "prompt_injection"
-	case strings.Contains(t, "ssrf") ||
-		(strings.Contains(t, "dynamic") &&
-			(strings.Contains(t, "internal") || strings.Contains(t, "redirect"))):
+	case strings.Contains(s, "ssrf") ||
+		(strings.Contains(s, "dynamic") &&
+			(strings.Contains(s, "internal") || strings.Contains(s, "redirect"))):
 		return "ssrf"
-	case strings.Contains(t, "tool") || strings.Contains(t, "capability") || strings.Contains(t, "analysis"):
+	case strings.Contains(s, "tool") || strings.Contains(s, "capability") || strings.Contains(s, "analysis"):
 		return "tool_capability"
-	case strings.Contains(t, "shadow"):
+	case strings.Contains(s, "shadow"):
 		return "shadowing"
-	case strings.Contains(t, "typosquat") || strings.Contains(t, "distance"):
+	case strings.Contains(s, "typosquat") || strings.Contains(s, "distance"):
 		return "typosquat"
-	case strings.Contains(t, "cve"):
+	case strings.Contains(s, "cve"):
 		return "cve"
-	case strings.Contains(t, "config") || strings.Contains(t, "misconfig") || strings.Contains(t, "parse"):
+	case strings.Contains(s, "config") || strings.Contains(s, "misconfig") || strings.Contains(s, "parse"):
 		return "config_misconfig"
 	default:
-		return t
+		return string(t)
 	}
 }
 

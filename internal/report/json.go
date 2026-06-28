@@ -68,7 +68,7 @@ func writeJSON(w io.Writer, results []scanner.Result, chains []scanner.Chain) er
 		entries[i] = jsonEntry{
 			Severity:        r.Severity.String(),
 			Server:          r.Server,
-			Type:            r.Type,
+			Type:            string(r.Type),
 			Finding:         r.Finding,
 			Detail:          r.Detail,
 			ConfigPath:      r.ConfigPath,

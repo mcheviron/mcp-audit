@@ -240,7 +240,7 @@ func probeSingleServer(
 		*existingResults = append(*existingResults, Result{
 			Severity:   SevInfo,
 			Server:     srv.Name,
-			Type:       "dynamic",
+			Type:       FindingTypeDynamic,
 			Finding:    fmt.Sprintf("tools/list failed: %v", err),
 			ConfigPath: srv.ConfigPath,
 			Scope:      srv.Scope,

@@ -215,7 +215,7 @@ func (p *Proxy) policyWrapper(rp *httputil.ReverseProxy) http.Handler {
 			action, desc := p.policy.Evaluate(method, tool, params)
 
 			switch action {
-			case "deny":
+			case ActionDeny:
 				slog.Warn("policy denied request", "method", method, "tool", tool, "desc", desc)
 				denyResp := map[string]any{
 					"jsonrpc": "2.0",
@@ -230,7 +230,7 @@ func (p *Proxy) policyWrapper(rp *httputil.ReverseProxy) http.Handler {
 				w.WriteHeader(http.StatusOK)
 				_, _ = w.Write(denyBody)
 				return
-			case "audit":
+			case ActionAudit:
 				slog.Warn("audit: policy matched", "desc", desc, "method", method, "tool", tool)
 			}
 			r.Body = io.NopCloser(bytes.NewReader(body))

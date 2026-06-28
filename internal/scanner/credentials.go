@@ -40,7 +40,7 @@ func credResult(server, configPath, finding string) Result {
 	return Result{
 		Severity:   SevCritical,
 		Server:     server,
-		Type:       "static",
+		Type:       FindingTypeStatic,
 		Finding:    finding,
 		ConfigPath: configPath,
 	}

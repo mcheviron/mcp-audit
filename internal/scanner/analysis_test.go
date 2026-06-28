@@ -66,27 +66,27 @@ func TestClassifyToolCapabilities(t *testing.T) {
 	tests := []struct {
 		name     string
 		props    map[string]any
-		wantCaps []string
+		wantCaps []Capability
 	}{
 		{
 			"filesystem",
 			map[string]any{"path": map[string]any{"type": "string", "description": "file path"}},
-			[]string{"filesystem"},
+			[]Capability{CapFilesystem},
 		},
 		{
 			"network",
 			map[string]any{"url": map[string]any{"type": "string", "format": "uri"}},
-			[]string{"network"},
+			[]Capability{CapNetwork},
 		},
 		{
 			"shell",
 			map[string]any{"command": map[string]any{"type": "string", "description": "shell command to run"}},
-			[]string{"shell"},
+			[]Capability{CapShell},
 		},
 		{
 			"database",
 			map[string]any{"query": map[string]any{"type": "string"}},
-			[]string{"database"},
+			[]Capability{CapDatabase},
 		},
 		{
 			"multi",
@@ -94,7 +94,7 @@ func TestClassifyToolCapabilities(t *testing.T) {
 				"url":     map[string]any{"type": "string"},
 				"command": map[string]any{"type": "string"},
 			},
-			[]string{"network", "shell"},
+			[]Capability{CapNetwork, CapShell},
 		},
 		{
 			"none",
@@ -294,7 +294,7 @@ func TestShannonEntropyEmpty(t *testing.T) {
 func TestEntropyBands(t *testing.T) {
 	tests := []struct {
 		entropy float64
-		band    string
+		band    EntropyBand
 	}{
 		{7.8, "encrypted"},
 		{7.5, "text"},

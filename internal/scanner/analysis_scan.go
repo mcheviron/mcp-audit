@@ -12,7 +12,7 @@ func runCrossServerAnalysis(allTools map[string][]mcp.Tool) []Result {
 		results[i] = Result{
 			Severity: ParseSeverity(f.Severity),
 			Server:   f.Server,
-			Type:     f.Type,
+			Type:     FindingType(f.Type),
 			Finding:  f.Description,
 			Detail:   f.Detail,
 		}

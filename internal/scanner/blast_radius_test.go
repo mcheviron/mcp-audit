@@ -9,19 +9,19 @@ func TestLinkFindings_CVEToCredentialOnSameServer(t *testing.T) {
 		{
 			Severity: SevCritical,
 			Server:   "filesystem",
-			Type:     "cve",
+			Type:     FindingTypeCVE,
 			Finding:  "CVE-2024-1234: buffer overflow in @modelcontextprotocol/server-filesystem",
 		},
 		{
 			Severity: SevCritical,
 			Server:   "filesystem",
-			Type:     "credential",
+			Type:     FindingTypeCredential,
 			Finding:  "AWS access key detected in tool response",
 		},
 		{
 			Severity: SevInfo,
 			Server:   "other-server",
-			Type:     "cve",
+			Type:     FindingTypeCVE,
 			Finding:  "CVE-2024-5678: XSS in unrelated-package",
 		},
 	}
@@ -53,7 +53,7 @@ func TestLinkFindings_NoCVEFindings(t *testing.T) {
 		{
 			Severity: SevCritical,
 			Server:   "filesystem",
-			Type:     "credential",
+			Type:     FindingTypeCredential,
 			Finding:  "AWS key detected",
 		},
 	}
@@ -72,19 +72,19 @@ func TestComputeChains_ThreeHopChain(t *testing.T) {
 		{
 			Severity: SevHigh,
 			Server:   "filesystem",
-			Type:     "cve",
+			Type:     FindingTypeCVE,
 			Finding:  "CVE-2024-1234: @modelcontextprotocol/server-filesystem RCE",
 		},
 		{
 			Severity: SevCritical,
 			Server:   "filesystem",
-			Type:     "credential",
+			Type:     FindingTypeCredential,
 			Finding:  "AWS access key detected",
 		},
 		{
 			Severity: SevMedium,
 			Server:   "filesystem",
-			Type:     "analysis",
+			Type:     FindingTypeAnalysis,
 			Finding:  "tool read_file has excessive permissions",
 		},
 	}
@@ -101,7 +101,7 @@ func TestComputeChains_ThreeHopChain(t *testing.T) {
 	}
 
 	cveHop := chain.Hops[0]
-	if cveHop.Type != "cve" {
+	if cveHop.Type != NodeTypeCVE {
 		t.Errorf("expected first hop type 'cve', got %q", cveHop.Type)
 	}
 
@@ -109,9 +109,9 @@ func TestComputeChains_ThreeHopChain(t *testing.T) {
 	foundCred := false
 	for _, h := range chain.Hops {
 		switch h.Type {
-		case "tool_analysis", "analysis":
+		case NodeTypeToolAnalysis, NodeTypeAnalysis:
 			foundTool = true
-		case "credential":
+		case NodeTypeCredential:
 			foundCred = true
 		}
 	}
@@ -128,19 +128,19 @@ func TestComputeChains_DepthTruncation(t *testing.T) {
 		{
 			Severity: SevHigh,
 			Server:   "filesystem",
-			Type:     "cve",
+			Type:     FindingTypeCVE,
 			Finding:  "CVE-2024-1234: @modelcontextprotocol/server-filesystem RCE",
 		},
 		{
 			Severity: SevCritical,
 			Server:   "filesystem",
-			Type:     "credential",
+			Type:     FindingTypeCredential,
 			Finding:  "AWS key detected",
 		},
 		{
 			Severity: SevMedium,
 			Server:   "filesystem",
-			Type:     "analysis",
+			Type:     FindingTypeAnalysis,
 			Finding:  "tool read_file has excessive permissions",
 		},
 	}
@@ -162,7 +162,7 @@ func TestComputeChains_NoCVEsProducesEmptyChains(t *testing.T) {
 		{
 			Severity: SevCritical,
 			Server:   "filesystem",
-			Type:     "credential",
+			Type:     FindingTypeCredential,
 			Finding:  "AWS key detected",
 		},
 	}
@@ -179,19 +179,19 @@ func TestComputeChains_MaxSeverityComputedCorrectly(t *testing.T) {
 		{
 			Severity: SevCritical,
 			Server:   "filesystem",
-			Type:     "cve",
+			Type:     FindingTypeCVE,
 			Finding:  "CVE-2024-9999: critical vuln in @modelcontextprotocol/server-filesystem",
 		},
 		{
 			Severity: SevHigh,
 			Server:   "filesystem",
-			Type:     "credential",
+			Type:     FindingTypeCredential,
 			Finding:  "AWS key detected",
 		},
 		{
 			Severity: SevMedium,
 			Server:   "filesystem",
-			Type:     "analysis",
+			Type:     FindingTypeAnalysis,
 			Finding:  "tool read_file has excessive permissions",
 		},
 	}

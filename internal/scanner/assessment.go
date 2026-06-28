@@ -4,7 +4,7 @@ type bodyAssessment struct {
 	text              string
 	score             float64
 	entropy           float64
-	band              string
+	band              EntropyBand
 	class             ResponseClass
 	containsMetadata  bool
 	containsAwsKey    bool

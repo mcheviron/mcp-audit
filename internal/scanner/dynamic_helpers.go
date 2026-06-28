@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"strings"
 	"sync"
 	"time"
 
@@ -68,7 +67,7 @@ func addHandshakeError(err error, srv config.ServerEntry, auth AuthConfig, resul
 	*results = append(*results, Result{
 		Severity:   SevInfo,
 		Server:     srv.Name,
-		Type:       "dynamic",
+		Type:       FindingTypeDynamic,
 		Finding:    finding,
 		ConfigPath: srv.ConfigPath,
 		Scope:      srv.Scope,
@@ -86,15 +85,15 @@ func runToolAnalysis(tools *mcp.ListToolsResult, srv config.ServerEntry, results
 		}
 		sev := SevInfo
 		for _, c := range caps {
-			if c == "shell" {
+			if c == CapShell {
 				sev = SevHigh
 			}
 		}
 		capResults = append(capResults, Result{
 			Severity:   sev,
 			Server:     srv.Name,
-			Type:       "static",
-			Finding:    fmt.Sprintf("tool %q capabilities: %s", tool.Name, strings.Join(caps, ", ")),
+			Type:       FindingTypeStatic,
+			Finding:    fmt.Sprintf("tool %q capabilities: %s", tool.Name, capStrings(caps)),
 			ConfigPath: srv.ConfigPath,
 			Scope:      srv.Scope,
 		})
@@ -102,8 +101,8 @@ func runToolAnalysis(tools *mcp.ListToolsResult, srv config.ServerEntry, results
 			capResults = append(capResults, Result{
 				Severity:   SevMedium,
 				Server:     srv.Name,
-				Type:       "static",
-				Finding:    fmt.Sprintf("tool %q has multiple capabilities: %s", tool.Name, strings.Join(caps, ", ")),
+				Type:       FindingTypeStatic,
+				Finding:    fmt.Sprintf("tool %q has multiple capabilities: %s", tool.Name, capStrings(caps)),
 				ConfigPath: srv.ConfigPath,
 				Scope:      srv.Scope,
 			})
@@ -154,7 +153,7 @@ func dryRunResults(mcpServers []config.ServerEntry, targets []string, depth Prob
 		results = append(results, Result{
 			Severity:   SevInfo,
 			Server:     srv.Name,
-			Type:       "dynamic",
+			Type:       FindingTypeDynamic,
 			ConfigPath: srv.ConfigPath,
 			Scope:      srv.Scope,
 			Finding: fmt.Sprintf(

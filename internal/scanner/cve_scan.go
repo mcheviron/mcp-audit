@@ -128,7 +128,7 @@ func buildCVEResults(srv serverInfo, pkg string, entries []CVEEntry) []Result {
 			Severity:    sev,
 			Server:      srv.Name,
 			Package:     pkg,
-			Type:        "cve",
+			Type:        FindingTypeCVE,
 			Finding:     fmt.Sprintf("%s: %s", entry.ID, entry.Description),
 			Detail:      detail,
 			ConfigPath:  srv.ConfigPath,
@@ -140,7 +140,7 @@ func buildCVEResults(srv serverInfo, pkg string, entries []CVEEntry) []Result {
 		results = append(results, Result{
 			Severity:   SevPass,
 			Server:     srv.Name,
-			Type:       "cve",
+			Type:       FindingTypeCVE,
 			Finding:    fmt.Sprintf("no known CVEs for package %q", pkg),
 			ConfigPath: srv.ConfigPath,
 			Scope:      srv.Scope,

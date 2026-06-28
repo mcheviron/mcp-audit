@@ -8,7 +8,7 @@ import (
 )
 
 type ChainHop struct {
-	Type     string   `json:"type"`
+	Type     NodeType `json:"type"`
 	ID       string   `json:"id"`
 	Label    string   `json:"label"`
 	Severity Severity `json:"severity"`
@@ -20,10 +20,22 @@ type Chain struct {
 	Truncated   bool       `json:"truncated"`
 }
 
+type NodeType string
+
+const (
+	NodeTypeCVE          NodeType = "cve"
+	NodeTypeServer       NodeType = "server"
+	NodeTypeConfig       NodeType = "config"
+	NodeTypeCredential   NodeType = "credential"
+	NodeTypeDynamic      NodeType = "dynamic"
+	NodeTypeToolAnalysis NodeType = "tool_analysis"
+	NodeTypeAnalysis     NodeType = "analysis"
+)
+
 type blastRadiusNode struct {
 	server   string
 	pkg      string
-	typ      string
+	typ      NodeType
 	id       string
 	label    string
 	severity Severity
@@ -47,12 +59,12 @@ func LinkFindings(results []Result) {
 	}
 
 	for i := range results {
-		if results[i].Type != "cve" {
+		if results[i].Type != FindingTypeCVE {
 			continue
 		}
 		server := results[i].Server
 		for _, other := range serverFindings[server] {
-			if other.Type == "cve" {
+			if other.Type == FindingTypeCVE {
 				continue
 			}
 			otherID := makeResultID(*other)
@@ -186,7 +198,7 @@ func sanitizeForID(s string) string {
 func expandBlastNode(curr blastRadiusNode, pkgToServers map[string][]string, srvToConfig map[string]string,
 	credNodes, toolNodes []blastRadiusNode, visited *set.Set[string], nextD int, queue *[]bfsQueueItem) {
 	switch curr.typ {
-	case "cve":
+	case NodeTypeCVE:
 		if curr.pkg != "" {
 			for _, server := range pkgToServers[curr.pkg] {
 				if visited.Contains(server + "-server-hop") {
@@ -196,7 +208,7 @@ func expandBlastNode(curr blastRadiusNode, pkgToServers map[string][]string, srv
 				*queue = append(*queue, bfsQueueItem{
 					node: blastRadiusNode{
 						server: server,
-						typ:    "server",
+						typ:    NodeTypeServer,
 						id:     server,
 						label:  fmt.Sprintf("MCP server %s (package %s)", server, curr.pkg),
 					},
@@ -204,14 +216,14 @@ func expandBlastNode(curr blastRadiusNode, pkgToServers map[string][]string, srv
 				})
 			}
 		}
-	case "server":
+	case NodeTypeServer:
 		cfg := srvToConfig[curr.server]
 		if cfg != "" && !visited.Contains(cfg) {
 			visited.Insert(cfg)
 			*queue = append(*queue, bfsQueueItem{
 				node: blastRadiusNode{
 					server: curr.server,
-					typ:    "config",
+					typ:    NodeTypeConfig,
 					id:     cfg,
 					label:  fmt.Sprintf("config %s", cfg),
 				},
@@ -245,15 +257,15 @@ func buildBlastNodes(results []Result) ([]blastRadiusNode, []blastRadiusNode, []
 	for _, r := range results {
 		n := blastRadiusNode{
 			server:   r.Server,
-			typ:      r.Type,
+			typ:      NodeType(r.Type),
 			id:       makeResultID(r),
 			label:    r.Finding,
 			severity: r.Severity,
 			config:   r.ConfigPath,
 		}
 		switch r.Type {
-		case "cve":
-			n.typ = "cve"
+		case FindingTypeCVE:
+			n.typ = NodeTypeCVE
 			pkg := r.Package
 			if pkg == "" {
 				pkg = extractPackageFromFinding(r.Finding)
@@ -263,9 +275,9 @@ func buildBlastNodes(results []Result) ([]blastRadiusNode, []blastRadiusNode, []
 				serverToPackage[r.Server] = pkg
 			}
 			cveNodes = append(cveNodes, n)
-		case "credential", "dynamic":
+		case FindingTypeDynamic, FindingTypeCredential:
 			credNodes = append(credNodes, n)
-		case "tool_analysis", "analysis":
+		case FindingTypeToolAnalysis, FindingTypeAnalysis:
 			toolNodes = append(toolNodes, n)
 		}
 		serverToConfig[r.Server] = r.ConfigPath

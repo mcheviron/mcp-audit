@@ -9,7 +9,7 @@ import (
 func Deduplicate(results []scanner.Result) []scanner.Result {
 	type key struct {
 		server  string
-		typ     string
+		typ     scanner.FindingType
 		finding string
 	}
 	seen := map[key]int{}

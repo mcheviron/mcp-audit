@@ -9,17 +9,31 @@ import (
 	"github.com/mcheviron/mcp-audit/pkg/levenshtein"
 )
 
+type FindingType string
+
+const (
+	FindingTypeStatic       FindingType = "static"
+	FindingTypeDynamic      FindingType = "dynamic"
+	FindingTypeCVE          FindingType = "cve"
+	FindingTypeAdversarial  FindingType = "adversarial"
+	FindingTypeCrossServer  FindingType = "cross-server"
+	FindingTypeDrift        FindingType = "drift"
+	FindingTypeCredential   FindingType = "credential"
+	FindingTypeToolAnalysis FindingType = "tool_analysis"
+	FindingTypeAnalysis     FindingType = "analysis"
+)
+
 type FindingRef struct {
-	ID    string `json:"id"`
-	Type  string `json:"type"`
-	Label string `json:"label"`
+	ID    string      `json:"id"`
+	Type  FindingType `json:"type"`
+	Label string      `json:"label"`
 }
 
 type Result struct {
 	Severity    Severity
 	Server      string
 	Package     string
-	Type        string
+	Type        FindingType
 	Finding     string
 	Detail      string
 	ConfigPath  string
@@ -73,7 +87,7 @@ func (s *Scanner) Static() (*StaticResults, error) {
 			results = append(results, Result{
 				Severity:   SevInfo,
 				Server:     cfg.Tool,
-				Type:       "static",
+				Type:       FindingTypeStatic,
 				ConfigPath: cfg.Path,
 				Scope:      cfg.Scope,
 				Finding:    fmt.Sprintf("config parse error: %v", cfg.Error),
@@ -104,7 +118,7 @@ func checkTyposquat(srv config.ServerEntry, tc *config.TrustConfig) []Result {
 		return []Result{{
 			Severity: SevPass,
 			Server:   srv.Name,
-			Type:     "static",
+			Type:     FindingTypeStatic,
 			Finding:  "no package identifier to check",
 		}}
 	}
@@ -113,7 +127,7 @@ func checkTyposquat(srv config.ServerEntry, tc *config.TrustConfig) []Result {
 		return []Result{{
 			Severity: SevPass,
 			Server:   srv.Name,
-			Type:     "static",
+			Type:     FindingTypeStatic,
 			Finding:  "no trust config loaded",
 		}}
 	}
@@ -124,7 +138,7 @@ func checkTyposquat(srv config.ServerEntry, tc *config.TrustConfig) []Result {
 		return []Result{{
 			Severity: SevPass,
 			Server:   srv.Name,
-			Type:     "static",
+			Type:     FindingTypeStatic,
 			Finding:  "no trust rules apply for this package",
 		}}
 	}
@@ -139,7 +153,7 @@ func checkTyposquat(srv config.ServerEntry, tc *config.TrustConfig) []Result {
 			return []Result{{
 				Severity: SevPass,
 				Server:   srv.Name,
-				Type:     "static",
+				Type:     FindingTypeStatic,
 				Finding:  "known trusted package",
 			}}
 		}
@@ -148,7 +162,7 @@ func checkTyposquat(srv config.ServerEntry, tc *config.TrustConfig) []Result {
 			findings = append(findings, Result{
 				Severity: SevInfo,
 				Server:   srv.Name,
-				Type:     "static",
+				Type:     FindingTypeStatic,
 				Finding: fmt.Sprintf("potential typosquat: %q is distance %d from trusted package %q",
 					srv.Package, d, l),
 			})
@@ -159,7 +173,7 @@ func checkTyposquat(srv config.ServerEntry, tc *config.TrustConfig) []Result {
 		findings = append(findings, Result{
 			Severity: SevPass,
 			Server:   srv.Name,
-			Type:     "static",
+			Type:     FindingTypeStatic,
 			Finding:  "package not in trust lists, no typosquat detected",
 		})
 	}
@@ -173,7 +187,7 @@ func matchBlocked(pkg string, blocked []string, server string) (Result, bool) {
 			return Result{
 				Severity: SevCritical,
 				Server:   server,
-				Type:     "static",
+				Type:     FindingTypeStatic,
 				Finding:  fmt.Sprintf("package %q matches blocked package %q", pkg, m),
 			}, true
 		}

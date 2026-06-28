@@ -93,16 +93,25 @@ func shannonEntropy(body string) float64 {
 	return entropy
 }
 
-func entropyBand(entropy float64) string {
+type EntropyBand string
+
+const (
+	BandEncrypted  EntropyBand = "encrypted"
+	BandText       EntropyBand = "text"
+	BandStructured EntropyBand = "structured"
+	BandSuspicious EntropyBand = "suspicious"
+)
+
+func entropyBand(entropy float64) EntropyBand {
 	switch {
 	case entropy > 7.5:
-		return "encrypted"
+		return BandEncrypted
 	case entropy >= 3.0:
-		return "text"
+		return BandText
 	case entropy >= 1.5:
-		return "structured"
+		return BandStructured
 	default:
-		return "suspicious"
+		return BandSuspicious
 	}
 }
 
@@ -170,7 +179,7 @@ func analyzeTiming(timings []probeTiming) []Result {
 				findings = append(findings, Result{
 					Severity: SevInfo,
 					Server:   server,
-					Type:     "dynamic",
+					Type:     FindingTypeDynamic,
 					Finding: fmt.Sprintf("anomalously fast response (%v vs mean %v) on %s — possible internal service access",
 						t.duration, mean, server),
 					ConfigPath: t.configPath,

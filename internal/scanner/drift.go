@@ -49,7 +49,7 @@ func performDriftCheck(
 		*results = append(*results, Result{
 			Severity:   SevLow,
 			Server:     srv.Name,
-			Type:       "drift",
+			Type:       FindingTypeDrift,
 			Finding:    fmt.Sprintf("failed to load snapshot: %v — treating as first scan", err),
 			ConfigPath: srv.ConfigPath,
 		})
@@ -80,7 +80,7 @@ func performDriftCheck(
 		driftResults = append(driftResults, Result{
 			Severity:   sev,
 			Server:     df.Server,
-			Type:       "drift",
+			Type:       FindingTypeDrift,
 			Finding:    df.Finding,
 			Detail:     df.Detail,
 			ConfigPath: srv.ConfigPath,
@@ -98,7 +98,7 @@ func performDriftCheck(
 		*results = append(*results, Result{
 			Severity:   SevLow,
 			Server:     srv.Name,
-			Type:       "drift",
+			Type:       FindingTypeDrift,
 			Finding:    fmt.Sprintf("failed to save snapshot: %v", err),
 			ConfigPath: srv.ConfigPath,
 		})

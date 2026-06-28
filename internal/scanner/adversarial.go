@@ -211,7 +211,7 @@ func RunAdversarialProbes(
 	mcpClient, err := handshakeServer(ctx, srv, transportFlag, auth)
 	if err != nil {
 		return AdversarialResult{RiskScore: -1, Results: []Result{{
-			Severity: SevInfo, Server: srv.Name, Type: "adversarial",
+			Severity: SevInfo, Server: srv.Name, Type: FindingTypeAdversarial,
 			Finding: fmt.Sprintf(
 				"adversarial probe handshake failed: %v", err,
 			),
@@ -237,7 +237,7 @@ func execProbes(
 	selectedTools := pickTextTools(tools, 3)
 	if len(selectedTools) == 0 {
 		return AdversarialResult{RiskScore: -1, Results: []Result{{
-			Severity: SevInfo, Server: serverName, Type: "adversarial",
+			Severity: SevInfo, Server: serverName, Type: FindingTypeAdversarial,
 			Finding: fmt.Sprintf(
 				"no text-accepting tools found on server %q", serverName,
 			),
@@ -257,7 +257,7 @@ func execProbes(
 	riskScore, warn := computeRiskScore(sent, succeeded, errCount)
 	if warn != "" {
 		results = append(results, Result{
-			Severity: SevInfo, Server: serverName, Type: "adversarial",
+			Severity: SevInfo, Server: serverName, Type: FindingTypeAdversarial,
 			Finding:    warn,
 			ConfigPath: configPath, Scope: scope,
 		})
@@ -292,7 +292,7 @@ func execAdversarialProbes(
 			if callErr != nil {
 				errCount++
 				results = append(results, Result{
-					Severity: SevInfo, Server: serverName, Type: "adversarial",
+					Severity: SevInfo, Server: serverName, Type: FindingTypeAdversarial,
 					Finding: fmt.Sprintf(
 						"adversarial probe %s via tool %q timed out or failed: %v",
 						probe.ID, tool.Name, callErr,
@@ -335,14 +335,14 @@ func recordAdversarialProbeResult(
 			finding = fmt.Sprintf("%s (low confidence %.2f, review manually)", finding, match.Confidence)
 		}
 		*results = append(*results, Result{
-			Severity: severity, Server: serverName, Type: "adversarial",
+			Severity: severity, Server: serverName, Type: FindingTypeAdversarial,
 			Finding: finding, Detail: redactDetail(content.Text),
 			ConfigPath: configPath, Scope: scope,
 		})
 		return true
 	}
 	*results = append(*results, Result{
-		Severity: SevPass, Server: serverName, Type: "adversarial",
+		Severity: SevPass, Server: serverName, Type: FindingTypeAdversarial,
 		Finding: fmt.Sprintf(
 			"adversarial probe %s via tool %q: clean (no indicators)", probe.ID, toolName,
 		),
@@ -412,7 +412,7 @@ func RunAdversarialFromScanner(s *Scanner) []Result {
 			if err != nil {
 				mu.Lock()
 				results = append(results, Result{
-					Severity: SevInfo, Server: srv.Name, Type: "adversarial",
+					Severity: SevInfo, Server: srv.Name, Type: FindingTypeAdversarial,
 					Finding:    fmt.Sprintf("adversarial probe handshake failed for %q: %v", srv.Name, err),
 					ConfigPath: srv.ConfigPath, Scope: srv.Scope,
 				})
@@ -429,7 +429,7 @@ func RunAdversarialFromScanner(s *Scanner) []Result {
 			if listErr != nil {
 				mu.Lock()
 				results = append(results, Result{
-					Severity: SevInfo, Server: srv.Name, Type: "adversarial",
+					Severity: SevInfo, Server: srv.Name, Type: FindingTypeAdversarial,
 					Finding:    fmt.Sprintf("adversarial probe tools/list failed for %q: %v", srv.Name, listErr),
 					ConfigPath: srv.ConfigPath, Scope: srv.Scope,
 				})
